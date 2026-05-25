@@ -1,24 +1,24 @@
-# Onboarding prompt â€” BuySell Asturias
+# Onboarding prompt — BuySell Asturias
 
-> Pega este bloque al inicio de una sesiÃ³n nueva de Claude Code (o cÃ³pialo en
-> `CLAUDE.md` para que se cargue automÃ¡ticamente). EstÃ¡ condensado desde
+> Pega este bloque al inicio de una sesión nueva de Claude Code (o cópialo en
+> `CLAUDE.md` para que se cargue automáticamente). Está condensado desde
 > `docs/blitzy-tech-spec.md` (tech-spec auto-generada) y `docs/ROADMAP.md`.
-> DespuÃ©s puedes pedir tareas concretas; este brief le da contexto suficiente
-> para no preguntar lo bÃ¡sico.
+> Después puedes pedir tareas concretas; este brief le da contexto suficiente
+> para no preguntar lo básico.
 
 ---
 
-## 1. QuÃ© es el proyecto
+## 1. Qué es el proyecto
 
 BuySell Asturias es una **plataforma personal de inteligencia inmobiliaria** que
-consolida anuncios de varios portales espaÃ±oles en un catÃ¡logo Ãºnico del
-propietario. Da: histÃ³rico de precios, deduplicaciÃ³n automÃ¡tica, enriquecimiento
-catastral con la API pÃºblica OVC. DiseÃ±ada como **single-user activo** pero
+consolida anuncios de varios portales españoles en un catálogo único del
+propietario. Da: histórico de precios, deduplicación automática, enriquecimiento
+catastral con la API pública OVC. Diseñada como **single-user activo** pero
 **multi-tenant-ready** (toda entidad tiene `ownerId`).
 
 Monorepo npm-workspaces:
 
-| Workspace | Stack | UbicaciÃ³n |
+| Workspace | Stack | Ubicación |
 |---|---|---|
 | Web | Next.js 15 App Router + React 19 + Tailwind 3 | `src/` |
 | Mobile | Expo 54 + Expo Router 6 + React Native 0.81 | `apps/mobile/` |
@@ -29,26 +29,26 @@ Monorepo npm-workspaces:
 ## 2. Stack y versiones
 
 - **Node 20+**, npm workspaces (`"workspaces": ["packages/*","apps/*"]`)
-- **TypeScript** ES2022 strict, path aliases (`@/` â†’ `src/`)
+- **TypeScript** ES2022 strict, path aliases (`@/` → `src/`)
 - **Next.js 15.5** App Router; `serverExternalPackages: ["sharp"]`,
   `transpilePackages: ["@buysell/shared"]`, `outputFileTracingRoot` apuntando al
   root del monorepo
-- **Prisma 6** + **PostgreSQL 17** (alpine en docker-compose) â€” Ãºnico host de datos
-- **NextAuth v5** (`@auth/prisma-adapter`) â€” sesiÃ³n JWT para que el middleware
-  corra en Edge. Web: magic-link via Resend. Mobile: OTP de 6 dÃ­gitos vÃ­a
+- **Prisma 6** + **PostgreSQL 17** (alpine en docker-compose) — único host de datos
+- **NextAuth v5** (`@auth/prisma-adapter`) — sesión JWT para que el middleware
+  corra en Edge. Web: magic-link via Resend. Mobile: OTP de 6 dígitos vía
   email + JWT HS256 propio (issuer `buysell-mobile`, 90d) emitido con `jose`
 - **Tailwind 3** con design tokens custom (`--primary: #3A5F8A`,
   `--brand-accent: #C49A4D`, surface `#FAFAF7`)
-- **Recharts** para grÃ¡ficos Â· **sharp** para dHash Â· **fast-xml-parser** para
-  Catastro Â· **Playwright** sÃ³lo en el sidecar
+- **Recharts** para gráficos · **sharp** para dHash · **fast-xml-parser** para
+  Catastro · **Playwright** sólo en el sidecar
 - **Expo SDK 54**: `expo-router` 6, `expo-image`, `expo-secure-store`,
   `react-native-webview` ~13.16
 
 ## 3. Arquitectura (resumen)
 
 Dos procesos en localhost:
-- **Web app** en `:4200` (Next.js dev/start) â€” todas las interfaces
-- **Sidecar Playwright** en `127.0.0.1:4201` (`npm run scraper`) â€” sÃ³lo loopback,
+- **Web app** en `:4200` (Next.js dev/start) — todas las interfaces
+- **Sidecar Playwright** en `127.0.0.1:4201` (`npm run scraper`) — sólo loopback,
   cierra a los 5 min de idle, anti-detection scripts
 
 Postgres en `:5432` (contenedor `buysell-postgres`, volumen `buysell-pgdata`).
@@ -63,29 +63,29 @@ Clientes (todos hablan con la misma API):
 Entidades principales (`prisma/schema.prisma`):
 
 - **User**, **Account**, **Session**, **VerificationToken**, **ApiToken**
-  (tablas estÃ¡ndar NextAuth)
-- **Property** â€” agregado central. Campos: `ownerId`, `title`, `titleSlug`,
+  (tablas estándar NextAuth)
+- **Property** — agregado central. Campos: `ownerId`, `title`, `titleSlug`,
   10 tipos (PISO/HOUSE/ATICO/CHALET/DUPLEX/ESTUDIO/LOFT/LOCAL/TERRENO/OTRO),
   4 estados (FOR_SALE/RESERVED/SOLD/WITHDRAWN), 7 amenities boolean,
   `currentPrice` (integer **cents**), location (lat/lng/city/province/...),
   `cadastralRef`, `cadastralData JSON`, `matchDismissed[]`
-- **Listing** â€” relaciÃ³n 1:N con Property por portal. 10 portales
+- **Listing** — relación 1:N con Property por portal. 10 portales
   (IDEALISTA, FOTOCASA, PISOS_COM, MILANUNCIOS, HABITACLIA, YAENCONTRE,
   THINKSPAIN, INDOMIO, OTHER, MANUAL). Estados: ACTIVE/PRICE_DROP/PRICE_UP/
   SOLD/REMOVED/UNKNOWN. Unique en `url`
-- **Media** â€” 5 kinds (PHOTO/FLOORPLAN/VIDEO/TOUR_3D/DOCUMENT), 5 sources
+- **Media** — 5 kinds (PHOTO/FLOORPLAN/VIDEO/TOUR_3D/DOCUMENT), 5 sources
   (USER_UPLOAD/PORTAL_SCRAPE/CADASTRE/AI_SKETCH/AI_RECONSTRUCTION). Lleva
-  `phash` (dHash 9Ã—8 perceptual)
-- **PriceSnapshot** â€” append-only, Ã­ndice `(propertyId, observedAt)`
-- **MatchSuggestion** â€” cachÃ© de duplicados detectados, con `score`, `reasons[]`,
+  `phash` (dHash 9×8 perceptual)
+- **PriceSnapshot** — append-only, índice `(propertyId, observedAt)`
+- **MatchSuggestion** — caché de duplicados detectados, con `score`, `reasons[]`,
   `dismissedAt`
-- **ImportLog** â€” append-only forensics. `kind` âˆˆ {HASH, CATASTRO, GEOCODE,
+- **ImportLog** — append-only forensics. `kind` ∈ {HASH, CATASTRO, GEOCODE,
   MATCH, MERGE_AUTO, MERGE_MANUAL, BORROW_FIELDS, RECHECK}. Indices compuestos
   `(propertyId, createdAt)`, `(kind, createdAt)`, `(createdAt)`
 - **SavedSearch** (scaffold, no usado)
 
 Convenciones:
-- **Precios en cents** siempre (`Math.round(â‚¬ * 100)`). Formato en
+- **Precios en cents** siempre (`Math.round(€ * 100)`). Formato en
   `packages/shared/src/format.ts:formatPrice`
 - **ownerId obligatorio** en toda entidad. Filtrar siempre por
   `requireUserId()` de `src/lib/auth-helpers.ts`
@@ -93,7 +93,7 @@ Convenciones:
 
 ## 5. Features implementadas (28 totales, 26 done)
 
-CatÃ¡logo en `docs/blitzy-tech-spec.md` Â§2.1 con detalles. Grupos:
+Catálogo en `docs/blitzy-tech-spec.md` §2.1 con detalles. Grupos:
 
 - **Property Management** (F-001 CRUD, F-002 Multi-portal, F-003 Price history, F-023 Media)
 - **Auth** (F-004 Web magic-link, F-005 Mobile OTP, F-006 API tokens)
@@ -105,44 +105,44 @@ CatÃ¡logo en `docs/blitzy-tech-spec.md` Â§2.1 con detalles. Grupos:
   F-014 Field borrowing)
 - **Discovery & Analytics** (F-017 Dashboard, F-018 Activity timeline,
   F-019 Global search, F-020 Filters & sort, F-026 External portal links)
-- **Mobile** (F-022 â€” login OTP, tabs Inmuebles/Duplicados/Buscar/Cuenta,
-  ficha detalle con galerÃ­a swipeable)
+- **Mobile** (F-022 — login OTP, tabs Inmuebles/Duplicados/Buscar/Cuenta,
+  ficha detalle con galería swipeable)
 - **Operational** (F-024 ImportLog)
-- **Proposed/scaffold** (F-027, F-028 â€” no implementadas)
+- **Proposed/scaffold** (F-027, F-028 — no implementadas)
 
-## 6. ADRs (decisiones arquitectÃ³nicas vivas)
+## 6. ADRs (decisiones arquitectónicas vivas)
 
 Cualquier cambio que vulnere alguna debe documentarse:
 
-| ADR | DecisiÃ³n |
+| ADR | Decisión |
 |---|---|
 | 1 | Monolito modular (no microservicios) |
-| 2 | Playwright en **sidecar separado** (no en proceso Next.js â€” bundling roto) |
-| 3 | SÃ³lo PostgreSQL (sin Redis todavÃ­a) |
+| 2 | Playwright en **sidecar separado** (no en proceso Next.js — bundling roto) |
+| 3 | Sólo PostgreSQL (sin Redis todavía) |
 | 4 | **Operaciones idempotentes** sobre transacciones (re-run seguro) |
 | 5 | **Fire-and-forget** background tasks (sin queue inicialmente) |
-| 6 | JSON-LD como seÃ±al **primaria** en parsers (CSS selectors fallback) |
+| 6 | JSON-LD como señal **primaria** en parsers (CSS selectors fallback) |
 | 7 | Edge middleware + JWT session (Prisma fuera del Edge) |
-| 8 | ImÃ¡genes en `public/uploads/` local (R2 deferred) |
+| 8 | Imágenes en `public/uploads/` local (R2 deferred) |
 
 ## 7. Portales y estrategia de scraping
 
 | Tier | Portales | Modelo |
 |---|---|---|
 | Automated | Fotocasa, Pisos.com, Habitaclia, ThinkSpain, Indomio | Adapter HTTP + fallback Playwright |
-| Manual-only | **Idealista, Milanuncios, Yaencontre** | DataDome â†’ sÃ³lo userscript |
-| Other | OTHER, MANUAL | CreaciÃ³n directa UI |
+| Manual-only | **Idealista, Milanuncios, Yaencontre** | DataDome → sólo userscript |
+| Other | OTHER, MANUAL | Creación directa UI |
 
-Adapters en `src/features/scraping/adapters/` siguen patrÃ³n
+Adapters en `src/features/scraping/adapters/` siguen patrón
 `_genericAdapter.ts`. Userscripts en `public/bookmarklet/*.user.js` son
-servidos dinÃ¡micamente desde `src/app/api/bookmarklet/[portal]/route.ts` con
+servidos dinámicamente desde `src/app/api/bookmarklet/[portal]/route.ts` con
 el `bs_<token>` inyectado.
 
-## 8. Convenciones de cÃ³digo
+## 8. Convenciones de código
 
 - **Componentes UI**: en `src/components/ui/` hay un kit (Card, Section, Stat,
   Badge, Button, Chip, Input, Field, Table, EmptyState, PriceDelta,
-  StatusBadge). Usar Ã©stos antes de crear nuevos
+  StatusBadge). Usar éstos antes de crear nuevos
 - **Brand icons**: `IconKey` (master), `IconHorreo`, `IconPicos` en
   `src/components/brand/icons.tsx`
 - **Forms**: Zod schemas en `src/lib/validators.ts`. Toda route handler valida
@@ -150,9 +150,9 @@ el `bs_<token>` inyectado.
 - **API errors**: devuelven `NextResponse.json({ error, detail? }, { status })`
 - **CORS**: solo `/api/listings/import` y `/api/auth/mobile/*` tienen
   `Access-Control-Allow-Origin: *` (clientes externos: bookmarklet + mobile)
-- **Logging**: `console.log` con tag entre corchetes â€”
+- **Logging**: `console.log` con tag entre corchetes —
   `[scraper]`, `[auth]`, `[auth-mobile]`, `[import-listing]`, `[catastro]`,
-  `[matcher]`. Sin librerÃ­a de logging estructurado (todavÃ­a)
+  `[matcher]`. Sin librería de logging estructurado (todavía)
 - **Background tasks**: `postImportTasks()` en `src/lib/import-listing.ts`
   encadena hash + catastro + geocode + match + borrow-fields. Cada paso
   escribe a `ImportLog`
@@ -162,7 +162,7 @@ el `bs_<token>` inyectado.
 
 ## 9. Comandos npm clave
 
-| Script | QuÃ© hace |
+| Script | Qué hace |
 |---|---|
 | `npm run dev` | Next.js dev server en `:4200` (escucha en todas las interfaces) |
 | `npm run scraper` | Sidecar Playwright en `127.0.0.1:4201` |
@@ -171,68 +171,68 @@ el `bs_<token>` inyectado.
 | `npm run db:migrate` | `prisma migrate dev` |
 | `npm run db:generate` | `prisma generate` |
 | `npm run db:studio` | Prisma Studio |
-| `npm run check-listings` | Recheck batch (CLI) â€” emite âœ“/âœ—/âŠ˜/! por listing |
+| `npm run check-listings` | Recheck batch (CLI) — emite ✓/✗/⊘/! por listing |
 | `npm run hash-photos` | Backfill `Media.phash` NULL |
 | `npm run fix-prices` | Limpia precios sanity-rejected |
-| `npm run claim-orphans -- <email>` | Asigna `ownerId` a rows huÃ©rfanas |
+| `npm run claim-orphans -- <email>` | Asigna `ownerId` a rows huérfanas |
 | Mobile | `cd apps/mobile && npx expo start` |
 
 ## 10. Variables de entorno
 
-Ver `.env.example`. CrÃ­ticas:
+Ver `.env.example`. Críticas:
 
-- `DATABASE_URL` â€” Postgres
-- `AUTH_SECRET` â€” NextAuth (32 bytes hex)
-- `NEXTAUTH_URL` â€” `http://localhost:4200` en dev; dominio real en prod
-- `RESEND_API_KEY` â€” sin esto, los cÃ³digos OTP y magic-links se imprimen en
-  consola del dev server (Ãºtil para testing)
-- `RESEND_FROM` â€” por defecto `"BuySell <onboarding@resend.dev>"` (sandbox
-  Resend; sÃ³lo envÃ­a al email registrado en Resend mientras no haya dominio
+- `DATABASE_URL` — Postgres
+- `AUTH_SECRET` — NextAuth (32 bytes hex)
+- `NEXTAUTH_URL` — `http://localhost:4200` en dev; dominio real en prod
+- `RESEND_API_KEY` — sin esto, los códigos OTP y magic-links se imprimen en
+  consola del dev server (útil para testing)
+- `RESEND_FROM` — por defecto `"BuySell <onboarding@resend.dev>"` (sandbox
+  Resend; sólo envía al email registrado en Resend mientras no haya dominio
   verificado)
-- `CATASTRO_BASE_URL` â€” fijo, no cambiar
-- `ANTHROPIC_API_KEY` â€” vacÃ­o todavÃ­a (reservado para scoring IA Fase 2)
+- `CATASTRO_BASE_URL` — fijo, no cambiar
+- `ANTHROPIC_API_KEY` — vacío todavía (reservado para scoring IA Fase 2)
 
 ## 11. Estado actual y bloqueantes conocidos
 
-âœ… **Hecho**: todo el pipeline end-to-end (import â†’ enrichment â†’ dedup â†’ recheck),
-auth web + mobile, dashboard, /matches, bÃºsqueda global, ImportLog,
-bookmarklet dinÃ¡mico, app mobile bÃ¡sica.
+✅ **Hecho**: todo el pipeline end-to-end (import → enrichment → dedup → recheck),
+auth web + mobile, dashboard, /matches, búsqueda global, ImportLog,
+bookmarklet dinámico, app mobile básica.
 
-â³ **Pendiente (corto plazo)**:
-1. **Verificar dominio Resend** (`onboarding@resend.dev` sÃ³lo envÃ­a al email
+⏳ **Pendiente (corto plazo)**:
+1. **Verificar dominio Resend** (`onboarding@resend.dev` sólo envía al email
    del propietario de la cuenta Resend). Bloquea login para otros usuarios
 2. **Fusionar/Descartar en /duplicados mobile** (actualmente read-only)
 3. **Re-check + Catastro desde la ficha detalle mobile**
-4. **WebView import desde mobile** â€” requiere Expo Development Build
+4. **WebView import desde mobile** — requiere Expo Development Build
    (no Expo Go)
 
-ðŸš§ **Phase 1 Roadmap** (`docs/ROADMAP.md`, 7 pasos): dominio + NEXTAUTH_URL â†’
-Dockerfile + Railway/Fly.io â†’ CI/CD GitHub Actions â†’ R2 para uploads â†’
-email bajada de precio â†’ calculadora hipoteca â†’ comparador â†’ cron scraper
-desacoplado â†’ extensiÃ³n Chrome MV3.
+🚧 **Phase 1 Roadmap** (`docs/ROADMAP.md`, 7 pasos): dominio + NEXTAUTH_URL →
+Dockerfile + Railway/Fly.io → CI/CD GitHub Actions → R2 para uploads →
+email bajada de precio → calculadora hipoteca → comparador → cron scraper
+desacoplado → extensión Chrome MV3.
 
-## 12. CÃ³mo trabajar
+## 12. Cómo trabajar
 
 - Antes de cambios grandes: leer `docs/ROADMAP.md` y `docs/blitzy-tech-spec.md`
   para alinear con decisiones existentes
 - **No alterar precios** sin pasar por `isReasonablePriceChange` de
   `packages/shared/src/sanity.ts` (descarta cambios >5x o negativos)
 - **No tocar `prisma/migrations/`** manualmente; usar `prisma migrate dev`
-- **No instalar Playwright en el proceso de Next.js** (ADR-2) â€” siempre
+- **No instalar Playwright en el proceso de Next.js** (ADR-2) — siempre
   sidecar
-- **No commitear `.env`** (gitignored) â€” usar `.env.example` para nuevos vars
-- **Repo pÃºblico en GitHub**: `https://github.com/Asuanzes/BuySell` â€” cuidado
-  con secretos en cÃ³digo y commits
+- **No commitear `.env`** (gitignored) — usar `.env.example` para nuevos vars
+- **Repo público en GitHub**: `https://github.com/Asuanzes/BuySell` — cuidado
+  con secretos en código y commits
 - Identidad git ya configurada como noreply de GitHub (`4410315+Asuanzes@users.noreply.github.com`)
 
-## 13. VerificaciÃ³n / smoke tests
+## 13. Verificación / smoke tests
 
-Sin suite automatizada todavÃ­a. Smoke manual tras cambios grandes:
-1. `docker compose up -d` (Postgres) â†’ `npm run dev` â†’ `npm run scraper`
-2. Login en `/login` con Belquivir@proton.me (Ãºnico email que recibe OTP
+Sin suite automatizada todavía. Smoke manual tras cambios grandes:
+1. `docker compose up -d` (Postgres) → `npm run dev` → `npm run scraper`
+2. Login en `/login` con Belquivir@proton.me (único email que recibe OTP
    mientras no haya dominio verificado en Resend)
 3. `/dashboard` carga en <1s con 100+ fichas
-4. Importar URL nueva vÃ­a bookmarklet â†’ aparece en `/properties` con phash,
+4. Importar URL nueva vía bookmarklet → aparece en `/properties` con phash,
    coords, catastro
 5. `/matches` muestra duplicados sugeridos
 6. `/api/healthz` no existe en web, pero el sidecar responde
@@ -240,29 +240,29 @@ Sin suite automatizada todavÃ­a. Smoke manual tras cambios grandes:
 
 ## 14. Referencias clave en el repo
 
-| Doc | Para quÃ© |
+| Doc | Para qué |
 |---|---|
 | `CLAUDE.md` | Brief funcional original (objetivo + alcance) |
-| `docs/ROADMAP.md` | Plan de escalado y evoluciÃ³n por fases |
+| `docs/ROADMAP.md` | Plan de escalado y evolución por fases |
 | `docs/blitzy-tech-spec.md` | Tech-spec exhaustiva (28 features, ADRs, workflows, infra) |
-| `apps/mobile/AGENTS.md` | "Expo HAS CHANGED â€” read versioned docs en v54" |
-| `README.md` | Setup mÃ­nimo |
+| `apps/mobile/AGENTS.md` | "Expo HAS CHANGED — read versioned docs en v54" |
+| `README.md` | Setup mínimo |
 
 ---
 
 **Cuando recibas una tarea**, antes de editar:
-1. Identifica el o los **F-XXX** afectados (mira Â§2.1 de la tech-spec)
+1. Identifica el o los **F-XXX** afectados (mira §2.1 de la tech-spec)
 2. Comprueba si rompe alguna **ADR** (sec 6 arriba)
 3. Si toca background tasks, **escribe a `ImportLog`** con el `kind` adecuado
 4. Si toca routes API, **filtra por `ownerId`** y valida con Zod
-5. Si aÃ±ade env vars, **actualiza `.env.example`** y este documento
+5. Si añade env vars, **actualiza `.env.example`** y este documento
 
 
 ---
 
 # Anexo: Tech-spec completa (Blitzy)
 
-> Especificacion tecnica exhaustiva auto-generada. Referencia normativa.
+> Especificación técnica exhaustiva auto-generada. Referencia normativa.
 
 ---
 
@@ -273,7 +273,7 @@ BuySell
 Tech spec up-to-date
 Build
 Source
-Asuanzes/BuySell/main â†—
+Asuanzes/BuySell/main ↗
 1
 Codebase context
 2
@@ -428,7 +428,7 @@ Shared types & utilities	TypeScript ESM package	packages/shared/
 Scraping subsystem	10 portal adapters + Playwright sidecar	src/features/scraping/, scripts/scraper-service.mjs
 Bookmarklet toolkit	7 Tampermonkey userscripts + 1 bookmarklet	public/bookmarklet/
 
-The tagline declared in README.md positions the product as a "webapp para registrar inmuebles en venta con seguimiento histÃ³rico de precios", with portal scrapers and Catastro integration as evolutionary phases.
+The tagline declared in README.md positions the product as a "webapp para registrar inmuebles en venta con seguimiento histórico de precios", with portal scrapers and Catastro integration as evolutionary phases.
 
 1.1.2 Core Business Problem
 
@@ -452,7 +452,7 @@ Investors	Phase 3	ROI/yield calculations, AVM
 1.1.4 Expected Business Impact And Value Proposition
 Value Lever	Mechanism	Measurable Outcome
 Time savings	One-click portal import via Tampermonkey userscript	Replaces manual transcription
-Decision quality	Historical evolution + city â‚¬/mÂ² benchmarks	Dashboard KPIs (8+ city benchmarks)
+Decision quality	Historical evolution + city €/m² benchmarks	Dashboard KPIs (8+ city benchmarks)
 Data integrity	Cadastral linkage via OVC public services	cadastralRef populated automatically
 Cross-portal awareness	5-signal duplicate detection with merge workflow	MatchSuggestion review queue
 Future revenue	Multi-tenant ready architecture	Designed for SaaS pivot
@@ -499,7 +499,7 @@ Twelve capability domains are currently implemented and verifiable in the codeba
 2	Multi-portal listing tracking (8 portals + manual)	Listing model, Portal enum
 3	Historical price snapshots with charting	PriceSnapshot model, PriceHistoryChart.tsx
 4	Web authentication (magic-link)	src/lib/auth.ts (NextAuth v5 + Resend)
-5	Mobile authentication (OTP â†’ JWT)	src/lib/mobile-jwt.ts
+5	Mobile authentication (OTP → JWT)	src/lib/mobile-jwt.ts
 6	Automated portal scraping (5 portals)	src/features/scraping/adapters/_genericAdapter.ts
 7	Browser sidecar (Playwright HTTP service)	scripts/scraper-service.mjs on port 4201
 8	Catastro integration	src/features/cadastre/lookup.ts
@@ -566,12 +566,12 @@ The web application uses Next.js 15 App Router with React 19 as the unified UI +
 The following architectural patterns are observable in the codebase:
 
 Pattern	Application
-Edge auth middleware	src/middleware.ts â€” public path allowlist + Bearer-token bypass for API
+Edge auth middleware	src/middleware.ts — public path allowlist + Bearer-token bypass for API
 Adapter pattern	PortalAdapter interface + 10 portal-specific scraping adapters
-Sidecar pattern	Playwright isolated in a separate Node process (port 4201) â€” never bundled into Next.js
+Sidecar pattern	Playwright isolated in a separate Node process (port 4201) — never bundled into Next.js
 Discriminated unions	Scrape outcomes typed as `ok
 Fire-and-forget enrichment	Import returns synchronously; geocode/cadastre/phash/match run async post-response
-Path aliasing	@/* â†’ ./src/*, @buysell/shared â†’ workspace package
+Path aliasing	@/* → ./src/*, @buysell/shared → workspace package
 Singleton ORM client	Prisma cached on globalThis in development for hot-reload safety
 
 Confirmed stack versions (from package.json and apps/mobile/package.json):
@@ -597,18 +597,18 @@ Language	TypeScript	^5.7.2
 1.2.3 Success Criteria
 1.2.3.1 Measurable Objectives (from
 Phase	Horizon	Objective
-Fase 1	0â€“8 weeks	Production-usable; real user can import and track favorites
-Fase 2	2â€“6 months	100 active users; AI scoring; PWA + push notifications
-Fase 3	6â€“18 months	Recurring revenue from freemium/B2B model
+Fase 1	0–8 weeks	Production-usable; real user can import and track favorites
+Fase 2	2–6 months	100 active users; AI scoring; PWA + push notifications
+Fase 3	6–18 months	Recurring revenue from freemium/B2B model
 1.2.3.2 Critical Success Factors
 
 Critical success factors are stratified by priority indicators in the roadmap document:
 
 Priority	Factor	Status
-ðŸ”´ Critical	Cloud deployment, CI/CD, NEXTAUTH_URL configuration	Pending
-ðŸŸ  High	Decoupled cron scraper, lightweight task queue, Chrome MV3 extension	Pending
-ðŸŸ  High	Side-by-side comparator, mortgage calculator	Pending
-ðŸŸ¡ Medium	tsvector full-text search, Redis cache, R2 image storage, PWA, SSE	Pending
+🔴 Critical	Cloud deployment, CI/CD, NEXTAUTH_URL configuration	Pending
+🟠 High	Decoupled cron scraper, lightweight task queue, Chrome MV3 extension	Pending
+🟠 High	Side-by-side comparator, mortgage calculator	Pending
+🟡 Medium	tsvector full-text search, Redis cache, R2 image storage, PWA, SSE	Pending
 1.2.3.3 Key Performance Indicators (kpis)
 
 The dashboard at src/app/dashboard/page.tsx already computes the following KPIs for the authenticated owner:
@@ -616,7 +616,7 @@ The dashboard at src/app/dashboard/page.tsx already computes the following KPIs 
 KPI Category	Specific Metric
 Inventory	Active properties (FOR_SALE), sold count, withdrawn count
 Distribution	Total listings, listings per portal
-Market signal	City average â‚¬/mÂ² (top 8 cities with â‰¥2 records)
+Market signal	City average €/m² (top 8 cities with ≥2 records)
 Activity	Price snapshots in last 30 days
 Operational health	Stale automatic listings (configurable STALE_DAYS)
 Operational health	Stale manual-portal listings (Idealista, Milanuncios, Yaencontre)
@@ -649,7 +649,7 @@ Mobile catalog, detail, matches, account	apps/mobile/app/
 Workflow	Entry Point	Outcome
 Add property manually	/properties/new	Property row + initial PriceSnapshot
 Import from portal (auto-scrape)	API POST /api/listings/import	Property + Listing + media + enrichment
-Import via bookmarklet	Per-portal userscript â†’ API endpoint	Same as above; bypasses anti-bot
+Import via bookmarklet	Per-portal userscript → API endpoint	Same as above; bypasses anti-bot
 Review duplicate suggestions	/matches	Merge or dismiss MatchSuggestion
 Recheck listings	checkAllActiveListings()	Updates status, captures new prices
 Browse catalog	/properties	Filtered/sorted property cards
@@ -675,9 +675,9 @@ Bearer-token API access for scripts	Allowed by middleware
 Boundary	Value
 System surface	Web app + Mobile app + Shared package + DB + Browser scripts
 User groups	Authenticated owners (multi-tenant ready, single-active)
-Geographic	Spain (default country EspaÃ±a); initial focus Asturias
+Geographic	Spain (default country España); initial focus Asturias
 Language	Spanish (es-ES) for UI and number/date formatting
-Currency	Euros (â‚¬), stored as integer cents in PostgreSQL
+Currency	Euros (€), stored as integer cents in PostgreSQL
 Portals covered	8 Spanish portals + manual entry + generic "OTHER"
 Data domains	Properties, listings, media, prices, users, sessions, API tokens, match suggestions, import logs, saved searches
 1.3.3 Out-of-scope Elements
@@ -686,13 +686,13 @@ Data domains	Properties, listings, media, prices, users, sessions, API tokens, m
 The roadmap document explicitly defers these capabilities. They are not part of the current technical specification and any references to them in documentation should be understood as forward-looking.
 
 Capability	Deferred to Phase
-Cloud deployment (production Dockerfile, hosting)	Fase 1 â€” pending
-CI/CD pipeline (.github/workflows/)	Fase 1 â€” pending
-R2/Cloudflare image storage	Fase 1 â€” pending
-Email notification on price drop (wired trigger)	Fase 1 â€” pending
-Decoupled cron for scraper	Fase 1 â€” pending
-Side-by-side property comparator (/compare)	Fase 1 â€” pending
-Mortgage calculator	Fase 1 â€” pending
+Cloud deployment (production Dockerfile, hosting)	Fase 1 — pending
+CI/CD pipeline (.github/workflows/)	Fase 1 — pending
+R2/Cloudflare image storage	Fase 1 — pending
+Email notification on price drop (wired trigger)	Fase 1 — pending
+Decoupled cron for scraper	Fase 1 — pending
+Side-by-side property comparator (/compare)	Fase 1 — pending
+Mortgage calculator	Fase 1 — pending
 Chrome MV3 extension (replacing Tampermonkey)	Fase 2
 Real-time sync via SSE/WebSockets	Fase 2
 Web Push + Expo push notifications	Fase 2
@@ -700,11 +700,11 @@ Shared lists via token URL	Fase 2
 AI-powered property scoring	Fase 2
 Visit management (Visit, VisitNote models)	Fase 2
 Zone analysis (Overpass API for transit/schools)	Fase 2
-Basic AVM from owner data (â‚¬/mÂ² model)	Fase 2
+Basic AVM from owner data (€/m² model)	Fase 2
 PWA installation	Fase 2
 Full-text search via tsvector GIN index	Fase 2
 Premium subscription (freemium)	Fase 3
-Property Registry consultation (â‚¬9.50/note)	Fase 3
+Property Registry consultation (€9.50/note)	Fase 3
 Qualified leads to real-estate agents	Fase 3
 Mortgage affiliate revenue	Fase 3
 Investor mode (ROI/yield)	Fase 3
@@ -713,9 +713,9 @@ Meilisearch (only if >10k properties)	Fase 3
 Real AVM (Tinsa/INE integration)	Fase 3
 1.3.3.2 Integration Points Not Covered
 Integration	Reason for Exclusion
-Idealista automated scraping	DataDome anti-bot â€” explicitly manualOnly: true
-Milanuncios automated scraping	Anti-bot protections â€” manual-only
-Yaencontre automated scraping	Anti-bot protections â€” manual-only
+Idealista automated scraping	DataDome anti-bot — explicitly manualOnly: true
+Milanuncios automated scraping	Anti-bot protections — manual-only
+Yaencontre automated scraping	Anti-bot protections — manual-only
 Registro de la Propiedad as a free plan source	Public-but-not-free; no floor plan value; deferred to Phase 3 premium
 Real-time push to mobile	No SSE/WebSocket layer yet
 Object storage (S3, R2) for media	All uploads currently in public/uploads/
@@ -726,52 +726,52 @@ Multi-user collaborative editing of a property	Schema multi-tenant but no UI or 
 Floorplan AI generation from photos	Function generateSketchFromPhotos throws "pending implementation"
 Saved-search runner (alert on new matches)	SavedSearch model exists; runner not implemented
 Rental listings	Project scope limited to "inmuebles en venta" (sale-only)
-Markets outside Spain	Country defaults to EspaÃ±a; no internationalization framework
+Markets outside Spain	Country defaults to España; no internationalization framework
 Languages other than Spanish	UI strings hard-coded in Spanish; <html lang="es">
-Non-Euro currencies	Price fields stored as integer cents assuming â‚¬
+Non-Euro currencies	Price fields stored as integer cents assuming €
 1.4 References
 1.4.1 Files Examined
-package.json â€” Root dependencies, scripts, npm workspaces configuration
-README.md â€” Product overview, stack, structure, roadmap status, data model
-CLAUDE.md â€” Original product brief, objectives, functional requirements
-docs/ROADMAP.md â€” Detailed scaling plan, current state assessment, phased roadmap, risks
-.env.example â€” Required env vars (DB, NextAuth, Resend, Anthropic, Catastro)
-docker-compose.yml â€” Local PostgreSQL 17 setup
-next.config.ts â€” Next.js build configuration, image patterns, package externals
-tsconfig.json â€” TypeScript compiler options and path aliases
-tailwind.config.ts â€” Design tokens and theme extension
-prisma/schema.prisma â€” 11 models, 8 enums, complete data model
-src/middleware.ts â€” Edge auth middleware, public path allowlist, bearer-token bypass
-apps/mobile/package.json â€” Expo 54, React Native, mobile dependencies
-apps/mobile/app.json â€” Expo manifest declaring "BuySell Asturias"
-src/features/cadastre/lookup.ts â€” Catastro XML integration
-src/app/dashboard/page.tsx â€” Dashboard KPIs and metrics
-src/lib/import-listing.ts â€” Import orchestration and background enrichment
-src/features/properties/PropertyForm.tsx â€” Property editor form
-src/lib/auth.ts â€” NextAuth + Resend custom email provider setup
-src/app/properties/page.tsx â€” Property catalog page
-src/app/api/listings/import/route.ts â€” Import API endpoint
-src/lib/validators.ts â€” Property validation Zod schemas
-src/lib/mobile-jwt.ts â€” Mobile JWT issuance and verification
+package.json — Root dependencies, scripts, npm workspaces configuration
+README.md — Product overview, stack, structure, roadmap status, data model
+CLAUDE.md — Original product brief, objectives, functional requirements
+docs/ROADMAP.md — Detailed scaling plan, current state assessment, phased roadmap, risks
+.env.example — Required env vars (DB, NextAuth, Resend, Anthropic, Catastro)
+docker-compose.yml — Local PostgreSQL 17 setup
+next.config.ts — Next.js build configuration, image patterns, package externals
+tsconfig.json — TypeScript compiler options and path aliases
+tailwind.config.ts — Design tokens and theme extension
+prisma/schema.prisma — 11 models, 8 enums, complete data model
+src/middleware.ts — Edge auth middleware, public path allowlist, bearer-token bypass
+apps/mobile/package.json — Expo 54, React Native, mobile dependencies
+apps/mobile/app.json — Expo manifest declaring "BuySell Asturias"
+src/features/cadastre/lookup.ts — Catastro XML integration
+src/app/dashboard/page.tsx — Dashboard KPIs and metrics
+src/lib/import-listing.ts — Import orchestration and background enrichment
+src/features/properties/PropertyForm.tsx — Property editor form
+src/lib/auth.ts — NextAuth + Resend custom email provider setup
+src/app/properties/page.tsx — Property catalog page
+src/app/api/listings/import/route.ts — Import API endpoint
+src/lib/validators.ts — Property validation Zod schemas
+src/lib/mobile-jwt.ts — Mobile JWT issuance and verification
 1.4.2 Folders Explored
-src/ â€” Web app source tree
-src/app/ â€” Next.js App Router routes
-src/app/api/ â€” API routes namespace
-src/lib/ â€” Shared infrastructure (auth, db, validators, filters, etc.)
-src/components/ â€” UI components and design system
-src/features/ â€” Domain modules (scraping, matching, properties, cadastre, floorplan-ai)
-src/features/scraping/ â€” Scraping subsystem
-src/features/scraping/adapters/ â€” 10 portal adapters
-src/features/matching/ â€” Duplicate detection
-prisma/ â€” Schema, migrations, and seed
-packages/ â€” Workspace packages container
-packages/shared/ â€” Shared TypeScript package (@buysell/shared)
-packages/shared/src/ â€” Shared source modules
-apps/ â€” Mobile workspace container
-apps/mobile/ â€” Expo mobile app
-apps/mobile/app/ â€” Expo Router routes
-scripts/ â€” Operational toolbox (scraper service, hashing, fixes, claims)
-public/bookmarklet/ â€” Tampermonkey userscripts and bookmarklet
+src/ — Web app source tree
+src/app/ — Next.js App Router routes
+src/app/api/ — API routes namespace
+src/lib/ — Shared infrastructure (auth, db, validators, filters, etc.)
+src/components/ — UI components and design system
+src/features/ — Domain modules (scraping, matching, properties, cadastre, floorplan-ai)
+src/features/scraping/ — Scraping subsystem
+src/features/scraping/adapters/ — 10 portal adapters
+src/features/matching/ — Duplicate detection
+prisma/ — Schema, migrations, and seed
+packages/ — Workspace packages container
+packages/shared/ — Shared TypeScript package (@buysell/shared)
+packages/shared/src/ — Shared source modules
+apps/ — Mobile workspace container
+apps/mobile/ — Expo mobile app
+apps/mobile/app/ — Expo Router routes
+scripts/ — Operational toolbox (scraper service, hashing, fixes, claims)
+public/bookmarklet/ — Tampermonkey userscripts and bookmarklet
 2. Product Requirements
 
 This section enumerates the discrete, testable features that constitute BuySell Asturias, expressed as a feature catalog, functional requirements matrices, feature relationship maps, and per-feature implementation considerations. Every feature documented here is grounded in observable code artifacts (Prisma models, API routes, React components, scripts, or workspace packages) and is therefore traceable to a specific deliverable in the repository. Forward-looking capabilities deferred per docs/ROADMAP.md (Section 1.3.3) are excluded except where the codebase contains a scaffold (F-027, F-028).
@@ -793,7 +793,7 @@ Description
 
 Aspect	Detail
 Overview	Owner-scoped CRUD over the Property aggregate, exposing collection and detail endpoints with Zod-validated payloads. Implements 10 property types, 4 status values, and 7 amenity booleans.
-Business Value	Provides the canonical, deduplicated catalog of real-estate interests for the owner â€” the central data product around which all other features orbit.
+Business Value	Provides the canonical, deduplicated catalog of real-estate interests for the owner — the central data product around which all other features orbit.
 User Benefits	Single source of truth replacing browser bookmarks, spreadsheets, and unaided memory referenced in docs/ROADMAP.md.
 Technical Context	Anchored in prisma/schema.prisma (Property model lines 144-205), src/lib/validators.ts (PropertyInput Zod schema), and src/app/api/properties/ (route handlers). Prices stored as integer cents.
 
@@ -802,7 +802,7 @@ Dependencies
 Type	Dependency
 Prerequisite Features	F-004 (Web Auth) or F-005 (Mobile Auth) for ownerId injection
 System Dependencies	PostgreSQL 17, Prisma 6 client (src/lib/db.ts), Next.js App Router
-External Dependencies	None â€” pure persistence operation
+External Dependencies	None — pure persistence operation
 Integration Requirements	Owner-scoping via requireUserId from src/lib/auth-helpers.ts
 2.1.1.2 F-002: Multi-portal Listing Tracking
 Attribute	Value
@@ -816,7 +816,7 @@ Description
 
 Aspect	Detail
 Overview	Models a one-to-many relationship between a Property and its Listing rows across 10 portal values (IDEALISTA, FOTOCASA, PISOS_COM, MILANUNCIOS, HABITACLIA, YAENCONTRE, THINKSPAIN, INDOMIO, OTHER, MANUAL).
-Business Value	Captures the fragmentation of Spanish listings markets â€” the same dwelling can appear under several URLs across portals.
+Business Value	Captures the fragmentation of Spanish listings markets — the same dwelling can appear under several URLs across portals.
 User Benefits	Owner sees all portal occurrences of a single dwelling unified in one view.
 Technical Context	Listing model in prisma/schema.prisma lines 223-239 with unique constraint on url and composite index (portal, status). Status enum: ACTIVE, PRICE_DROP, PRICE_UP, SOLD, REMOVED, UNKNOWN.
 
@@ -895,12 +895,12 @@ Dependencies
 Type	Dependency
 Prerequisite Features	None
 System Dependencies	NextAuth Prisma adapter (User, Account, Session, VerificationToken tables)
-External Dependencies	Resend API (optional â€” falls back to console in dev)
+External Dependencies	Resend API (optional — falls back to console in dev)
 Integration Requirements	AUTH_SECRET and NEXTAUTH_URL env vars
-2.1.2.2 F-005: Mobile Authentication (otp â†’ Jwt)
+2.1.2.2 F-005: Mobile Authentication (otp → Jwt)
 Attribute	Value
 Unique ID	F-005
-Feature Name	Mobile Authentication (OTP â†’ JWT)
+Feature Name	Mobile Authentication (OTP → JWT)
 Feature Category	Authentication & Authorization
 Priority Level	Critical
 Status	Completed
@@ -918,7 +918,7 @@ Dependencies
 Type	Dependency
 Prerequisite Features	None
 System Dependencies	VerificationToken table reused from NextAuth schema
-External Dependencies	Resend API (optional â€” falls back to console)
+External Dependencies	Resend API (optional — falls back to console)
 Integration Requirements	Shared AUTH_SECRET ensures single trust root; CORS preflight handled on both endpoints
 2.1.2.3 F-006: Per-user Api Tokens
 Attribute	Value
@@ -966,7 +966,7 @@ Type	Dependency
 Prerequisite Features	F-002 (Listing target), F-009 (Playwright fallback when HTTP blocked)
 System Dependencies	Cheerio for HTML parsing, fast-xml-parser for JSON-LD extraction
 External Dependencies	Portal HTTP endpoints
-Integration Requirements	Sanity guard isReasonablePriceChange (0.5xâ€“2x range)
+Integration Requirements	Sanity guard isReasonablePriceChange (0.5x–2x range)
 2.1.3.2 F-008: Manual-only Portal Handling
 Attribute	Value
 Unique ID	F-008
@@ -1004,7 +1004,7 @@ Aspect	Detail
 Overview	Stand-alone Node HTTP server (scripts/scraper-service.mjs) exposing GET /healthz and POST /fetch. Renders pages via headless Chromium with anti-automation masking. Singleton browser with 5-minute idle shutdown.
 Business Value	Allows fallback to a real browser when direct HTTP scraping returns 403/429 or captcha markers, without bundling Playwright into Next.js.
 User Benefits	Higher scraping success rate on hardened portals; invisible to end user.
-Technical Context	Bound to 127.0.0.1:SCRAPER_PORT (default 4201) for security; Chromium configured with es-ES locale, Europe/Madrid timezone, 1366Ã—768 viewport. SIGINT/SIGTERM lifecycle hooks close browser cleanly.
+Technical Context	Bound to 127.0.0.1:SCRAPER_PORT (default 4201) for security; Chromium configured with es-ES locale, Europe/Madrid timezone, 1366×768 viewport. SIGINT/SIGTERM lifecycle hooks close browser cleanly.
 
 Dependencies
 
@@ -1024,7 +1024,7 @@ Status	Completed
 Description
 
 Aspect	Detail
-Overview	Seven Tampermonkey/Greasemonkey/Violentmonkey userscripts (one per portal) inject a floating "ðŸ“¥ Importar a BuySell" button on listing pages. Dynamically generated per-user with embedded API token via /api/bookmarklet/[portal].
+Overview	Seven Tampermonkey/Greasemonkey/Violentmonkey userscripts (one per portal) inject a floating "📥 Importar a BuySell" button on listing pages. Dynamically generated per-user with embedded API token via /api/bookmarklet/[portal].
 Business Value	Provides import path for portals that cannot be automatically scraped (F-008) without violating their anti-bot policies.
 User Benefits	One-click capture from any listing page without leaving the portal.
 Technical Context	Userscripts use GM_xmlhttpRequest for cross-origin posts, MutationObserver and history.pushState patching for SPA resilience, run at document-idle. Server route returns Content-Type: application/javascript, Cache-Control: no-store, X-Generated-For: <userId>.
@@ -1050,7 +1050,7 @@ Aspect	Detail
 Overview	Orchestrates per-listing or batch rechecking. Single-listing endpoint accepts { listingId }; empty body triggers all-active sweep with sequential processing and 1-second pacing.
 Business Value	Keeps Listing.status, Listing.lastPrice, and Property.currentPrice current as portal-side state evolves.
 User Benefits	Status changes (sold/reserved/withdrawn/price drop) surfaced on dashboard without manual revisits.
-Technical Context	src/features/scraping/runner.ts, src/app/api/listings/check/route.ts with maxDuration = 300 (5 minutes). Batches order by lastCheckedAt asc nulls first. Outcome dispatch: goneâ†’REMOVED, blocked/errorâ†’touch lastCheckedAt only, okâ†’sanity-check then update.
+Technical Context	src/features/scraping/runner.ts, src/app/api/listings/check/route.ts with maxDuration = 300 (5 minutes). Batches order by lastCheckedAt asc nulls first. Outcome dispatch: gone→REMOVED, blocked/error→touch lastCheckedAt only, ok→sanity-check then update.
 
 Dependencies
 
@@ -1074,7 +1074,7 @@ Aspect	Detail
 Overview	Resolves Spanish cadastral reference (RC) by coordinates, address, or RC via OVC public XML services. Enriches NULL property fields (yearBuilt, builtArea, address, floor) and attaches a synthesized floorplan URL as Media(FLOORPLAN, CADASTRE).
 Business Value	Authoritative cross-link between owner-curated data and Spain's official property registry.
 User Benefits	Independent verification of declared characteristics; floorplan from official source.
-Technical Context	src/features/cadastre/lookup.ts (387 lines), consumes OVCSWLocalizacionRC.Consulta_RCCOOR and OVCCallejero.Consulta_DNPLOC/Consulta_DNPRC. Sigla normalization via SIGLA_MAP (Calleâ†’CL, Avenidaâ†’AV, etc.). HTML responses detected and surfaced as actionable errors.
+Technical Context	src/features/cadastre/lookup.ts (387 lines), consumes OVCSWLocalizacionRC.Consulta_RCCOOR and OVCCallejero.Consulta_DNPLOC/Consulta_DNPRC. Sigla normalization via SIGLA_MAP (Calle→CL, Avenida→AV, etc.). HTML responses detected and surfaced as actionable errors.
 
 Dependencies
 
@@ -1094,7 +1094,7 @@ Status	Completed
 Description
 
 Aspect	Detail
-Overview	64-bit difference-hash algorithm: resize to 9Ã—8 grayscale via Sharp, compare adjacent pixels per row, encode as 16-character hex. Hamming distance â‰¤ 8 indicates same image.
+Overview	64-bit difference-hash algorithm: resize to 9×8 grayscale via Sharp, compare adjacent pixels per row, encode as 16-character hex. Hamming distance ≤ 8 indicates same image.
 Business Value	Photo overlap is one of the strongest signals (worth up to 90 of 100 score points) in F-012 duplicate detection.
 User Benefits	Automated cross-portal matching despite different file names, sizes, or compressions.
 Technical Context	src/lib/dhash.ts; backfill script scripts/hash-existing-photos.ts exposed as npm run hash-photos. dhashFromUrl filters images < 1000 bytes as likely placeholders. Media.phash column indexed in prisma/schema.prisma.
@@ -1117,7 +1117,7 @@ Status	Completed
 Description
 
 Aspect	Detail
-Overview	Fire-and-forget pipeline that runs after importListing returns. Stages: (1) dHash up to 60 photos with 800ms throttle, (2) Catastro lookup if RC missing, (3) Geocoding if lat/lng NULL but address present, (4) Field borrowing from similar properties, (5) Duplicate detection with auto-merge at score â‰¥ 95.
+Overview	Fire-and-forget pipeline that runs after importListing returns. Stages: (1) dHash up to 60 photos with 800ms throttle, (2) Catastro lookup if RC missing, (3) Geocoding if lat/lng NULL but address present, (4) Field borrowing from similar properties, (5) Duplicate detection with auto-merge at score ≥ 95.
 Business Value	Decouples slow enrichments from the user-facing import response; keeps perceived latency low.
 User Benefits	Imports feel instant; enrichment results visible on subsequent page loads.
 Technical Context	src/lib/import-listing.ts lines 455-575 (postImportTasks) and 577-630 (enrichInBackground). Each stage logs to F-024 via logImportEvent. Re-imports with no new media skip duplicate detection (skipAutoMerge: !mediaRefreshed).
@@ -1164,10 +1164,10 @@ Status	Completed
 Description
 
 Aspect	Detail
-Overview	Composite scoring engine combining: (1) cadastral RC equality, (2) photo perceptual hash overlap, (3) title Jaccard on bigrams, (4) haversine geographic distance, (5) built area difference percentage. Persists candidates â‰¥ 60 as MatchSuggestion; discards < 30.
+Overview	Composite scoring engine combining: (1) cadastral RC equality, (2) photo perceptual hash overlap, (3) title Jaccard on bigrams, (4) haversine geographic distance, (5) built area difference percentage. Persists candidates ≥ 60 as MatchSuggestion; discards < 30.
 Business Value	Eliminates the "same property listed multiple times" pain point identified in Section 1.1.2.
 User Benefits	Review queue of probable duplicates instead of manual cross-referencing across portals.
-Technical Context	src/features/matching/find-similar.ts engine, packages/shared/src/similarity.ts utilities (slugify, bigrams, Jaccard, haversine), MatchSuggestion model in prisma/schema.prisma lines 255-270. Bonus rule: â‰¥ 2 weak signals adds +15 (cap 95). Candidate set filtered by cadastralRef/city/phash overlap, max 50.
+Technical Context	src/features/matching/find-similar.ts engine, packages/shared/src/similarity.ts utilities (slugify, bigrams, Jaccard, haversine), MatchSuggestion model in prisma/schema.prisma lines 255-270. Bonus rule: ≥ 2 weak signals adds +15 (cap 95). Candidate set filtered by cadastralRef/city/phash overlap, max 50.
 
 Dependencies
 
@@ -1187,10 +1187,10 @@ Status	Completed
 Description
 
 Aspect	Detail
-Overview	Destructive consolidation of two property rows: moves listings and snapshots, dedups media by phash, fills NULL fields from source, unions tags, deletes source. Idempotent â€” returns zeros if source already deleted.
+Overview	Destructive consolidation of two property rows: moves listings and snapshots, dedups media by phash, fills NULL fields from source, unions tags, deletes source. Idempotent — returns zeros if source already deleted.
 Business Value	Consolidates duplicate findings from F-012 into a single canonical property record.
 User Benefits	Single property page with full history instead of fragmented duplicates.
-Technical Context	src/features/matching/merge.ts, src/app/api/properties/[id]/merge/route.ts. 24-field whitelist for NULL backfill; energyRating only overwritten if target is UNKNOWN. Auto-merge safety guard (src/lib/import-listing.ts lines 542-551) blocks at score â‰¥ 95 if price diff > 30% or type mismatch.
+Technical Context	src/features/matching/merge.ts, src/app/api/properties/[id]/merge/route.ts. 24-field whitelist for NULL backfill; energyRating only overwritten if target is UNKNOWN. Auto-merge safety guard (src/lib/import-listing.ts lines 542-551) blocks at score ≥ 95 if price diff > 30% or type mismatch.
 
 Dependencies
 
@@ -1198,7 +1198,7 @@ Type	Dependency
 Prerequisite Features	F-012 (provides merge candidates)
 System Dependencies	Transactional Prisma operations
 External Dependencies	None
-Integration Requirements	Auto-invocation from F-016 at score â‰¥ 95; manual invocation from web /matches and mobile (tabs)/matches.tsx
+Integration Requirements	Auto-invocation from F-016 at score ≥ 95; manual invocation from web /matches and mobile (tabs)/matches.tsx
 2.1.5.3 F-014: Field Borrowing
 Attribute	Value
 Unique ID	F-014
@@ -1210,7 +1210,7 @@ Status	Completed
 Description
 
 Aspect	Detail
-Overview	Non-destructive enrichment that fills NULL or empty-string fields on a property using values from its top similar candidate (score â‰¥ 70). Whitelist of 19 fields including description, coordinates, room counts, areas, year, and amenity booleans.
+Overview	Non-destructive enrichment that fills NULL or empty-string fields on a property using values from its top similar candidate (score ≥ 70). Whitelist of 19 fields including description, coordinates, room counts, areas, year, and amenity booleans.
 Business Value	Captures information that one portal exposes but another omits, without overwriting owner-edited values.
 User Benefits	Maximizes data completeness from cross-portal listings automatically.
 Technical Context	src/features/matching/borrow-fields.ts; MIN_SCORE = 70; only fills where current value is null or "". Logged as ImportLogKind.BORROW_FIELDS.
@@ -1237,7 +1237,7 @@ Aspect	Detail
 Overview	Request-time rendered dashboard executing 10 parallel database queries via Promise.all, surfacing inventory KPIs, portal distribution, market signals, activity, and operational health flags.
 Business Value	Unified pulse of the catalog across status, freshness, quality, and market dimensions.
 User Benefits	Single page surfaces issues requiring attention (stale listings, pending merges, unhashed photos).
-Technical Context	src/app/dashboard/page.tsx (268 lines). STALE_DAYS = 7, MANUAL_PORTALS = ["IDEALISTA", "MILANUNCIOS"]. â‚¬/mÂ² aggregation via raw SQL with HAVING COUNT(*) >= 2, ordered by count desc, limit 8. export const dynamic = "force-dynamic".
+Technical Context	src/app/dashboard/page.tsx (268 lines). STALE_DAYS = 7, MANUAL_PORTALS = ["IDEALISTA", "MILANUNCIOS"]. €/m² aggregation via raw SQL with HAVING COUNT(*) >= 2, ordered by count desc, limit 8. export const dynamic = "force-dynamic".
 
 Dependencies
 
@@ -1257,7 +1257,7 @@ Status	Completed
 Description
 
 Aspect	Detail
-Overview	Chronological feed of the last 100 PriceSnapshot records grouped by property and classified as up/down/flat/sold. Renders relative time labels in Spanish ("Hoy", "Ayer", "Hace n dÃ­as").
+Overview	Chronological feed of the last 100 PriceSnapshot records grouped by property and classified as up/down/flat/sold. Renders relative time labels in Spanish ("Hoy", "Ayer", "Hace n días").
 Business Value	Captures temporal dynamics ("what changed recently") that the static dashboard cannot.
 User Benefits	Quick scan of recent market activity organized by day.
 Technical Context	src/app/activity/page.tsx. Computes 30-day KPIs: price drop count, price increase count, sold count.
@@ -1336,7 +1336,7 @@ Dependencies
 Type	Dependency
 Prerequisite Features	F-001
 System Dependencies	None
-External Dependencies	Google Search (external navigation only â€” no API integration)
+External Dependencies	Google Search (external navigation only — no API integration)
 Integration Requirements	None
 2.1.7 Mobile Feature
 2.1.7.1 F-022: Mobile App (expo)
@@ -1374,9 +1374,9 @@ Status	Completed
 Description
 
 Aspect	Detail
-Overview	Append-only event log with 8 event kinds (HASH, CATASTRO, GEOCODE, MATCH, MERGE_AUTO, MERGE_MANUAL, BORROW_FIELDS, RECHECK), a boolean success flag, message, and JSON meta. Non-blocking â€” write errors are swallowed after console diagnostic.
+Overview	Append-only event log with 8 event kinds (HASH, CATASTRO, GEOCODE, MATCH, MERGE_AUTO, MERGE_MANUAL, BORROW_FIELDS, RECHECK), a boolean success flag, message, and JSON meta. Non-blocking — write errors are swallowed after console diagnostic.
 Business Value	Diagnostic trail for the background enrichment pipeline; explains automated decisions.
-User Benefits	Indirect â€” surfaces operational health metrics on dashboard (e.g., recent errors).
+User Benefits	Indirect — surfaces operational health metrics on dashboard (e.g., recent errors).
 Technical Context	prisma/schema.prisma lines 272-295, src/lib/import-log.ts. Composite indexes on (propertyId, createdAt), (kind, createdAt), (createdAt).
 
 Dependencies
@@ -1438,7 +1438,7 @@ Integration Requirements	Would consume F-020 filter schema
 Each feature exposes one or more atomic, testable requirements. Requirement IDs follow the pattern F-XXX-RQ-YYY. Priority values are Must-Have / Should-Have / Could-Have; complexity values are High / Medium / Low.
 
 2.2.1 F-001: Property Catalog Management Requirements
-2.2.1.1 Requirement Details â€” F-001-rq-001 Through Rq-004
+2.2.1.1 Requirement Details — F-001-rq-001 Through Rq-004
 Field	F-001-RQ-001	F-001-RQ-002
 Description	Create property via POST /api/properties	List properties via GET /api/properties
 Acceptance Criteria	Returns 201 with new row; ownerId from session; Zod schema validates required fields	Returns max 100 rows ordered by updatedAt desc; owner-scoped
@@ -1446,106 +1446,106 @@ Priority	Must-Have	Must-Have
 Complexity	Medium	Low
 Field	F-001-RQ-003	F-001-RQ-004
 Description	Patch property via PATCH /api/properties/[id]	Soft validation of currentPrice
-Acceptance Criteria	Partial Zod validation; owner-scoped; returns updated row	Stored as integer cents; UI converts via Ã— 100 on submit, Ã· 100 on display
+Acceptance Criteria	Partial Zod validation; owner-scoped; returns updated row	Stored as integer cents; UI converts via × 100 on submit, ÷ 100 on display
 Priority	Must-Have	Must-Have
 Complexity	Medium	Low
-2.2.1.2 Technical Specifications â€” F-001
+2.2.1.2 Technical Specifications — F-001
 Aspect	Specification
-Input Parameters	PropertyInput Zod schema: title (min 3), description, type (enum 10), status (enum 4), city, province, country (default "EspaÃ±a"), prices in EUR, areas, amenity booleans, tags[]
+Input Parameters	PropertyInput Zod schema: title (min 3), description, type (enum 10), status (enum 4), city, province, country (default "España"), prices in EUR, areas, amenity booleans, tags[]
 Output / Response	Property row including media[], listings[], priceHistory[] on detail GET
 Performance Criteria	List query backed by composite indexes (city, province), (type, status), currentPrice; sub-second response on catalogs < 1000 rows
 Data Requirements	Property table cascade-deletes children; ownerId ON DELETE SET NULL
-2.2.1.3 Validation Rules â€” F-001
+2.2.1.3 Validation Rules — F-001
 Aspect	Rule
-Business Rules	Title minimum 3 chars; default country "EspaÃ±a"; default status FOR_SALE
-Data Validation	EnergyRating âˆˆ {A,B,C,D,E,F,G,UNKNOWN}; PropertyType âˆˆ {HOUSE, PISO, ATICO, CHALET, DUPLEX, ESTUDIO, LOFT, LOCAL, TERRENO, OTRO}
+Business Rules	Title minimum 3 chars; default country "España"; default status FOR_SALE
+Data Validation	EnergyRating ∈ {A,B,C,D,E,F,G,UNKNOWN}; PropertyType ∈ {HOUSE, PISO, ATICO, CHALET, DUPLEX, ESTUDIO, LOFT, LOCAL, TERRENO, OTRO}
 Security Requirements	Every mutation gated by ensureOwner(id, ownerId); cross-owner access returns 404
-Compliance Requirements	None â€” personal data only
+Compliance Requirements	None — personal data only
 2.2.2 F-002: Multi-portal Listing Tracking Requirements
-2.2.2.1 Requirement Details â€” F-002
+2.2.2.1 Requirement Details — F-002
 Field	F-002-RQ-001	F-002-RQ-002
 Description	Multiple listings per property	URL uniqueness constraint
-Acceptance Criteria	Listing.propertyId foreign key with cascade delete; one Property â†’ many Listings	DB-level unique constraint on url; duplicate POSTs perform upsert
+Acceptance Criteria	Listing.propertyId foreign key with cascade delete; one Property → many Listings	DB-level unique constraint on url; duplicate POSTs perform upsert
 Priority	Must-Have	Must-Have
 Complexity	Low	Low
-2.2.2.2 Technical Specifications â€” F-002
+2.2.2.2 Technical Specifications — F-002
 Aspect	Specification
 Input Parameters	Listing payload from import flow (F-011) or scraping (F-007)
 Output / Response	Listing row with (portal, status) indexed
 Performance Criteria	Composite index enables portal-status filtering in dashboard groupBy
 Data Requirements	Portal enum (10 values); ListingStatus enum (6 values)
 2.2.3 F-003: Historical Price Tracking Requirements
-2.2.3.1 Requirement Details â€” F-003
+2.2.3.1 Requirement Details — F-003
 Field	F-003-RQ-001	F-003-RQ-002
-Description	Insert PriceSnapshot on price change	Reject prices outside 0.5xâ€“2x prior price
+Description	Insert PriceSnapshot on price change	Reject prices outside 0.5x–2x prior price
 Acceptance Criteria	Snapshot created with price, source portal, observedAt; Property.currentPrice updated	isReasonablePriceChange returns false; event logged with ok: false
 Priority	Must-Have	Must-Have
 Complexity	Low	Medium
-2.2.3.2 Technical Specifications â€” F-003
+2.2.3.2 Technical Specifications — F-003
 Aspect	Specification
 Input Parameters	New price (integer cents), source portal, previous price for sanity check
 Output / Response	New PriceSnapshot row
 Performance Criteria	Composite index (propertyId, observedAt) for chart range queries
-Data Requirements	Sanity bands: isValidPriceEur 10,000â€“50,000,000; isValidBuiltArea 5â€“5,000; isValidYear 1700â€“(year+5)
+Data Requirements	Sanity bands: isValidPriceEur 10,000–50,000,000; isValidBuiltArea 5–5,000; isValidYear 1700–(year+5)
 2.2.4 F-004: Web Authentication Requirements
-2.2.4.1 Requirement Details â€” F-004
+2.2.4.1 Requirement Details — F-004
 Field	F-004-RQ-001	F-004-RQ-002
 Description	Issue magic link via email	24-hour token validity
 Acceptance Criteria	HTML + text Resend email with angle-bracketed <URL> text version; console fallback if RESEND_API_KEY unset	maxAge: 24 * 60 * 60 enforced server-side
 Priority	Must-Have	Must-Have
 Complexity	Medium	Low
-2.2.4.2 Technical Specifications â€” F-004
+2.2.4.2 Technical Specifications — F-004
 Aspect	Specification
 Input Parameters	Email address
 Output / Response	Verification email; redirect to /login?check=email
 Performance Criteria	Token generation via crypto.getRandomValues(32 bytes)
 Data Requirements	NextAuth tables: User, Account, Session, VerificationToken
-2.2.4.3 Validation Rules â€” F-004
+2.2.4.3 Validation Rules — F-004
 Aspect	Rule
 Business Rules	Custom pages signIn: "/login", verifyRequest: "/login?check=email"
 Data Validation	Email format validated by NextAuth
 Security Requirements	JWT session strategy for Edge middleware; trustHost: true; AUTH_SECRET required
 Compliance Requirements	None
 2.2.5 F-005: Mobile Authentication Requirements
-2.2.5.1 Requirement Details â€” F-005
+2.2.5.1 Requirement Details — F-005
 Field	F-005-RQ-001	F-005-RQ-002
 Description	Issue 6-digit OTP via POST /api/auth/mobile/request	Verify OTP and return JWT via POST /api/auth/mobile/verify
 Acceptance Criteria	Email sent; token persisted with mobile: identifier; old tokens for identifier deleteMany; 10-minute expiry	Single-use (token deleted on use); returns { token, user: {id,email,name} }
 Priority	Must-Have	Must-Have
 Complexity	Medium	Medium
-2.2.5.2 Technical Specifications â€” F-005
+2.2.5.2 Technical Specifications — F-005
 Aspect	Specification
 Input Parameters	Request: email; Verify: email + 6-digit code
 Output / Response	HS256 JWT; issuer "buysell-mobile"; expiration "90d"; sub = userId; payload includes email
 Performance Criteria	OTP generated via crypto.randomInt; signing via jose HS256
 Data Requirements	Reuses NextAuth VerificationToken table
-2.2.5.3 Validation Rules â€” F-005
+2.2.5.3 Validation Rules — F-005
 Aspect	Rule
-Business Rules	Signed with AUTH_SECRET (same as NextAuth â€” single trust root)
+Business Rules	Signed with AUTH_SECRET (same as NextAuth — single trust root)
 Data Validation	Code is numeric 6-digit; identifier must match mobile: prefix
 Security Requirements	Tokens stored client-side in expo-secure-store; CORS preflight via OPTIONS handlers
 Compliance Requirements	None
 2.2.6 F-006: Per-user Api Tokens Requirements
-2.2.6.1 Requirement Details â€” F-006
+2.2.6.1 Requirement Details — F-006
 Field	F-006-RQ-001	F-006-RQ-002
 Description	Auto-create or retrieve user token	Resolve user from Bearer token
 Acceptance Criteria	getOrCreateUserToken(userId) returns existing or creates with label "Bookmarklet"	resolveUserFromToken validates token, returns userId, updates lastUsed best-effort
 Priority	Must-Have	Must-Have
 Complexity	Low	Low
-2.2.6.2 Technical Specifications â€” F-006
+2.2.6.2 Technical Specifications — F-006
 Aspect	Specification
 Input Parameters	Bearer header or ?token= query parameter (via extractTokenFromRequest)
 Output / Response	Resolved userId or null
 Performance Criteria	Unique index on token enables O(1) lookup
 Data Requirements	Token format: bs_ + 32 bytes hex (64 chars; 256 bits entropy)
-2.2.6.3 Validation Rules â€” F-006
+2.2.6.3 Validation Rules — F-006
 Aspect	Rule
 Business Rules	One default token per user labeled "Bookmarklet"; additional tokens supported by schema
 Data Validation	Token presence on /api/* triggers middleware bypass to Node runtime
 Security Requirements	Random bytes from crypto.randomBytes(32); no token displayed in UI after creation
 Compliance Requirements	None
 2.2.7 F-007: Automated Portal Scraping Requirements
-2.2.7.1 Requirement Details â€” F-007
+2.2.7.1 Requirement Details — F-007
 Field	F-007-RQ-001	F-007-RQ-002
 Description	Adapter chooses correct portal	Outcome typed as discriminated union
 Acceptance Criteria	pickAdapter(url) matches via adapter.matches(url) boolean predicate	Returns ok / gone / blocked / error consumed by runner branching
@@ -1553,24 +1553,24 @@ Priority	Must-Have	Must-Have
 Complexity	Low	Medium
 Field	F-007-RQ-003	F-007-RQ-004
 Description	Price extraction with fallback strategy	Detect anti-bot markers
-Acceptance Criteria	Order: JSON-LD offers.price â†’ CSS selectors â†’ body regex (only if no prior price)	403/429 HTTP, captcha text â†’ blocked; 404/410/retired text â†’ gone
+Acceptance Criteria	Order: JSON-LD offers.price → CSS selectors → body regex (only if no prior price)	403/429 HTTP, captcha text → blocked; 404/410/retired text → gone
 Priority	Must-Have	Must-Have
 Complexity	High	Medium
-2.2.7.2 Technical Specifications â€” F-007
+2.2.7.2 Technical Specifications — F-007
 Aspect	Specification
 Input Parameters	URL, optional ScrapeContext with previousPriceCents
 Output / Response	ScrapeOutcome discriminated union
 Performance Criteria	Generic adapter shares retry and parsing logic across portals
-Data Requirements	Sanity-checked candidate price must satisfy 0.5xâ€“2x previous price band
+Data Requirements	Sanity-checked candidate price must satisfy 0.5x–2x previous price band
 2.2.8 F-008: Manual-only Portal Handling Requirements
-2.2.8.1 Requirement Details â€” F-008
+2.2.8.1 Requirement Details — F-008
 Field	F-008-RQ-001	F-008-RQ-002
 Description	Three portals declared manualOnly	Runner bypasses scraping
 Acceptance Criteria	Idealista, Milanuncios, Yaencontre return { kind: "blocked" } with reason	Runner updates only lastCheckedAt when adapter.manualOnly === true
 Priority	Must-Have	Must-Have
 Complexity	Low	Low
 2.2.9 F-009: Playwright Browser Sidecar Requirements
-2.2.9.1 Requirement Details â€” F-009
+2.2.9.1 Requirement Details — F-009
 Field	F-009-RQ-001	F-009-RQ-002
 Description	Expose HTTP endpoints for fetch and health	Anti-automation masking
 Acceptance Criteria	GET /healthz and POST /fetch with { url, timeoutMs?, waitForLoad? }; success { ok, html, status, finalUrl }, failure { ok:false, error, code }	addInitScript hides navigator.webdriver, fakes plugins, sets navigator.languages = ["es-ES","es","en"]
@@ -1581,14 +1581,14 @@ Description	Bind to loopback only	Singleton browser with idle shutdown
 Acceptance Criteria	Server bound to 127.0.0.1:SCRAPER_PORT (default 4201); refuses external connections	5-minute idle timeout closes browser; recreated when disconnected
 Priority	Must-Have	Should-Have
 Complexity	Low	Medium
-2.2.9.2 Technical Specifications â€” F-009
+2.2.9.2 Technical Specifications — F-009
 Aspect	Specification
 Input Parameters	URL and optional timeout/load hints
 Output / Response	Rendered HTML body and final URL
-Performance Criteria	Chromium configured with es-ES locale, Europe/Madrid TZ, 1366Ã—768 viewport, Spanish UA
+Performance Criteria	Chromium configured with es-ES locale, Europe/Madrid TZ, 1366×768 viewport, Spanish UA
 Data Requirements	None (stateless)
 2.2.10 F-010: Catastro Integration Requirements
-2.2.10.1 Requirement Details â€” F-010
+2.2.10.1 Requirement Details — F-010
 Field	F-010-RQ-001	F-010-RQ-002
 Description	Lookup by coordinates	Lookup by address
 Acceptance Criteria	lookupByCoordinates(lat, lng) calls Consulta_RCCOOR (EPSG:4326)	lookupByAddress({province,city,street,number,sigla}) calls Consulta_DNPLOC; sigla normalized through SIGLA_MAP
@@ -1599,14 +1599,14 @@ Description	Score candidate refs by richness	Conservative writeback
 Acceptance Criteria	Deduplicate, score, return best { ref, info, method, warnings }	Update yearBuilt, builtArea, address, floor only when target is NULL
 Priority	Should-Have	Must-Have
 Complexity	Medium	Low
-2.2.10.2 Technical Specifications â€” F-010
+2.2.10.2 Technical Specifications — F-010
 Aspect	Specification
 Input Parameters	Property with optional coordinates and/or address fields
 Output / Response	CadastreInfo plus persisted floorplan Media(FLOORPLAN, CADASTRE)
 Performance Criteria	XML parsing via fast-xml-parser; HTML responses surfaced as actionable errors
-Data Requirements	OVCSWLocalizacionRC + OVCCallejero endpoints; lerr.err nodes with cod â‰  0 throw with cod and des
+Data Requirements	OVCSWLocalizacionRC + OVCCallejero endpoints; lerr.err nodes with cod ≠ 0 throw with cod and des
 2.2.11 F-011: Bookmarklet/userscript Import Requirements
-2.2.11.1 Requirement Details â€” F-011
+2.2.11.1 Requirement Details — F-011
 Field	F-011-RQ-001	F-011-RQ-002
 Description	Generate per-user userscript with embedded token	Accept CORS import via Bearer token
 Acceptance Criteria	/api/bookmarklet/[portal] returns Content-Type: application/javascript, Cache-Control: no-store, X-Generated-For: <userId>; portal slug allowlisted	/api/listings/import responds to OPTIONS preflight; Access-Control-Allow-Origin: *; Bearer-validated
@@ -1617,131 +1617,131 @@ Description	Validate import payload	Idempotent create-or-update by URL
 Acceptance Criteria	ImportListingInput Zod schema with url (required), title (min 2), price EUR int, amenity booleans, images[]	Returns 201 (created) or 200 (updated)
 Priority	Must-Have	Must-Have
 Complexity	Medium	High
-2.2.11.2 Technical Specifications â€” F-011
+2.2.11.2 Technical Specifications — F-011
 Aspect	Specification
 Input Parameters	Userscript payload includes url, portal, externalId, title, description, price, type, location fields, areas, room counts, amenity booleans, energyRating, images[], features[]
 Output / Response	`{ property, listing, status: "created"
 Performance Criteria	Synchronous response returns before F-016 background work; user perceives <1s import
 Data Requirements	Userscripts use GM_xmlhttpRequest (cross-origin), run at document-idle
 2.2.12 F-012: 5-signal Duplicate Detection Requirements
-2.2.12.1 Requirement Details â€” F-012
+2.2.12.1 Requirement Details — F-012
 Field	F-012-RQ-001	F-012-RQ-002
 Description	Score candidates across 5 signals	Persist suggestions above threshold
-Acceptance Criteria	Cadastre exact = 100; phash overlap 1â†’35, 2â†’60, â‰¥3â†’90; title Jaccard â‰¥0.5â†’50, â‰¥0.7â†’75; geo <50mâ†’55, +builtArea â‰¤5%â†’80	Score â‰¥ 60 â†’ upsert MatchSuggestion; < 30 â†’ discard; 30-59 â†’ keep for diagnostics, not surfaced
+Acceptance Criteria	Cadastre exact = 100; phash overlap 1→35, 2→60, ≥3→90; title Jaccard ≥0.5→50, ≥0.7→75; geo <50m→55, +builtArea ≤5%→80	Score ≥ 60 → upsert MatchSuggestion; < 30 → discard; 30-59 → keep for diagnostics, not surfaced
 Priority	Must-Have	Must-Have
 Complexity	High	Medium
 Field	F-012-RQ-003	F-012-RQ-004
 Description	Apply weak-signal bonus	Limit candidate set size
-Acceptance Criteria	If â‰¥ 2 weak signals (photo, title â‰¥0.5, geo <50m) present, add +15 (cap 95)	OR filter on cadastralRef/city/matching phash; max 50 candidates loaded
+Acceptance Criteria	If ≥ 2 weak signals (photo, title ≥0.5, geo <50m) present, add +15 (cap 95)	OR filter on cadastralRef/city/matching phash; max 50 candidates loaded
 Priority	Should-Have	Must-Have
 Complexity	Medium	Medium
-2.2.12.2 Technical Specifications â€” F-012
+2.2.12.2 Technical Specifications — F-012
 Aspect	Specification
 Input Parameters	Property ID; reads its phashes, cadastralRef, slug, lat/lng, builtArea
 Output / Response	Array of { id, score, reasons[] }
 Performance Criteria	Hamming distance via Brian Kernighan bit count; bigram Jaccard linear in token count
-Data Requirements	Slugify drops 25 stopwords including portal names and property type words; tokens â‰¥ 2 chars; capped at 120 chars
-2.2.12.3 Validation Rules â€” F-012
+Data Requirements	Slugify drops 25 stopwords including portal names and property type words; tokens ≥ 2 chars; capped at 120 chars
+2.2.12.3 Validation Rules — F-012
 Aspect	Rule
 Business Rules	MatchSuggestion unique on (sourceId, targetId); symmetric pairs treated independently
-Data Validation	Phash Hamming â‰¤ 8 considered same image
+Data Validation	Phash Hamming ≤ 8 considered same image
 Security Requirements	Both source and target must belong to same ownerId
 Compliance Requirements	None
 2.2.13 F-013: Property Merge Workflow Requirements
-2.2.13.1 Requirement Details â€” F-013
+2.2.13.1 Requirement Details — F-013
 Field	F-013-RQ-001	F-013-RQ-002
 Description	Move listings and snapshots	Deduplicate media by phash
-Acceptance Criteria	Listing.updateMany and PriceSnapshot.updateMany reassign propertyId from source to target	If source media phash matches any target media within Hamming â‰¤ 8, delete source media; else move
+Acceptance Criteria	Listing.updateMany and PriceSnapshot.updateMany reassign propertyId from source to target	If source media phash matches any target media within Hamming ≤ 8, delete source media; else move
 Priority	Must-Have	Must-Have
 Complexity	Low	Medium
 Field	F-013-RQ-003	F-013-RQ-004
 Description	Backfill NULL target fields	Block auto-merge on safety violations
-Acceptance Criteria	Whitelist of 24 fields; tags unioned; energyRating only overwritten if target = UNKNOWN	Auto-merge BLOCKED if price diff > 30% or me.type !== them.type, even at score â‰¥ 95
+Acceptance Criteria	Whitelist of 24 fields; tags unioned; energyRating only overwritten if target = UNKNOWN	Auto-merge BLOCKED if price diff > 30% or me.type !== them.type, even at score ≥ 95
 Priority	Must-Have	Must-Have
 Complexity	Medium	Medium
-2.2.13.2 Technical Specifications â€” F-013
+2.2.13.2 Technical Specifications — F-013
 Aspect	Specification
 Input Parameters	POST /api/properties/{sourceId}/merge with { intoId: string }
 Output / Response	{ movedListings, movedSnapshots, movedMedia, skippedDuplicateMedia }
 Performance Criteria	Idempotent: returns zeros if source already deleted
 Data Requirements	Source property row deleted at end of merge
-2.2.13.3 Validation Rules â€” F-013
+2.2.13.3 Validation Rules — F-013
 Aspect	Rule
 Business Rules	Auto-merge blocked logged via ImportLogKind.MATCH with blocked: true
 Data Validation	Both properties must belong to same owner
 Security Requirements	Owner check before transaction; safety guards prevent destructive auto-merge across types or wildly different prices
 Compliance Requirements	None
 2.2.14 F-014: Field Borrowing Requirements
-2.2.14.1 Requirement Details â€” F-014
+2.2.14.1 Requirement Details — F-014
 Field	F-014-RQ-001	F-014-RQ-002
-Description	Only borrow when candidate score â‰¥ 70	Only fill NULL/empty fields
+Description	Only borrow when candidate score ≥ 70	Only fill NULL/empty fields
 Acceptance Criteria	MIN_SCORE = 70 constant gates the operation	Never replaces existing values; only writes where current is null or ""
 Priority	Must-Have	Must-Have
 Complexity	Low	Low
-2.2.14.2 Technical Specifications â€” F-014
+2.2.14.2 Technical Specifications — F-014
 Aspect	Specification
 Input Parameters	Property ID; borrows from top similar candidate
 Output / Response	Count of fields filled; logged via ImportLogKind.BORROW_FIELDS
 Performance Criteria	Single property update statement
 Data Requirements	Whitelist: description, address, postalCode, neighborhood, latitude, longitude, rooms, bathrooms, builtArea, usableArea, plotArea, floor, yearBuilt, hasElevator, hasGarage, hasStorage, hasTerrace, hasFireplace, hasGarden, hasPool
 2.2.15 F-015: Perceptual Hashing Requirements
-2.2.15.1 Requirement Details â€” F-015
+2.2.15.1 Requirement Details — F-015
 Field	F-015-RQ-001	F-015-RQ-002
 Description	Compute 64-bit dHash for an image	Reject placeholder-sized images
-Acceptance Criteria	Sharp resize to 9Ã—8 grayscale; compare adjacent pixels per row; return 16-char hex	Returns null if image body < 1000 bytes
+Acceptance Criteria	Sharp resize to 9×8 grayscale; compare adjacent pixels per row; return 16-char hex	Returns null if image body < 1000 bytes
 Priority	Must-Have	Should-Have
 Complexity	Medium	Low
 Field	F-015-RQ-003	F-015-RQ-004
 Description	Hamming distance comparator	Backfill existing photos
-Acceptance Criteria	Byte-by-byte XOR with Brian Kernighan bit count; threshold â‰¤ 8 for "same image"	npm run hash-photos processes all kind: PHOTO, phash: null rows
+Acceptance Criteria	Byte-by-byte XOR with Brian Kernighan bit count; threshold ≤ 8 for "same image"	npm run hash-photos processes all kind: PHOTO, phash: null rows
 Priority	Must-Have	Should-Have
 Complexity	Low	Low
-2.2.15.2 Technical Specifications â€” F-015
+2.2.15.2 Technical Specifications — F-015
 Aspect	Specification
 Input Parameters	Image URL or buffer
 Output / Response	16-char hex hash or null on failure
 Performance Criteria	800ms throttle between fetches in batch pipeline (F-016)
 Data Requirements	HTTP fetch with browser-like UA, accepts AVIF/WebP/PNG/JPEG, Spanish Accept-Language
 2.2.16 F-016: Background Enrichment Pipeline Requirements
-2.2.16.1 Requirement Details â€” F-016
+2.2.16.1 Requirement Details — F-016
 Field	F-016-RQ-001	F-016-RQ-002
 Description	Execute 5-stage pipeline after import returns	Skip auto-merge for media-less re-imports
-Acceptance Criteria	Stages run in order: dHash â†’ Catastro â†’ Geocode â†’ BorrowFields â†’ FindSimilar â†’ optional AutoMerge	skipAutoMerge: !mediaRefreshed set when re-import had no new media
+Acceptance Criteria	Stages run in order: dHash → Catastro → Geocode → BorrowFields → FindSimilar → optional AutoMerge	skipAutoMerge: !mediaRefreshed set when re-import had no new media
 Priority	Must-Have	Should-Have
 Complexity	High	Medium
 Field	F-016-RQ-003	F-016-RQ-004
-Description	Auto-merge at score â‰¥ 95 with safety guards	Log each stage outcome
-Acceptance Criteria	If top score â‰¥ 95 and no safety guard triggered, auto-merge; else log MATCH event	Each stage emits a ImportLog row with ok boolean and meta JSON
+Description	Auto-merge at score ≥ 95 with safety guards	Log each stage outcome
+Acceptance Criteria	If top score ≥ 95 and no safety guard triggered, auto-merge; else log MATCH event	Each stage emits a ImportLog row with ok boolean and meta JSON
 Priority	Must-Have	Must-Have
 Complexity	Medium	Low
-2.2.16.2 Technical Specifications â€” F-016
+2.2.16.2 Technical Specifications — F-016
 Aspect	Specification
 Input Parameters	Property ID, media refresh flag
-Output / Response	None â€” fire-and-forget via void
+Output / Response	None — fire-and-forget via void
 Performance Criteria	Up to 60 photos per dHash batch; 800ms throttle between requests
 Data Requirements	Stage skip conditions: dHash skipped per-photo if phash already set; Catastro skipped if cadastralRef set; Geocode skipped if coords set
 2.2.17 F-017: Owner-scoped Dashboard Requirements
-2.2.17.1 Requirement Details â€” F-017
+2.2.17.1 Requirement Details — F-017
 Field	F-017-RQ-001	F-017-RQ-002
 Description	Run 10 KPI queries in parallel	Render request-time only
-Acceptance Criteria	Promise.all over 10 queries: active/sold/withdrawn counts, listings by portal, snapshots last 30d, pending matches, stale autom/manual, missing phash, â‚¬/mÂ² top 8 cities	export const dynamic = "force-dynamic"
+Acceptance Criteria	Promise.all over 10 queries: active/sold/withdrawn counts, listings by portal, snapshots last 30d, pending matches, stale autom/manual, missing phash, €/m² top 8 cities	export const dynamic = "force-dynamic"
 Priority	Must-Have	Must-Have
 Complexity	Medium	Low
-2.2.17.2 Technical Specifications â€” F-017
+2.2.17.2 Technical Specifications — F-017
 Aspect	Specification
 Input Parameters	Authenticated session
 Output / Response	Dashboard UI
-Performance Criteria	Constants: STALE_DAYS = 7, MANUAL_PORTALS = ["IDEALISTA","MILANUNCIOS"]; â‚¬/mÂ² query uses raw SQL with HAVING COUNT(*) >= 2, limit 8
+Performance Criteria	Constants: STALE_DAYS = 7, MANUAL_PORTALS = ["IDEALISTA","MILANUNCIOS"]; €/m² query uses raw SQL with HAVING COUNT(*) >= 2, limit 8
 Data Requirements	Owner-scoping via requireUserId on every query
 2.2.18 F-018: Activity Timeline Requirements
-2.2.18.1 Requirement Details â€” F-018
+2.2.18.1 Requirement Details — F-018
 Field	F-018-RQ-001	F-018-RQ-002
 Description	Load last 100 price snapshots	Classify direction and bucket by day
 Acceptance Criteria	Owner-scoped via property join; ordered by observedAt desc	Directions: up, down, flat, sold; relative time labels in Spanish
 Priority	Must-Have	Should-Have
 Complexity	Low	Low
 2.2.19 F-019: Global Search Requirements
-2.2.19.1 Requirement Details â€” F-019
+2.2.19.1 Requirement Details — F-019
 Field	F-019-RQ-001	F-019-RQ-002
 Description	Minimum query length	Search 5 fields case-insensitively
 Acceptance Criteria	Minimum 2 characters; shorter queries return empty	contains on title, city, neighborhood, address, cadastralRef
@@ -1753,7 +1753,7 @@ Acceptance Criteria	Top 12 ordered by updatedAt desc	Each result includes one Me
 Priority	Must-Have	Should-Have
 Complexity	Low	Low
 2.2.20 F-020: Property Filtering And Sorting Requirements
-2.2.20.1 Requirement Details â€” F-020
+2.2.20.1 Requirement Details — F-020
 Field	F-020-RQ-001	F-020-RQ-002
 Description	Parse filters from URL	Transform to Prisma WHERE
 Acceptance Criteria	parseFilters(URLSearchParams) returns PropertyFilters with q/city/province/type/status/minPrice/maxPrice/minRooms/amenity flags	buildPropertyWhere(filters) returns Prisma.PropertyWhereInput
@@ -1761,11 +1761,11 @@ Priority	Must-Have	Must-Have
 Complexity	Low	Medium
 Field	F-020-RQ-003	F-020-RQ-004
 Description	Sort options enumeration	View mode toggle
-Acceptance Criteria	updatedAt-desc (default), createdAt-desc, currentPrice-asc, currentPrice-desc via parseSort	?view=grid â†’ grid mode; otherwise table
+Acceptance Criteria	updatedAt-desc (default), createdAt-desc, currentPrice-asc, currentPrice-desc via parseSort	?view=grid → grid mode; otherwise table
 Priority	Must-Have	Should-Have
 Complexity	Low	Low
 2.2.21 F-021: Listing Recheck Runner Requirements
-2.2.21.1 Requirement Details â€” F-021
+2.2.21.1 Requirement Details — F-021
 Field	F-021-RQ-001	F-021-RQ-002
 Description	Single-listing recheck	Batch all-active recheck
 Acceptance Criteria	Body { listingId } rechecks one listing	Empty body sweeps all listings with status ACTIVE/PRICE_DROP/PRICE_UP/UNKNOWN
@@ -1773,17 +1773,17 @@ Priority	Must-Have	Must-Have
 Complexity	Medium	High
 Field	F-021-RQ-003	F-021-RQ-004
 Description	Outcome-driven status update	Pacing and ordering for batch
-Acceptance Criteria	goneâ†’ status REMOVED; blocked/errorâ†’ only lastCheckedAt; ok with sane price â†’ status update + PriceSnapshot	Order by lastCheckedAt asc nulls first; 1-second setTimeout between requests
+Acceptance Criteria	gone→ status REMOVED; blocked/error→ only lastCheckedAt; ok with sane price → status update + PriceSnapshot	Order by lastCheckedAt asc nulls first; 1-second setTimeout between requests
 Priority	Must-Have	Should-Have
 Complexity	Medium	Low
-2.2.21.2 Technical Specifications â€” F-021
+2.2.21.2 Technical Specifications — F-021
 Aspect	Specification
 Input Parameters	POST /api/listings/check with optional { listingId }
 Output / Response	Per-listing summary { listingId, outcome, detail?, priceChanged?, previousPrice?, newPrice? }
 Performance Criteria	maxDuration = 300 (5 minutes); progress callbacks (idx, total, summary)
 Data Requirements	Sequential execution; no parallelism (avoids triggering anti-bot)
 2.2.22 F-022: Mobile App Requirements
-2.2.22.1 Requirement Details â€” F-022
+2.2.22.1 Requirement Details — F-022
 Field	F-022-RQ-001	F-022-RQ-002
 Description	Tab navigation with 4 visible + 1 hidden	Token storage on device
 Acceptance Criteria	Tabs: index, matches, search, account, hidden explore	expo-secure-store (native) or localStorage (web fallback) under key buysell.mobile.token
@@ -1795,28 +1795,28 @@ Acceptance Criteria	_layout.tsx AuthGate redirects unauthenticated users to /log
 Priority	Must-Have	Should-Have
 Complexity	Low	Low
 2.2.23 F-023: Media Management Requirements
-2.2.23.1 Requirement Details â€” F-023
+2.2.23.1 Requirement Details — F-023
 Field	F-023-RQ-001	F-023-RQ-002
 Description	Media re-import policy	Phash preservation
 Acceptance Criteria	Existing PHOTO with source PORTAL_SCRAPE deleted and recreated on re-import; USER_UPLOAD preserved	Existing phashes by URL preserved on recreation (avoid rehashing)
 Priority	Must-Have	Should-Have
 Complexity	Medium	Low
 2.2.24 F-024: Import Log Requirements
-2.2.24.1 Requirement Details â€” F-024
+2.2.24.1 Requirement Details — F-024
 Field	F-024-RQ-001	F-024-RQ-002
 Description	Append-only audit events	Non-blocking write
 Acceptance Criteria	8 event kinds; mandatory ok boolean; optional message, meta JSON	logImportEvent swallows write errors after console diagnostic
 Priority	Must-Have	Must-Have
 Complexity	Low	Low
 2.2.25 F-025: Geocoding Requirements
-2.2.25.1 Requirement Details â€” F-025
+2.2.25.1 Requirement Details — F-025
 Field	F-025-RQ-001	F-025-RQ-002
 Description	Trigger only when coords missing	Throttle Nominatim
 Acceptance Criteria	Runs only if latitude and longitude are NULL but address or city is available	Module-level rate limiter respects Nominatim usage policy
 Priority	Must-Have	Must-Have
 Complexity	Low	Medium
 2.2.26 F-026: External Portal Search Links Requirements
-2.2.26.1 Requirement Details â€” F-026
+2.2.26.1 Requirement Details — F-026
 Field	F-026-RQ-001	F-026-RQ-002
 Description	Build Google site: URLs per portal	Reverse image search helper
 Acceptance Criteria	Returns URLs for 7 portals using TYPE_WORDS + PORTAL_WORDS cleaning	googleLensUrl(photoUrl) returns valid lens search URL
@@ -1937,7 +1937,7 @@ HTTP API call (synchronous)	F-004, F-005	Resend mail API
 Edge middleware bypass	F-006	Any /api/* with Authorization: Bearer
 Cross-runtime trust	F-004 + F-005	Shared AUTH_SECRET
 Fire-and-forget invocation	F-011, F-021	F-016 background pipeline
-Auto-merge trigger	F-016	F-013 at score â‰¥ 95
+Auto-merge trigger	F-016	F-013 at score ≥ 95
 UI surface	F-012	Web /matches, mobile (tabs)/matches.tsx, F-017
 2.3.3 Shared Components
 
@@ -1947,7 +1947,7 @@ Module	Exports	Consumed By
 packages/shared/src/sanity.ts	isValidPriceEur, isValidBuiltArea, isValidPlotArea, isValidYear, isReasonablePriceChange	F-003, F-007, F-011, F-021
 packages/shared/src/similarity.ts	slugify, bigrams, jaccard, haversine	F-012
 packages/shared/src/format.ts	Number, currency, and area formatters	F-001 UI, F-017, F-018, F-022
-packages/shared/src/types.ts	Shared types for web â†” mobile	F-022, all web features
+packages/shared/src/types.ts	Shared types for web ↔ mobile	F-022, all web features
 2.3.4 Common Services
 Service	Implementation Location	Used By
 Owner identity resolution	src/lib/auth-helpers.ts (requireUserId)	All authenticated endpoints
@@ -1991,7 +1991,7 @@ JWT verification requires Buffer	F-005, F-006	jose HS256 verify uses Buffer; for
 All FKs CASCADE on delete	F-001, F-002, F-003, F-023	Except Property.ownerId which is ON DELETE SET NULL
 Local image storage	F-023	public/uploads/ only; R2 deferred per Section 1.3.3
 Sale-only scope	F-001	Project explicitly excludes rentals (Section 1.3.3)
-Spanish locale hardcoded	All UI features	<html lang="es">, default country "EspaÃ±a", default province "Asturias"
+Spanish locale hardcoded	All UI features	<html lang="es">, default country "España", default province "Asturias"
 EUR-only currency	F-001, F-003	Integer cents storage assumes single currency
 2.4.2 Performance Requirements
 Feature	Constraint	Mitigation in Place
@@ -2001,7 +2001,7 @@ F-009 sidecar	Memory pressure from long-lived browser	5-minute idle shutdown; si
 F-011 import endpoint	Perceived latency < 1s	F-016 enrichment runs fire-and-forget after response
 F-012 matching	Quadratic blowup on growing catalog	Candidate set filtered by cadastralRef/city/phash; max 50 candidates
 F-015 dHash batch	Image fetch flooding	800ms throttle between fetches; max 60 photos per batch
-F-017 dashboard	10 KPI queries in parallel	Promise.all; raw SQL for â‚¬/mÂ² aggregate
+F-017 dashboard	10 KPI queries in parallel	Promise.all; raw SQL for €/m² aggregate
 F-019 search	No tsvector index	Acceptable on small catalog; Phase 2 GIN index planned per Section 1.3.3
 F-021 batch recheck	5-minute API timeout	maxDuration = 300 set on route; sequential pacing
 F-025 geocoding	Nominatim rate limits	Module-level throttle in geocode.ts
@@ -2027,8 +2027,8 @@ Magic link validity	24-hour expiration	F-004
 OTP validity	10-minute expiration; single-use; old tokens cleared on new request	F-005
 Scraping politeness	1s pacing, anti-automation masking only where needed	F-007, F-009
 Email content safety	HTML + plaintext fallback; explicit angle-bracketed URLs	F-004, F-005
-Auto-merge safety	Blocked at score â‰¥95 if price diff >30% or type mismatch	F-013
-Sanity rejection	Price changes outside 0.5xâ€“2x logged and rejected	F-003, F-007, F-021
+Auto-merge safety	Blocked at score ≥95 if price diff >30% or type mismatch	F-013
+Sanity rejection	Price changes outside 0.5x–2x logged and rejected	F-003, F-007, F-021
 2.4.5 Maintenance Requirements
 Aspect	Mechanism
 Schema evolution	Prisma migrations under prisma/migrations/; named with timestamp + description
@@ -2038,13 +2038,13 @@ Migration provisioning	npm run db:migrate, db:generate, db:studio, db:seed
 Backfill jobs	scripts/hash-existing-photos.ts for retrofitting phashes after F-015 introduction
 Diagnostic surface	ImportLog table (F-024) records every enrichment outcome with meta JSON
 Console fallback	Resend mail provider falls back to console when RESEND_API_KEY unset (F-004, F-005)
-Manifest of features	docs/ROADMAP.md with priority indicators (ðŸ”´ Critical, ðŸŸ  High, ðŸŸ¡ Medium)
+Manifest of features	docs/ROADMAP.md with priority indicators (🔴 Critical, 🟠 High, 🟡 Medium)
 Documentation	README.md, CLAUDE.md, docs/ROADMAP.md collectively narrate intent and state
 2.5 Traceability Matrix
 
 The following matrices link features to their source artifacts and to higher-level capabilities described in Section 1. Use these to navigate from any requirement back to its codebase evidence or up to its business motivation.
 
-2.5.1 Feature â†’ Source Artifact Matrix
+2.5.1 Feature → Source Artifact Matrix
 Feature ID	Primary Source	Database Model
 F-001	src/app/api/properties/, src/lib/validators.ts	Property
 F-002	prisma/schema.prisma lines 223-239	Listing
@@ -2074,13 +2074,13 @@ F-025	src/lib/geocode.ts, src/lib/import-listing.ts lines 489-516	mutates Proper
 F-026	src/features/matching/external-search.ts	n/a
 F-027	src/features/floorplan-ai/sketch.ts	(would write Media)
 F-028	prisma/schema.prisma lines 297-307	SavedSearch
-2.5.2 Feature â†’ Capability Domain Matrix (per Section 1.2.2.1)
+2.5.2 Feature → Capability Domain Matrix (per Section 1.2.2.1)
 Capability Domain (Section 1.2.2.1)	Feature(s)
 Property CRUD with rich attributes	F-001
 Multi-portal listing tracking	F-002, F-008
 Historical price snapshots with charting	F-003
 Web authentication (magic-link)	F-004
-Mobile authentication (OTP â†’ JWT)	F-005
+Mobile authentication (OTP → JWT)	F-005
 Automated portal scraping	F-007
 Browser sidecar (Playwright HTTP service)	F-009
 Catastro integration	F-010
@@ -2088,17 +2088,17 @@ Bookmarklet/userscript importers	F-011
 5-signal duplicate detection + merge	F-012, F-013, F-014
 Background enrichment pipeline	F-016
 Owner-scoped dashboard with KPIs	F-017
-2.5.3 Feature â†’ Kpi Matrix (per Section 1.2.3.3)
+2.5.3 Feature → Kpi Matrix (per Section 1.2.3.3)
 KPI (Section 1.2.3.3)	Producing Feature(s)
 Active properties (FOR_SALE), sold count, withdrawn count	F-001, F-017
 Total listings, listings per portal	F-002, F-017
-City average â‚¬/mÂ² (top 8 cities)	F-001, F-017
+City average €/m² (top 8 cities)	F-001, F-017
 Price snapshots in last 30 days	F-003, F-017
 Stale automatic listings	F-021, F-017
 Stale manual-portal listings	F-008, F-017
 Pending duplicate match suggestions	F-012, F-017
 Photos missing perceptual hash	F-015, F-017
-2.5.4 Feature â†’ Workflow Matrix (per Section 1.3.1.2)
+2.5.4 Feature → Workflow Matrix (per Section 1.3.1.2)
 Workflow (Section 1.3.1.2)	Implementing Feature(s)
 Add property manually	F-001
 Import from portal (auto-scrape)	F-007, F-011, F-016
@@ -2124,7 +2124,7 @@ Sale-only listings (no rentals)	Section 1.3.3
 Constraint	Effect
 EUR-only currency, integer cents storage	Cannot represent fractional cents or other currencies
 Spanish UI, <html lang="es">	Cannot localize without significant rework
-Default country "EspaÃ±a", default province "Asturias"	Imports default to Spain unless overridden
+Default country "España", default province "Asturias"	Imports default to Spain unless overridden
 Portal enum closed set (10 values)	Adding a portal requires schema migration
 EnergyRating enum 8 values (A-G, UNKNOWN)	No partial ratings (e.g., A+)
 PropertyType enum 10 values	New types require schema migration
@@ -2145,140 +2145,140 @@ Node Runtime	20+ required
 PostgreSQL	17 (alpine container)
 2.7 References
 2.7.1 Files Examined
-package.json â€” Root workspace declaration, dependencies, npm scripts mapping (dev, scraper, check-listings, hash-photos, fix-prices, claim-orphans, mobile)
-apps/mobile/package.json â€” Mobile dependencies and Expo SDK version verification
-.env.example â€” Environment variable contract (DATABASE_URL, AUTH_SECRET, NEXTAUTH_URL, RESEND_API_KEY, RESEND_FROM, EXPO_PUBLIC_API_URL, SCRAPER_PORT, SCRAPER_URL, CATASTRO_BASE_URL, ANTHROPIC_API_KEY)
-docker-compose.yml â€” Local PostgreSQL 17 alpine container setup
-prisma/schema.prisma â€” Complete data model: 11 models (User, Account, Session, VerificationToken, ApiToken, Property, Media, Listing, PriceSnapshot, MatchSuggestion, ImportLog, SavedSearch) and 8 enums
-prisma/migrations/20260518190058_init/migration.sql â€” Initial schema baseline
-prisma/migrations/20260519094949_add_portals/migration.sql â€” Addition of THINKSPAIN, INDOMIO, YAENCONTRE, HABITACLIA portals
-prisma/migrations/[ID]/migration.sql â€” Media.phash and matching infrastructure
-prisma/migrations/20260519135431_import_log/migration.sql â€” ImportLog table and ImportLogKind enum
-prisma/migrations/[ID]/migration.sql â€” MatchSuggestion table
-prisma/migrations/20260520181751_auth_tables/migration.sql â€” NextAuth/Auth.js Prisma adapter tables
-src/middleware.ts â€” Edge auth middleware with public allowlist and Bearer-token bypass
-src/lib/auth.ts â€” NextAuth v5 configuration with custom Resend email provider
-src/lib/auth-edge.ts â€” Edge-safe NextAuth variant (no Prisma dependency)
-src/lib/auth-helpers.ts â€” requireUserId, getUserId, ensureOwner helpers
-src/lib/mobile-jwt.ts â€” HS256 JWT issue/verify for mobile (buysell-mobile issuer, 90d expiry)
-src/lib/api-token.ts â€” getOrCreateUserToken, resolveUserFromToken, extractTokenFromRequest
-src/lib/validators.ts â€” PropertyInput and ImportListingInput Zod schemas
-src/lib/filters.ts â€” parseFilters and buildPropertyWhere
-src/lib/import-listing.ts â€” 631-line import orchestration including importListing, postImportTasks, enrichInBackground
-src/lib/dhash.ts â€” 64-bit perceptual hashing via Sharp
-src/lib/import-log.ts â€” Non-blocking import event logger
-src/lib/geocode.ts â€” Nominatim integration with module-level throttle
-src/lib/db.ts â€” Prisma singleton client cached on globalThis
-src/features/scraping/runner.ts â€” Single and batch recheck orchestrator
-src/features/scraping/types.ts â€” PortalAdapter interface and ScrapeOutcome union
-src/features/scraping/adapters/_genericAdapter.ts â€” Adapter factory shared by automated portals
-src/features/scraping/adapters/_common.ts â€” Shared parsing/extraction utilities
-src/features/scraping/adapters/{fotocasa,pisos,habitaclia,thinkspain,indomio}.ts â€” Five automated portal adapters
-src/features/scraping/adapters/{idealista,milanuncios,yaencontre}.ts â€” Three manual-only adapters
-src/features/scraping/http.ts â€” Direct HTTP fetch with anti-bot detection
-src/features/scraping/browser-fetch.ts â€” Sidecar HTTP client
-src/features/cadastre/lookup.ts â€” 387-line Catastro OVC integration
-src/features/cadastre/types.ts â€” CadastreInfo type
-src/features/matching/find-similar.ts â€” 5-signal scoring engine
-src/features/matching/merge.ts â€” Property merge workflow
-src/features/matching/borrow-fields.ts â€” Field borrowing from similar candidates
-src/features/matching/external-search.ts â€” Google portal-scoped search URL generator
-src/features/floorplan-ai/sketch.ts â€” Floorplan AI scaffold (throws not-implemented)
-src/features/properties/PropertyForm.tsx â€” Create/edit property UI
-src/features/properties/PriceHistoryChart.tsx â€” Recharts price history visualization
-src/features/properties/Gallery.tsx â€” Media gallery component
-src/features/properties/{FiltersSidebar,SortMenu,ViewToggle}.tsx â€” Catalog UI controls
-src/features/properties/CadastreCard.tsx â€” Catastro data display
-src/features/properties/SearchOtherPortalsButton.tsx â€” External search UI
-src/features/matching/MatchesList.tsx â€” Match review queue UI
-src/components/GlobalSearch.tsx â€” Web global search component
-src/app/properties/page.tsx â€” Catalog listing page
-src/app/properties/new/ â€” Property creation route
-src/app/properties/[id]/ â€” Property detail/edit route
-src/app/dashboard/page.tsx â€” 268-line dashboard with 10 parallel KPI queries
-src/app/activity/page.tsx â€” Activity timeline
-src/app/login/ â€” Login UI flow
-src/app/bookmarklet/page.tsx â€” Bookmarklet/userscript download page
-src/app/matches/ â€” Web matches review page
-src/app/api/properties/route.ts â€” Property collection endpoint
-src/app/api/properties/[id]/route.ts â€” Property detail endpoint
-src/app/api/properties/[id]/similar/route.ts â€” Similar property suggestions
-src/app/api/properties/[id]/merge/route.ts â€” Merge endpoint
-src/app/api/properties/[id]/cadastre/route.ts â€” Catastro lookup endpoint
-src/app/api/properties/[id]/dismiss-match/route.ts â€” Dismiss match suggestion
-src/app/api/listings/import/route.ts â€” Import endpoint (CORS-open, Bearer-validated)
-src/app/api/listings/check/route.ts â€” Recheck endpoint (maxDuration 300s)
-src/app/api/search/route.ts â€” Global search endpoint
-src/app/api/matches/route.ts â€” Match suggestion listing endpoint
-src/app/api/bookmarklet/[portal]/route.ts â€” Dynamic userscript generator
-src/app/api/auth/[...nextauth]/route.ts â€” NextAuth catch-all handler
-src/app/api/auth/mobile/request/route.ts â€” Mobile OTP issuance
-src/app/api/auth/mobile/verify/route.ts â€” Mobile OTP verification + JWT exchange
-packages/shared/src/sanity.ts â€” Validation predicates (isValidPriceEur, isReasonablePriceChange, etc.)
-packages/shared/src/similarity.ts â€” slugify, bigrams, jaccard, haversine
-packages/shared/src/format.ts â€” Locale formatters
-packages/shared/src/types.ts â€” Shared TypeScript types
-apps/mobile/app.json â€” Expo manifest
-apps/mobile/app/_layout.tsx â€” Root layout with AuthGate
-apps/mobile/app/login.tsx â€” Two-step OTP login UI
-apps/mobile/app/property/[id].tsx â€” Property detail screen
-apps/mobile/app/modal.tsx â€” Modal route
-apps/mobile/app/(tabs)/{index,matches,search,account,explore}.tsx â€” Tab screens
-apps/mobile/lib/api.ts â€” HTTP client and auth endpoints
-apps/mobile/lib/auth-context.tsx â€” Mobile auth state
-apps/mobile/lib/secure-store.ts â€” Cross-platform secure token storage
-scripts/scraper-service.mjs â€” Playwright sidecar HTTP server
-scripts/hash-existing-photos.ts â€” phash backfill batch script
-scripts/check-listings.ts â€” CLI invocation of recheck runner
-public/bookmarklet/buysell-{fotocasa,idealista,pisos,habitaclia,yaencontre,thinkspain,indomio}.user.js â€” Seven Tampermonkey userscripts
-public/bookmarklet/_buysell-common.js â€” Reference design document for userscripts
-public/bookmarklet/idealista.js â€” Bookmarklet variant
-README.md â€” Product description, stack, data model summary
-CLAUDE.md â€” Original product brief
-docs/ROADMAP.md â€” Phased roadmap, current state assessment, risks and mitigations
+package.json — Root workspace declaration, dependencies, npm scripts mapping (dev, scraper, check-listings, hash-photos, fix-prices, claim-orphans, mobile)
+apps/mobile/package.json — Mobile dependencies and Expo SDK version verification
+.env.example — Environment variable contract (DATABASE_URL, AUTH_SECRET, NEXTAUTH_URL, RESEND_API_KEY, RESEND_FROM, EXPO_PUBLIC_API_URL, SCRAPER_PORT, SCRAPER_URL, CATASTRO_BASE_URL, ANTHROPIC_API_KEY)
+docker-compose.yml — Local PostgreSQL 17 alpine container setup
+prisma/schema.prisma — Complete data model: 11 models (User, Account, Session, VerificationToken, ApiToken, Property, Media, Listing, PriceSnapshot, MatchSuggestion, ImportLog, SavedSearch) and 8 enums
+prisma/migrations/20260518190058_init/migration.sql — Initial schema baseline
+prisma/migrations/20260519094949_add_portals/migration.sql — Addition of THINKSPAIN, INDOMIO, YAENCONTRE, HABITACLIA portals
+prisma/migrations/[ID]/migration.sql — Media.phash and matching infrastructure
+prisma/migrations/20260519135431_import_log/migration.sql — ImportLog table and ImportLogKind enum
+prisma/migrations/[ID]/migration.sql — MatchSuggestion table
+prisma/migrations/20260520181751_auth_tables/migration.sql — NextAuth/Auth.js Prisma adapter tables
+src/middleware.ts — Edge auth middleware with public allowlist and Bearer-token bypass
+src/lib/auth.ts — NextAuth v5 configuration with custom Resend email provider
+src/lib/auth-edge.ts — Edge-safe NextAuth variant (no Prisma dependency)
+src/lib/auth-helpers.ts — requireUserId, getUserId, ensureOwner helpers
+src/lib/mobile-jwt.ts — HS256 JWT issue/verify for mobile (buysell-mobile issuer, 90d expiry)
+src/lib/api-token.ts — getOrCreateUserToken, resolveUserFromToken, extractTokenFromRequest
+src/lib/validators.ts — PropertyInput and ImportListingInput Zod schemas
+src/lib/filters.ts — parseFilters and buildPropertyWhere
+src/lib/import-listing.ts — 631-line import orchestration including importListing, postImportTasks, enrichInBackground
+src/lib/dhash.ts — 64-bit perceptual hashing via Sharp
+src/lib/import-log.ts — Non-blocking import event logger
+src/lib/geocode.ts — Nominatim integration with module-level throttle
+src/lib/db.ts — Prisma singleton client cached on globalThis
+src/features/scraping/runner.ts — Single and batch recheck orchestrator
+src/features/scraping/types.ts — PortalAdapter interface and ScrapeOutcome union
+src/features/scraping/adapters/_genericAdapter.ts — Adapter factory shared by automated portals
+src/features/scraping/adapters/_common.ts — Shared parsing/extraction utilities
+src/features/scraping/adapters/{fotocasa,pisos,habitaclia,thinkspain,indomio}.ts — Five automated portal adapters
+src/features/scraping/adapters/{idealista,milanuncios,yaencontre}.ts — Three manual-only adapters
+src/features/scraping/http.ts — Direct HTTP fetch with anti-bot detection
+src/features/scraping/browser-fetch.ts — Sidecar HTTP client
+src/features/cadastre/lookup.ts — 387-line Catastro OVC integration
+src/features/cadastre/types.ts — CadastreInfo type
+src/features/matching/find-similar.ts — 5-signal scoring engine
+src/features/matching/merge.ts — Property merge workflow
+src/features/matching/borrow-fields.ts — Field borrowing from similar candidates
+src/features/matching/external-search.ts — Google portal-scoped search URL generator
+src/features/floorplan-ai/sketch.ts — Floorplan AI scaffold (throws not-implemented)
+src/features/properties/PropertyForm.tsx — Create/edit property UI
+src/features/properties/PriceHistoryChart.tsx — Recharts price history visualization
+src/features/properties/Gallery.tsx — Media gallery component
+src/features/properties/{FiltersSidebar,SortMenu,ViewToggle}.tsx — Catalog UI controls
+src/features/properties/CadastreCard.tsx — Catastro data display
+src/features/properties/SearchOtherPortalsButton.tsx — External search UI
+src/features/matching/MatchesList.tsx — Match review queue UI
+src/components/GlobalSearch.tsx — Web global search component
+src/app/properties/page.tsx — Catalog listing page
+src/app/properties/new/ — Property creation route
+src/app/properties/[id]/ — Property detail/edit route
+src/app/dashboard/page.tsx — 268-line dashboard with 10 parallel KPI queries
+src/app/activity/page.tsx — Activity timeline
+src/app/login/ — Login UI flow
+src/app/bookmarklet/page.tsx — Bookmarklet/userscript download page
+src/app/matches/ — Web matches review page
+src/app/api/properties/route.ts — Property collection endpoint
+src/app/api/properties/[id]/route.ts — Property detail endpoint
+src/app/api/properties/[id]/similar/route.ts — Similar property suggestions
+src/app/api/properties/[id]/merge/route.ts — Merge endpoint
+src/app/api/properties/[id]/cadastre/route.ts — Catastro lookup endpoint
+src/app/api/properties/[id]/dismiss-match/route.ts — Dismiss match suggestion
+src/app/api/listings/import/route.ts — Import endpoint (CORS-open, Bearer-validated)
+src/app/api/listings/check/route.ts — Recheck endpoint (maxDuration 300s)
+src/app/api/search/route.ts — Global search endpoint
+src/app/api/matches/route.ts — Match suggestion listing endpoint
+src/app/api/bookmarklet/[portal]/route.ts — Dynamic userscript generator
+src/app/api/auth/[...nextauth]/route.ts — NextAuth catch-all handler
+src/app/api/auth/mobile/request/route.ts — Mobile OTP issuance
+src/app/api/auth/mobile/verify/route.ts — Mobile OTP verification + JWT exchange
+packages/shared/src/sanity.ts — Validation predicates (isValidPriceEur, isReasonablePriceChange, etc.)
+packages/shared/src/similarity.ts — slugify, bigrams, jaccard, haversine
+packages/shared/src/format.ts — Locale formatters
+packages/shared/src/types.ts — Shared TypeScript types
+apps/mobile/app.json — Expo manifest
+apps/mobile/app/_layout.tsx — Root layout with AuthGate
+apps/mobile/app/login.tsx — Two-step OTP login UI
+apps/mobile/app/property/[id].tsx — Property detail screen
+apps/mobile/app/modal.tsx — Modal route
+apps/mobile/app/(tabs)/{index,matches,search,account,explore}.tsx — Tab screens
+apps/mobile/lib/api.ts — HTTP client and auth endpoints
+apps/mobile/lib/auth-context.tsx — Mobile auth state
+apps/mobile/lib/secure-store.ts — Cross-platform secure token storage
+scripts/scraper-service.mjs — Playwright sidecar HTTP server
+scripts/hash-existing-photos.ts — phash backfill batch script
+scripts/check-listings.ts — CLI invocation of recheck runner
+public/bookmarklet/buysell-{fotocasa,idealista,pisos,habitaclia,yaencontre,thinkspain,indomio}.user.js — Seven Tampermonkey userscripts
+public/bookmarklet/_buysell-common.js — Reference design document for userscripts
+public/bookmarklet/idealista.js — Bookmarklet variant
+README.md — Product description, stack, data model summary
+CLAUDE.md — Original product brief
+docs/ROADMAP.md — Phased roadmap, current state assessment, risks and mitigations
 2.7.2 Folders Explored
-src/ â€” Web app source tree
-src/lib/ â€” Utility/infrastructure layer
-src/app/ â€” Next.js App Router
-src/app/api/ â€” API namespaces (properties, listings, auth, search, matches, bookmarklet)
-src/app/api/properties/[id]/ â€” Property detail workflows including merge, similar, cadastre, dismiss-match
-src/app/api/listings/ â€” Import and check endpoints
-src/app/api/auth/mobile/ â€” Mobile OTP flow
-src/app/api/bookmarklet/[portal]/ â€” Dynamic userscript generation
-src/components/ â€” Shared UI components and design system
-src/features/ â€” Domain modules (scraping, matching, properties, cadastre, floorplan-ai)
-src/features/scraping/adapters/ â€” Ten portal adapters
-src/features/matching/ â€” Duplicate detection and merge
-src/features/cadastre/ â€” Catastro integration
-src/features/properties/ â€” UI components for property management
-prisma/ â€” Schema definition
-prisma/migrations/ â€” Migration history
-packages/ â€” Workspace packages container
-packages/shared/src/ â€” Shared TypeScript source
-apps/mobile/app/ â€” Expo Router routes
-apps/mobile/app/(tabs)/ â€” Tab route group
-apps/mobile/lib/ â€” Mobile infrastructure (API client, auth context, secure store)
-public/bookmarklet/ â€” Tampermonkey userscripts and bookmarklet
-scripts/ â€” Operational toolbox
+src/ — Web app source tree
+src/lib/ — Utility/infrastructure layer
+src/app/ — Next.js App Router
+src/app/api/ — API namespaces (properties, listings, auth, search, matches, bookmarklet)
+src/app/api/properties/[id]/ — Property detail workflows including merge, similar, cadastre, dismiss-match
+src/app/api/listings/ — Import and check endpoints
+src/app/api/auth/mobile/ — Mobile OTP flow
+src/app/api/bookmarklet/[portal]/ — Dynamic userscript generation
+src/components/ — Shared UI components and design system
+src/features/ — Domain modules (scraping, matching, properties, cadastre, floorplan-ai)
+src/features/scraping/adapters/ — Ten portal adapters
+src/features/matching/ — Duplicate detection and merge
+src/features/cadastre/ — Catastro integration
+src/features/properties/ — UI components for property management
+prisma/ — Schema definition
+prisma/migrations/ — Migration history
+packages/ — Workspace packages container
+packages/shared/src/ — Shared TypeScript source
+apps/mobile/app/ — Expo Router routes
+apps/mobile/app/(tabs)/ — Tab route group
+apps/mobile/lib/ — Mobile infrastructure (API client, auth context, secure store)
+public/bookmarklet/ — Tampermonkey userscripts and bookmarklet
+scripts/ — Operational toolbox
 2.7.3 Cross-references To Other Sections
-Section 1.1.2 â€” Core Business Problem (motivates F-002, F-003, F-010, F-012)
-Section 1.2.1.1 â€” Portal stratification (anchors F-007 vs F-008)
-Section 1.2.1.2 â€” Current System Limitations (informs Section 2.4.3 scalability)
-Section 1.2.1.3 â€” Integration with Existing Enterprise Landscape (anchors F-010, F-025, F-004, F-005)
-Section 1.2.2.1 â€” Primary System Capabilities (mapped in Section 2.5.2)
-Section 1.2.2.2 â€” Major System Components diagram (referenced by Section 2.3.1)
-Section 1.2.2.3 â€” Core Technical Approach (anchors Section 2.4.1 constraints)
-Section 1.2.3.2 â€” Critical Success Factors (priority indicators applied to feature priorities)
-Section 1.2.3.3 â€” Key Performance Indicators (mapped in Section 2.5.3)
-Section 1.3.1.1 â€” Must-Have Capabilities (priority anchor)
-Section 1.3.1.2 â€” Primary User Workflows (mapped in Section 2.5.4)
-Section 1.3.3 â€” Out-of-Scope Elements (anchors F-027, F-028 as Proposed and constrains Section 2.4 scalability)
-Section 1.4 â€” References (extended in Section 2.7)
+Section 1.1.2 — Core Business Problem (motivates F-002, F-003, F-010, F-012)
+Section 1.2.1.1 — Portal stratification (anchors F-007 vs F-008)
+Section 1.2.1.2 — Current System Limitations (informs Section 2.4.3 scalability)
+Section 1.2.1.3 — Integration with Existing Enterprise Landscape (anchors F-010, F-025, F-004, F-005)
+Section 1.2.2.1 — Primary System Capabilities (mapped in Section 2.5.2)
+Section 1.2.2.2 — Major System Components diagram (referenced by Section 2.3.1)
+Section 1.2.2.3 — Core Technical Approach (anchors Section 2.4.1 constraints)
+Section 1.2.3.2 — Critical Success Factors (priority indicators applied to feature priorities)
+Section 1.2.3.3 — Key Performance Indicators (mapped in Section 2.5.3)
+Section 1.3.1.1 — Must-Have Capabilities (priority anchor)
+Section 1.3.1.2 — Primary User Workflows (mapped in Section 2.5.4)
+Section 1.3.3 — Out-of-Scope Elements (anchors F-027, F-028 as Proposed and constrains Section 2.4 scalability)
+Section 1.4 — References (extended in Section 2.7)
 3. Technology Stack
 
 This section catalogs the languages, frameworks, libraries, services, and tooling that compose the BuySell Asturias platform. All version numbers reflect what is currently declared in source manifests (package.json, apps/mobile/package.json, packages/shared/package.json, docker-compose.yml) and verified against feature implementations. The stack is deliberately uniform around a single-language (TypeScript) monorepo with one runtime persistence engine (PostgreSQL 17 via Prisma 6), enabling code reuse between the web and mobile surfaces through the @buysell/shared workspace package.
 
-Deviation from the project's default technology stack: the boilerplate "default stack" (AWS, Flask/Python, Auth0, MongoDB, Langchain, native Swift/Kotlin/Objective-C, Electron) does not apply to this repository. The actual stack â€” described below â€” diverges intentionally. See Section 3.7 for the full mapping.
+Deviation from the project's default technology stack: the boilerplate "default stack" (AWS, Flask/Python, Auth0, MongoDB, Langchain, native Swift/Kotlin/Objective-C, Electron) does not apply to this repository. The actual stack — described below — diverges intentionally. See Section 3.7 for the full mapping.
 
 3.1 Programming Languages
 3.1.1 Languages By Platform And Component
@@ -2292,16 +2292,16 @@ Shared workspace package	TypeScript	inherits	packages/shared/tsconfig.json (targ
 Operational scripts (tsx)	TypeScript	runtime ^4.19.2	scripts/check-listings.ts, hash-existing-photos.ts, claim-orphan-properties.ts, fix-corrupt-prices.ts
 Playwright sidecar service	JavaScript ESM (.mjs)	Node 20+	scripts/scraper-service.mjs
 Database migrations	SQL	PostgreSQL 17 dialect	prisma/migrations/*/migration.sql
-Browser userscripts (Tampermonkey)	JavaScript	â€”	public/bookmarklet/*.user.js
-Styling pipeline	CSS (PostCSS)	â€”	Tailwind-generated
+Browser userscripts (Tampermonkey)	JavaScript	—	public/bookmarklet/*.user.js
+Styling pipeline	CSS (PostCSS)	—	Tailwind-generated
 3.1.2 Typescript Configuration
 3.1.2.1 Strict-mode Configuration
 
 TypeScript strict mode is enforced uniformly across every package. Three distinct tsconfig.json files govern compilation:
 
-Root tsconfig.json â€” targets ES2022, strict: true, moduleResolution: bundler, jsx: preserve. Declares path aliases @/* â†’ ./src/* and @buysell/shared â†’ ./packages/shared/src/index.ts. Excludes apps/mobile from the web compilation graph.
-Mobile apps/mobile/tsconfig.json â€” extends expo/tsconfig.base, retains strict mode, mirrors path aliases for @/* and @buysell/shared.
-Shared packages/shared/tsconfig.json â€” target: ES2022, module: ESNext, moduleResolution: Bundler, strict: true, declaration: true, noEmit: true, isolatedModules: true.
+Root tsconfig.json — targets ES2022, strict: true, moduleResolution: bundler, jsx: preserve. Declares path aliases @/* → ./src/* and @buysell/shared → ./packages/shared/src/index.ts. Excludes apps/mobile from the web compilation graph.
+Mobile apps/mobile/tsconfig.json — extends expo/tsconfig.base, retains strict mode, mirrors path aliases for @/* and @buysell/shared.
+Shared packages/shared/tsconfig.json — target: ES2022, module: ESNext, moduleResolution: Bundler, strict: true, declaration: true, noEmit: true, isolatedModules: true.
 3.1.2.2 Runtime And Compilation Constraints
 Constraint	Source	Effect
 Node 20+ required	README.md	Minimum runtime for Next.js 15 / React 19 / Expo SDK 54
@@ -2313,9 +2313,9 @@ isolatedModules in shared	packages/shared/tsconfig.json	Ensures each file is a s
 TypeScript was chosen as the single language across all layers to:
 
 Share types end-to-end between the web app, the mobile app, and the operational scripts through the @buysell/shared package (re-exported as five subpath entries: ./sanity, ./similarity, ./format, ./types, ./schemas).
-Reduce cognitive switching â€” every domain module under src/features/ follows the same conventions as those under apps/mobile/.
-Pair with Zod for boundary validation â€” runtime schemas defined in shared modules double as compile-time type sources via z.infer.
-Stay portable across runtimes â€” the same source compiles for Next.js (server + browser), React Native (Hermes), and Node CLI execution via tsx.
+Reduce cognitive switching — every domain module under src/features/ follows the same conventions as those under apps/mobile/.
+Pair with Zod for boundary validation — runtime schemas defined in shared modules double as compile-time type sources via z.infer.
+Stay portable across runtimes — the same source compiles for Next.js (server + browser), React Native (Hermes), and Node CLI execution via tsx.
 3.2 Frameworks & Libraries
 3.2.1 Core Web Framework Stack
 
@@ -2326,7 +2326,7 @@ next	^15.1.0	Next.js 15 App Router; unified UI + API runtime
 react	^19.0.0	React 19 (server + client components)
 react-dom	^19.0.0	DOM renderer
 next-auth	^5.0.0-beta.31	Authentication (NextAuth v5 / Auth.js) with JWT session strategy
-@auth/prisma-adapter	^2.11.2	NextAuth â†” Prisma persistence adapter
+@auth/prisma-adapter	^2.11.2	NextAuth ↔ Prisma persistence adapter
 @prisma/client	^6.1.0	Prisma ORM client
 prisma (dev)	^6.1.0	Prisma CLI, codegen, Studio
 3.2.1.1 Justification For Next.js 15 + React 19
@@ -2379,7 +2379,7 @@ expo-web-browser	~15.0.10	In-app browser
 The Expo app manifest (apps/mobile/app.json) declares:
 
 App name "BuySell Asturias", slug buysell-asturias, deep-link scheme buysell.
-newArchEnabled: true â€” React Native New Architecture (Fabric + TurboModules).
+newArchEnabled: true — React Native New Architecture (Fabric + TurboModules).
 iOS: supportsTablet: true.
 Android: edgeToEdgeEnabled: true, adaptive icon configuration.
 Web: output: static for static web export via react-native-web.
@@ -2422,7 +2422,7 @@ The packages/shared workspace exposes the universal contract between the web and
 Package identity: @buysell/shared@0.1.0, private.
 Subpath exports: ., ./sanity, ./similarity, ./format, ./types, ./schemas.
 Peer dependency: zod ^3.24.0 (declared as a peer so each consumer pins a compatible major).
-No runtime dependencies â€” deliberately lightweight to keep the dependency footprint small for mobile.
+No runtime dependencies — deliberately lightweight to keep the dependency footprint small for mobile.
 Capabilities: locale-aware formatting helpers, plausibility/sanity checks (price-range gates), similarity utilities (slugify, bigrams, Jaccard, haversine distance), and shared types.
 
 The web app declares it in next.config.ts under transpilePackages: ["@buysell/shared"] so Next compiles the package directly from TypeScript source.
@@ -2494,10 +2494,10 @@ NextAuth beta: the project depends on a beta (5.0.0-beta.31); breaking changes m
 The platform integrates with six external surfaces, each with carefully scoped responsibility.
 
 Service	Purpose	Integration Method	Authentication
-Catastro OVC (Spain)	Cadastral reference resolution via OVCSWLocalizacionRC and OVCCallejero	Public XML services parsed with fast-xml-parser	None â€” public
+Catastro OVC (Spain)	Cadastral reference resolution via OVCSWLocalizacionRC and OVCCallejero	Public XML services parsed with fast-xml-parser	None — public
 Resend	Magic-link delivery for web auth (F-004), OTP delivery for mobile auth (F-005)	REST SDK + API key	Bearer API key (RESEND_API_KEY)
-Nominatim (OpenStreetMap)	Reverse and forward geocoding	Public REST API	None â€” identifiable User-Agent header "BuySell-Asturias/1.0" and â‰¥1s rate-limit enforced via module-level throttle in src/lib/geocode.ts
-Anthropic API	Planned AI features (floorplan generation, scoring)	API key scaffolded in .env.example only	Not active â€” function generateSketchFromPhotos throws "pendiente de implementar" per Section 1.3.3
+Nominatim (OpenStreetMap)	Reverse and forward geocoding	Public REST API	None — identifiable User-Agent header "BuySell-Asturias/1.0" and ≥1s rate-limit enforced via module-level throttle in src/lib/geocode.ts
+Anthropic API	Planned AI features (floorplan generation, scoring)	API key scaffolded in .env.example only	Not active — function generateSketchFromPhotos throws "pendiente de implementar" per Section 1.3.3
 Real-estate portals (Fotocasa, Pisos.com, Habitaclia, ThinkSpain, Indomio)	Listing source data via scraping	HTTP fetch via Cheerio with optional Playwright sidecar fallback	None (anonymous scraping with browser-like headers)
 Google Search	Portal-scoped site: searches (F-026)	URL generation only; no API call	None
 3.4.1.1 Endpoint Reference
@@ -2508,7 +2508,7 @@ Nominatim search	https://nominatim.openstreetmap.org/search
 Playwright sidecar	http://127.0.0.1:4201 (loopback only, overridable via SCRAPER_URL)
 3.4.2 Authentication Services
 
-Authentication is implemented in-house using NextAuth v5 and a custom JWT bridge â€” there is no Auth0 integration, contrary to the default stack.
+Authentication is implemented in-house using NextAuth v5 and a custom JWT bridge — there is no Auth0 integration, contrary to the default stack.
 
 Component	Implementation	Library	Lifetime
 Web cookie session	NextAuth v5 with a custom Resend email provider	next-auth ^5.0.0-beta.31 + @auth/prisma-adapter	NextAuth default (JWT session strategy)
@@ -2525,12 +2525,12 @@ The shared AUTH_SECRET environment variable is the single trust root: it both si
 There is no external monitoring service wired in. Observability is implemented locally:
 
 Mechanism	Source	Scope
-ImportLog table	F-024 â€” every enrichment outcome with meta JSON	Persistent diagnostic surface
+ImportLog table	F-024 — every enrichment outcome with meta JSON	Persistent diagnostic surface
 Console logging	Sidecar (scripts/scraper-service.mjs), NextAuth fallback, scripts	Development-time
 docs/ROADMAP.md	Lists APM/Sentry as out-of-scope	Forward-looking
 3.4.4 Cloud Services
 
-There is no cloud deployment yet. Per Section 1.2.1.2, the only containerized service is the local PostgreSQL 17 container declared in docker-compose.yml. All cloud topics â€” hosting, R2/Cloudflare image storage, managed Postgres â€” are deferred per docs/ROADMAP.md Phase 1.
+There is no cloud deployment yet. Per Section 1.2.1.2, the only containerized service is the local PostgreSQL 17 container declared in docker-compose.yml. All cloud topics — hosting, R2/Cloudflare image storage, managed Postgres — are deferred per docs/ROADMAP.md Phase 1.
 
 3.4.5 Environment Variable Contract
 
@@ -2563,7 +2563,7 @@ Provider lock	prisma/migrations/migration_lock.toml pins provider to postgresql
 The schema (prisma/schema.prisma) declares 11 models and 8 enums:
 
 Models: User, Account, Session, VerificationToken, ApiToken, Property, Media, Listing, PriceSnapshot, MatchSuggestion, ImportLog, SavedSearch.
-Enums: PropertyType (10 values), PropertyStatus (4), EnergyRating (8: Aâ€“G + UNKNOWN), Portal (10), ListingStatus (6), MediaKind (5), MediaSource (5), ImportLogKind.
+Enums: PropertyType (10 values), PropertyStatus (4), EnergyRating (8: A–G + UNKNOWN), Portal (10), ListingStatus (6), MediaKind (5), MediaSource (5), ImportLogKind.
 3.5.1.2 Migration History
 Migration	Description
 20260518190058_init	Initial schema baseline
@@ -2587,7 +2587,7 @@ There is no caching layer in the current implementation. Per Section 2.4.3, Redi
 3.5.4 Storage Services
 Storage Surface	Current Implementation	Forward-Looking
 Image media	Local filesystem public/uploads/	R2/Cloudflare migration deferred to Fase 1
-Mobile secure storage	expo-secure-store on native; localStorage fallback on web (apps/mobile/lib/secure-store.ts)	â€”
+Mobile secure storage	expo-secure-store on native; localStorage fallback on web (apps/mobile/lib/secure-store.ts)	—
 Persistent DB volume	Docker volume buysell-pgdata	Managed Postgres TBD
 3.6 Development & Deployment
 3.6.1 Development Tools
@@ -2633,8 +2633,8 @@ PostgreSQL container	postgres:17-alpine via docker-compose.yml (local dev only)
 Application container	No Dockerfile present. Production Dockerfile is a Fase 1 critical gap per Section 1.2.1.2
 3.6.5 Ci/cd Status
 Concern	Current State
-GitHub Actions workflows	Absent â€” no .github/workflows/ directory; listed as a critical gap in Section 1.2.1.2
-Deployment automation	None â€” deferred to docs/ROADMAP.md Fase 1
+GitHub Actions workflows	Absent — no .github/workflows/ directory; listed as a critical gap in Section 1.2.1.2
+Deployment automation	None — deferred to docs/ROADMAP.md Fase 1
 Static analysis in CI	Not configured
 Test runs in CI	Not configured
 3.6.6 Sidecar Architecture
@@ -2647,7 +2647,7 @@ Bind address	127.0.0.1 only (refuses external connections by design)
 Default port	4201 (overridable via SCRAPER_PORT)
 Endpoints	GET /healthz, POST /fetch
 Browser	Headless Chromium via Playwright, with anti-automation masking
-Locale	es-ES, timezone Europe/Madrid, viewport 1366Ã—768
+Locale	es-ES, timezone Europe/Madrid, viewport 1366×768
 Lifecycle	Singleton browser with 5-minute idle shutdown; SIGINT/SIGTERM hooks
 3.6.6.1 Sidecar Boundary Diagram
 
@@ -2687,8 +2687,8 @@ Integration	Mechanism
 Shared types contract	Web and mobile both import from @buysell/shared via the workspace alias; Next.js transpiles it via transpilePackages
 Path aliases	@/* resolves to ./src/* in both web (tsconfig.json) and mobile (apps/mobile/tsconfig.json)
 Authentication trust root	The same AUTH_SECRET signs NextAuth JWT cookies (web) and HS256 mobile JWTs; src/lib/auth-helpers.ts bridges both surfaces
-Mobile â†’ Web API	Mobile reads EXPO_PUBLIC_API_URL and sends Authorization: Bearer <jwt> headers; default value is a LAN IP for development
-Userscripts â†’ API	Tampermonkey userscripts POST to /api/listings/import with Bearer API token; CORS open * only on that endpoint, validated by token
+Mobile → Web API	Mobile reads EXPO_PUBLIC_API_URL and sends Authorization: Bearer <jwt> headers; default value is a LAN IP for development
+Userscripts → API	Tampermonkey userscripts POST to /api/listings/import with Bearer API token; CORS open * only on that endpoint, validated by token
 Edge middleware bypass	src/middleware.ts lets any Authorization: Bearer ... request on /api/* pass through to Node handlers because JWT verification requires Buffer (unavailable in Edge)
 Scraping pipeline	HTTP fetch via http.ts first; falls back to Playwright sidecar via browser-fetch.ts on 403/429/captcha detection
 Background enrichment	enrichInBackground in src/lib/import-listing.ts runs fire-and-forget post-response; no message queue (deferred per roadmap)
@@ -2767,19 +2767,19 @@ sidecar + userscripts
 The default stack supplied to the documentation pipeline does not describe this repository. The actual stack diverges as follows; deviations are intentional and rooted in the architectural decisions documented in Sections 1.2.2 and 2.4.
 
 Default Stack Component	Actual Implementation	Disposition
-AWS cloud platform	None â€” local Docker only	Deferred per Section 1.2.1.2
-Docker (general)	Docker â€” only for the local PostgreSQL container	âœ… Partially aligned
+AWS cloud platform	None — local Docker only	Deferred per Section 1.2.1.2
+Docker (general)	Docker — only for the local PostgreSQL container	✅ Partially aligned
 Terraform IaC	Not present	Not adopted
 GitHub Actions CI/CD	Not present	Deferred per Section 1.2.1.2
 Python primary backend language	TypeScript everywhere	Replaced
 Flask backend framework	Next.js 15 (server + API routes unified)	Replaced
-Auth0 authentication	NextAuth v5 + custom mobile HS256 JWT (via jose)	Replaced â€” see Section 3.4.2
+Auth0 authentication	NextAuth v5 + custom mobile HS256 JWT (via jose)	Replaced — see Section 3.4.2
 MongoDB database	PostgreSQL 17 + Prisma 6	Replaced for relational integrity
-Langchain AI framework	None â€” ANTHROPIC_API_KEY scaffolded but unused	Not yet active per Section 1.3.3
-React with TypeScript (web)	React 19 + TypeScript	âœ… Aligned
-TailwindCSS	Tailwind CSS ^3.4.17	âœ… Aligned
-React Native with TypeScript	React Native 0.81.5 + TypeScript via Expo SDK 54	âœ… Aligned
-Swift / Kotlin / Objective-C	Not used â€” Expo manages native code	Not applicable
+Langchain AI framework	None — ANTHROPIC_API_KEY scaffolded but unused	Not yet active per Section 1.3.3
+React with TypeScript (web)	React 19 + TypeScript	✅ Aligned
+TailwindCSS	Tailwind CSS ^3.4.17	✅ Aligned
+React Native with TypeScript	React Native 0.81.5 + TypeScript via Expo SDK 54	✅ Aligned
+Swift / Kotlin / Objective-C	Not used — Expo manages native code	Not applicable
 ElectronJS	Not present	Not adopted
 3.8 Security Posture Of The Stack
 
@@ -2794,61 +2794,61 @@ Sidecar exposure	Playwright sidecar bound to 127.0.0.1 only
 Magic-link validity	24-hour expiration
 OTP validity	10-minute single-use expiration
 Scraping politeness	1-second pacing; anti-automation masking only when needed
-Sanity rejection	Price changes outside 0.5xâ€“2x logged and rejected
-Auto-merge safety	Blocked at score â‰¥95 when price diff >30% or type mismatch
+Sanity rejection	Price changes outside 0.5x–2x logged and rejected
+Auto-merge safety	Blocked at score ≥95 when price diff >30% or type mismatch
 3.9 References
 3.9.1 Repository Files Examined
-package.json â€” Root npm workspace declaration, dependencies, scripts
-apps/mobile/package.json â€” Mobile workspace dependencies (Expo SDK 54)
-apps/mobile/app.json â€” Expo app manifest with plugins and experiments
-apps/mobile/tsconfig.json â€” Mobile TypeScript configuration and path aliases
-apps/mobile/metro.config.js â€” Metro bundler with monorepo support
-apps/mobile/eslint.config.js â€” Expo ESLint flat config
-apps/mobile/lib/api.ts â€” Mobile API client with Bearer token injection
-apps/mobile/lib/secure-store.ts â€” expo-secure-store + localStorage fallback
-packages/shared/package.json â€” Shared package manifest with subpath exports
-packages/shared/tsconfig.json â€” Shared package TypeScript configuration
-tsconfig.json â€” Root TypeScript configuration with path aliases and exclusions
-next.config.ts â€” Next.js configuration (image allowlist, transpilePackages, serverExternalPackages)
-tailwind.config.ts â€” Tailwind design system tokens
-postcss.config.mjs â€” PostCSS with Tailwind + Autoprefixer
-docker-compose.yml â€” Local PostgreSQL 17 alpine setup
-.env.example â€” Environment variable contract
-README.md â€” Project overview and declared runtime requirements
-prisma/schema.prisma â€” Prisma datasource, generator, models, enums
-prisma/migrations/migration_lock.toml â€” Provider lock
-src/lib/auth.ts â€” Full NextAuth configuration with the custom Resend provider
-src/lib/auth-edge.ts â€” Edge-safe NextAuth variant
-src/lib/auth-helpers.ts â€” Web + mobile session bridge
-src/lib/mobile-jwt.ts â€” HS256 JWT issuance via jose
-src/lib/db.ts â€” Prisma singleton client
-src/lib/api-token.ts â€” Per-user API token generation
-src/lib/geocode.ts â€” Nominatim integration with module-level throttle
-src/lib/dhash.ts â€” Sharp-based perceptual hashing
-src/middleware.ts â€” Edge middleware with Bearer bypass
-src/features/cadastre/lookup.ts â€” fast-xml-parser usage for Catastro
-src/features/scraping/browser-fetch.ts â€” Sidecar HTTP client
-scripts/scraper-service.mjs â€” Playwright sidecar with headless Chromium
+package.json — Root npm workspace declaration, dependencies, scripts
+apps/mobile/package.json — Mobile workspace dependencies (Expo SDK 54)
+apps/mobile/app.json — Expo app manifest with plugins and experiments
+apps/mobile/tsconfig.json — Mobile TypeScript configuration and path aliases
+apps/mobile/metro.config.js — Metro bundler with monorepo support
+apps/mobile/eslint.config.js — Expo ESLint flat config
+apps/mobile/lib/api.ts — Mobile API client with Bearer token injection
+apps/mobile/lib/secure-store.ts — expo-secure-store + localStorage fallback
+packages/shared/package.json — Shared package manifest with subpath exports
+packages/shared/tsconfig.json — Shared package TypeScript configuration
+tsconfig.json — Root TypeScript configuration with path aliases and exclusions
+next.config.ts — Next.js configuration (image allowlist, transpilePackages, serverExternalPackages)
+tailwind.config.ts — Tailwind design system tokens
+postcss.config.mjs — PostCSS with Tailwind + Autoprefixer
+docker-compose.yml — Local PostgreSQL 17 alpine setup
+.env.example — Environment variable contract
+README.md — Project overview and declared runtime requirements
+prisma/schema.prisma — Prisma datasource, generator, models, enums
+prisma/migrations/migration_lock.toml — Provider lock
+src/lib/auth.ts — Full NextAuth configuration with the custom Resend provider
+src/lib/auth-edge.ts — Edge-safe NextAuth variant
+src/lib/auth-helpers.ts — Web + mobile session bridge
+src/lib/mobile-jwt.ts — HS256 JWT issuance via jose
+src/lib/db.ts — Prisma singleton client
+src/lib/api-token.ts — Per-user API token generation
+src/lib/geocode.ts — Nominatim integration with module-level throttle
+src/lib/dhash.ts — Sharp-based perceptual hashing
+src/middleware.ts — Edge middleware with Bearer bypass
+src/features/cadastre/lookup.ts — fast-xml-parser usage for Catastro
+src/features/scraping/browser-fetch.ts — Sidecar HTTP client
+scripts/scraper-service.mjs — Playwright sidecar with headless Chromium
 3.9.2 Repository Folders Examined
-/ (root) â€” Top-level configuration manifests
-apps/ â€” Monorepo apps container
-apps/mobile/ â€” Expo workspace
-apps/mobile/lib/ â€” Mobile client utilities
-packages/ â€” Workspace packages container
-packages/shared/ â€” Shared TypeScript package
-prisma/ â€” Database schema and migrations
-prisma/migrations/ â€” Timestamped migration directory tree
-public/ â€” Tampermonkey userscripts and bookmarklets
-scripts/ â€” Operational toolbox (sidecar + maintenance scripts)
-src/ â€” Web app source tree
-src/lib/ â€” Utility and infrastructure layer
-src/features/ â€” Domain modules
-src/features/scraping/ â€” Scraping subsystem with adapters
+/ (root) — Top-level configuration manifests
+apps/ — Monorepo apps container
+apps/mobile/ — Expo workspace
+apps/mobile/lib/ — Mobile client utilities
+packages/ — Workspace packages container
+packages/shared/ — Shared TypeScript package
+prisma/ — Database schema and migrations
+prisma/migrations/ — Timestamped migration directory tree
+public/ — Tampermonkey userscripts and bookmarklets
+scripts/ — Operational toolbox (sidecar + maintenance scripts)
+src/ — Web app source tree
+src/lib/ — Utility and infrastructure layer
+src/features/ — Domain modules
+src/features/scraping/ — Scraping subsystem with adapters
 3.9.3 Technical Specification Cross-references
-Section 1.2 SYSTEM OVERVIEW â€” Confirmed stack versions table, primary capabilities, architectural patterns
-Section 1.3 SCOPE â€” In/out-of-scope boundaries, essential integrations, deferred items
-Section 2.4 IMPLEMENTATION CONSIDERATIONS â€” Technical constraints, performance requirements, scalability considerations, security implications
-Section 2.6 ASSUMPTIONS AND CONSTRAINTS â€” Hard constraints, version tracking, documented assumptions
+Section 1.2 SYSTEM OVERVIEW — Confirmed stack versions table, primary capabilities, architectural patterns
+Section 1.3 SCOPE — In/out-of-scope boundaries, essential integrations, deferred items
+Section 2.4 IMPLEMENTATION CONSIDERATIONS — Technical constraints, performance requirements, scalability considerations, security implications
+Section 2.6 ASSUMPTIONS AND CONSTRAINTS — Hard constraints, version tracking, documented assumptions
 4. Process Flowchart
 
 This section documents the end-to-end behavioral workflows of the BuySell Asturias platform, translating the feature catalog and architectural primitives established in Sections 1 and 2 into executable process diagrams. Every flowchart below is anchored to specific source artifacts in the repository and reflects the decision points, validation rules, persistence boundaries, and error handling behaviors observed in the code. The diagrams use Mermaid.js notation and follow the swim-lane convention of grouping actors (clients, edge layer, API routes, domain logic, data layer, sidecars, external services) into discrete subgraphs.
@@ -2942,11 +2942,11 @@ Fire-and-forget
 
 4.1.2 Authentication & Authorization Workflows
 
-The platform implements a dual authentication model that bridges NextAuth cookie sessions (web) and HS256 Bearer JWTs (mobile) through a shared AUTH_SECRET trust root. A third token type â€” per-user API tokens with bs_ prefix â€” supports headless userscript imports. All three converge on the helper requireUserId() exposed by src/lib/auth-helpers.ts.
+The platform implements a dual authentication model that bridges NextAuth cookie sessions (web) and HS256 Bearer JWTs (mobile) through a shared AUTH_SECRET trust root. A third token type — per-user API tokens with bs_ prefix — supports headless userscript imports. All three converge on the helper requireUserId() exposed by src/lib/auth-helpers.ts.
 
 4.1.2.1 Edge Middleware Decision Flow
 
-Every request that is not statically excluded by the matcher (excluding _next/static, _next/image, favicon, icon) traverses the Edge middleware (src/middleware.ts) before reaching any Node-runtime API handler. The middleware enforces a three-tier check: public allowlist â†’ Bearer bypass â†’ session validation.
+Every request that is not statically excluded by the matcher (excluding _next/static, _next/image, favicon, icon) traverses the Edge middleware (src/middleware.ts) before reaching any Node-runtime API handler. The middleware enforces a three-tier check: public allowlist → Bearer bypass → session validation.
 
 Incoming Request
 
@@ -2990,8 +2990,8 @@ No
 
 Key behaviors:
 
-The Bearer bypass on /api/* does not validate the token at the Edge â€” validation is delegated to the Node-runtime handler via resolveUserFromToken() so that the Edge runtime remains Prisma-free.
-verifyRequest redirects to /login?check=email while signIn lands on /login â€” both are public per the allowlist.
+The Bearer bypass on /api/* does not validate the token at the Edge — validation is delegated to the Node-runtime handler via resolveUserFromToken() so that the Edge runtime remains Prisma-free.
+verifyRequest redirects to /login?check=email while signIn lands on /login — both are public per the allowlist.
 Unauthenticated API calls receive a JSON error with HTTP 401 rather than a redirect, so userscripts and the mobile client can parse the failure deterministically.
 4.1.2.2 Web Magic-link Sequence (f-004)
 
@@ -3025,7 +3025,7 @@ POST email (HTML + plaintext,
 angle-bracketed URL)
 Magic-link email
 console.log magic URL
-302 â†’ /login?check=email
+302 → /login?check=email
 Click link in email
 GET /api/auth/callback?token=...
 SELECT VerificationToken
@@ -3036,7 +3036,7 @@ Issue HS256 JWT session
 cookie
 Set-Cookie + redirect to callbackUrl
 User
-4.1.2.3 Mobile Otp â†’ Jwt Sequence (f-005)
+4.1.2.3 Mobile Otp → Jwt Sequence (f-005)
 
 The mobile flow trades the magic-link click for a 6-digit code entered in the Expo app. Codes are persisted in the same VerificationToken table as NextAuth but prefixed with "mobile:" to namespace them, expire in 10 minutes, and are consumed (deleted) on first successful verification. Successful verification issues an HS256 JWT with issuer "buysell-mobile" and 90-day expiry via src/lib/mobile-jwt.ts.
 
@@ -3057,7 +3057,7 @@ sequenceDiagram
     Req->>Req: Zod validate email
     Req->>DB: prisma.user.upsert (signup-on-demand)
     Req->>DB: deleteMany VerificationToken WHERE identifier=email
-    Req->>Req: randomInt(100000, 1000000) â†’ 6-digit code
+    Req->>Req: randomInt(100000, 1000000) → 6-digit code
     Req->>DB: INSERT VerificationToken<br/>token=mobile:&lt;code&gt;, expires=+10min
     alt RESEND_API_KEY present
         Req->>Resend: POST OTP email
@@ -3072,10 +3072,10 @@ sequenceDiagram
     Ver->>Ver: Zod validate /^\d{6}$/
     Ver->>DB: SELECT VerificationToken<br/>WHERE identifier=email<br/>AND token=mobile:&lt;code&gt;
     alt Token not found
-        Ver-->>App: 401 "CÃ³digo incorrecto"
+        Ver-->>App: 401 "Código incorrecto"
     else Token expired
         Ver->>DB: DELETE VerificationToken
-        Ver-->>App: 401 "CÃ³digo caducado"
+        Ver-->>App: 401 "Código caducado"
     else Valid
         Ver->>DB: DELETE VerificationToken (one-time use)
         Ver->>DB: UPSERT User, set emailVerified
@@ -3175,13 +3175,13 @@ postImportTasks(propertyId,
 
 Sanitization and create/update branching highlights:
 
-sanitizePayload nulls any value failing the shared sanity validators (isValidPriceEur 10kâ€“50M, isValidBuiltArea 5â€“5000, isValidYear 1700â€“year+5, lat/lng range). When primary fields are missing, it re-parses the features[] array to recover builtArea, usableArea, plotArea, rooms, bathrooms, yearBuilt, floor.
+sanitizePayload nulls any value failing the shared sanity validators (isValidPriceEur 10k–50M, isValidBuiltArea 5–5000, isValidYear 1700–year+5, lat/lng range). When primary fields are missing, it re-parses the features[] array to recover builtArea, usableArea, plotArea, rooms, bathrooms, yearBuilt, floor.
 The "fillIfEmpty" pattern protects owner-edited fields: only null or empty values on the existing Property are overwritten.
 Media refresh is destructive for PORTAL_SCRAPE photos only; USER_UPLOAD is preserved unconditionally, and phash values are migrated by URL identity so previously hashed photos do not need to be re-hashed.
 The skipAutoMerge: !mediaRefreshed flag short-circuits Stage 5 of the enrichment pipeline on re-imports that don't change images, preventing redundant duplicate detection passes.
 4.1.4 Background Enrichment Pipeline (f-016)
 
-After every successful import, postImportTasks() (src/lib/import-listing.ts lines 455â€“575) executes five sequential enrichment stages in a fire-and-forget continuation. Each stage independently catches and logs its own exceptions to the ImportLog table so that a failure in one stage does not abort the subsequent stages.
+After every successful import, postImportTasks() (src/lib/import-listing.ts lines 455–575) executes five sequential enrichment stages in a fire-and-forget continuation. Each stage independently catches and logs its own exceptions to the ImportLog table so that a failure in one stage does not abort the subsequent stages.
 
 Stage 5: MATCH / MERGE_AUTO
 
@@ -3215,7 +3215,7 @@ Media, skippedDuplicateMedia
 Log MATCH
 score + reasons[]
 
-findSimilar â†’ top candidate
+findSimilar → top candidate
 
 score >= 70?
 
@@ -3290,7 +3290,7 @@ Skip (placeholder)
 
 Sharp 9x8 grayscale
 compare adjacent pixels
-â†’ 16-char hex
+→ 16-char hex
 
 UPDATE Media.phash
 
@@ -3391,7 +3391,7 @@ Touch lastCheckedAt only
 (state preserved)
 
 isReasonablePriceChange
-0.5x â€“ 2x?
+0.5x – 2x?
 
 Touch lastCheckedAt
 Log RECHECK ok:false
@@ -3446,7 +3446,7 @@ No
 
 4.1.6 Scraping Adapter Selection And Escalation (f-007, F-008, F-009)
 
-Each portal adapter implements the PortalAdapter contract (portal, matches, manualOnly?, scrape) and is registered in an ordered list in runner.ts. The generic adapter (_genericAdapter.ts) applies a three-tier price extraction strategy (JSON-LD â†’ CSS â†’ body regex) over content loaded by the loadPage helper, which transparently escalates from direct HTTP to the Playwright sidecar when anti-bot indicators are detected.
+Each portal adapter implements the PortalAdapter contract (portal, matches, manualOnly?, scrape) and is registered in an ordered list in runner.ts. The generic adapter (_genericAdapter.ts) applies a three-tier price extraction strategy (JSON-LD → CSS → body regex) over content loaded by the loadPage helper, which transparently escalates from direct HTTP to the Playwright sidecar when anti-bot indicators are detected.
 
 404 or 410
 
@@ -3534,7 +3534,7 @@ first match wins
 Price found?
 
 withinRange
-0.5x â€“ 2x of previous?
+0.5x – 2x of previous?
 
 outcome=error
 
@@ -3542,11 +3542,11 @@ outcome=ok
 price*100, status=ACTIVE,
 title, observedAt=now
 
-Manual-only short-circuit: Three adapters (Idealista, Milanuncios, Yaencontre) declare manualOnly: true and bypass loadPage entirely â€” they immediately return { kind: "blocked", reason: <portal message> } so no HTTP request is ever issued. The runner recognizes this flag (see Section 4.1.5) and updates only lastCheckedAt, prompting the user toward bookmarklet/userscript imports instead.
+Manual-only short-circuit: Three adapters (Idealista, Milanuncios, Yaencontre) declare manualOnly: true and bypass loadPage entirely — they immediately return { kind: "blocked", reason: <portal message> } so no HTTP request is ever issued. The runner recognizes this flag (see Section 4.1.5) and updates only lastCheckedAt, prompting the user toward bookmarklet/userscript imports instead.
 
 4.1.7 Duplicate Detection And Auto-merge Workflow (f-012, F-013, F-014)
 
-The 5-signal duplicate detection engine (src/features/matching/find-similar.ts) scores candidate properties on a 0â€“100 scale and persists results as MatchSuggestion rows when the score crosses â‰¥ 60. During the import enrichment pipeline (Stage 5), any candidate scoring â‰¥ 95 also triggers an automatic merge â€” but only after a safety guard rejects suspicious matches (price diff > 30% or property type mismatch).
+The 5-signal duplicate detection engine (src/features/matching/find-similar.ts) scores candidate properties on a 0–100 scale and persists results as MatchSuggestion rows when the score crosses ≥ 60. During the import enrichment pipeline (Stage 5), any candidate scoring ≥ 95 also triggers an automatic merge — but only after a safety guard rejects suspicious matches (price diff > 30% or property type mismatch).
 
 findSimilar propertyId
 
@@ -3622,7 +3622,7 @@ blocked: true,
 priceTooDifferent / typeMismatch
 
 mergeProperties
-source â†’ target
+source → target
 
 Log MERGE_AUTO
 
@@ -3666,7 +3666,7 @@ No
 
 < 30
 
-30 â€“ 59
+30 – 59
 
 >= 60
 
@@ -3684,7 +3684,7 @@ No
 
 4.1.7.1 Merge Execution Subflow
 
-When invoked (either automatically by Stage 5 or manually via POST /api/properties/[id]/merge), mergeProperties performs a five-step destructive consolidation that is idempotent (returns zero counts when the source is already deleted). The merge is not wrapped in a Prisma $transaction â€” idempotency and per-step recoverability are favored over atomic rollback.
+When invoked (either automatically by Stage 5 or manually via POST /api/properties/[id]/merge), mergeProperties performs a five-step destructive consolidation that is idempotent (returns zero counts when the source is already deleted). The merge is not wrapped in a Prisma $transaction — idempotency and per-step recoverability are favored over atomic rollback.
 
 mergeProperties sourceId, targetId
 
@@ -3704,10 +3704,10 @@ target found?
 throw error
 
 Step 1: updateMany Listing
-propertyId source â†’ target
+propertyId source → target
 
 Step 2: updateMany PriceSnapshot
-propertyId source â†’ target
+propertyId source → target
 
 Step 3: Move Media with dedup
 
@@ -3759,7 +3759,7 @@ No
 
 4.1.8 Dashboard Kpi Aggregation Workflow (f-017)
 
-The dashboard at /dashboard is rendered server-side with export const dynamic = "force-dynamic" to guarantee fresh KPIs on every visit. After owner identity is established, ten queries fan out in parallel via Promise.all, recombining into the operational view consumed by Inventory, Por portal, Top â‚¬/mÂ², and Necesita atenciÃ³n sections.
+The dashboard at /dashboard is rendered server-side with export const dynamic = "force-dynamic" to guarantee fresh KPIs on every visit. After owner identity is established, ten queries fan out in parallel via Promise.all, recombining into the operational view consumed by Inventory, Por portal, Top €/m², and Necesita atención sections.
 
 PostgreSQL
 Prisma
@@ -3774,7 +3774,7 @@ dashboard/page.tsx
 (force-dynamic)
 Browser
 par
-â€‹
+​
 alt
 [No session]
 [userId resolved]
@@ -3798,7 +3798,7 @@ Q8 count stale Listing
 IN MANUAL_PORTALS
 (IDEALISTA, MILANUNCIOS)
 Q9 count Media kind=PHOTO phash=null
-Q10 raw SQL â‚¬/mÂ² by city
+Q10 raw SQL €/m² by city
 HAVING COUNT(*) >= 2
 result sets
 KPI bundle
@@ -3806,7 +3806,7 @@ SSR HTML
 User
 4.1.9 Activity Timeline Workflow (f-018)
 
-The /activity page loads the 100 most recent PriceSnapshot rows scoped to the owner via property join, ordered by observedAt desc. It then builds two maps â€” by-property (to resolve the previous snapshot for direction classification) and by-day (to group rendered sections) â€” and classifies each event as up / down / flat / sold. The sold classification has priority via the status === "SOLD" short-circuit. Relative time labels ("Hoy", "Ayer", "Hace N dÃ­as", "Hace N sem.", or absolute date) come from the formatRelative helper.
+The /activity page loads the 100 most recent PriceSnapshot rows scoped to the owner via property join, ordered by observedAt desc. It then builds two maps — by-property (to resolve the previous snapshot for direction classification) and by-day (to group rendered sections) — and classifies each event as up / down / flat / sold. The sold classification has priority via the status === "SOLD" short-circuit. Relative time labels ("Hoy", "Ayer", "Hace N días", "Hace N sem.", or absolute date) come from the formatRelative helper.
 
 4.2 Integration Workflows
 
@@ -3840,16 +3840,16 @@ enrichProperty
 GET Consulta_RCCOOR
 EPSG:4326 lat,lng
 XML response
-Parse â†’ candidate (RC + meta)
+Parse → candidate (RC + meta)
 score by richness
 (addr+2, area+2, year+2, use+1, floor+1)
 parseAddress
-(SIGLA_MAP: Calleâ†’CL,
-Avenidaâ†’AV, ...)
+(SIGLA_MAP: Calle→CL,
+Avenida→AV, ...)
 GET Consulta_DNPLOC
 province + sigla + name
 XML response
-Parse â†’ candidate
+Parse → candidate
 score by richness
 Pick best (highest score)
 result with warning
@@ -3857,7 +3857,7 @@ result with warning
 GET Consulta_DNPRC(ref)
 detailed lookup
 XML or HTML
-throw 'Catastro devolviÃ³ HTML
+throw 'Catastro devolvió HTML
 (datos no disponibles)'
 Parse detailed record
 {ref, yearBuilt, builtArea, address, floor,
@@ -3871,7 +3871,7 @@ Log CATASTRO event
 (ok, meta)
 4.2.2 Playwright Sidecar Integration (f-009)
 
-The Playwright sidecar (scripts/scraper-service.mjs) is a Node HTTP server bound to 127.0.0.1:SCRAPER_PORT (default 4201) â€” loopback-only as a security boundary. The adapter layer escalates from direct HTTP to the sidecar only when an anti-bot indicator is detected, and degrades gracefully to a blocked outcome with a "usa el userscript" hint when the sidecar is not running (ECONNREFUSED).
+The Playwright sidecar (scripts/scraper-service.mjs) is a Node HTTP server bound to 127.0.0.1:SCRAPER_PORT (default 4201) — loopback-only as a security boundary. The adapter layer escalates from direct HTTP to the sidecar only when an anti-bot indicator is detected, and degrades gracefully to a blocked outcome with a "usa el userscript" hint when the sidecar is not running (ECONNREFUSED).
 
 Playwright
 Chromium
@@ -3896,7 +3896,7 @@ POST /fetch
 AbortSignal.timeout(+5s)
 ECONNREFUSED
 { kind: blocked,
-error: 'Scraper sidecar no estÃ¡
+error: 'Scraper sidecar no está
 arrancado (npm run scraper)' }
 getBrowser() singleton
 scheduleIdleClose 5min
@@ -3917,7 +3917,7 @@ page.close() + context.close()
 outcome
 4.2.3 Resend Email Integration
 
-Resend is invoked from two distinct paths â€” NextAuth's custom EmailResendProvider (web magic-link) and the mobile OTP request endpoint â€” both of which share the same fallback behavior: if RESEND_API_KEY is not present, the message is written to console.log so that local development without an API key still produces working sign-ins.
+Resend is invoked from two distinct paths — NextAuth's custom EmailResendProvider (web magic-link) and the mobile OTP request endpoint — both of which share the same fallback behavior: if RESEND_API_KEY is not present, the message is written to console.log so that local development without an API key still produces working sign-ins.
 
 Caller	Endpoint	Payload	Fallback
 NextAuth (Web)	Resend REST	HTML + plaintext body with angle-bracketed callback URL to prevent linkifier injection	console.log magic URL
@@ -3960,7 +3960,7 @@ No
 
 No
 
-4.2.5 Userscript â†” Api Integration (f-011)
+4.2.5 Userscript ↔ Api Integration (f-011)
 
 The userscripts in public/bookmarklet/buysell-<portal>.user.js are served per-user by GET /api/bookmarklet/[portal], which authenticates the requesting browser session, calls getOrCreateUserToken(userId), and dynamically injects const BUYSELL_TOKEN = "<token>"; into the script template along with an Authorization: "Bearer " + BUYSELL_TOKEN headers block. The response carries Content-Type: application/javascript, Cache-Control: no-store, and X-Generated-For: <userId> so that the userscript is never cached cross-user.
 
@@ -3993,7 +3993,7 @@ sequenceDiagram
     User->>Portal: Navigate to listing
     TM->>Portal: Inject @run-at document-idle<br/>+ MutationObserver
     TM->>Portal: Render floating button
-    User->>TM: Click "ðŸ“¥ Importar a BuySell"
+    User->>TM: Click "📥 Importar a BuySell"
     TM->>TM: Extract data from __NEXT_DATA__,<br/>JSON-LD, breadcrumbs, meta,<br/>up to 80 deduped images
     TM->>Import: GM_xmlhttpRequest POST<br/>Authorization: Bearer + JSON
     Import-->>TM: 201 / 200 / 4xx
@@ -4143,9 +4143,9 @@ The system favors idempotency and per-step recoverability over strict atomicity.
 
 Workflow	Persistence Points	Atomicity Strategy
 Import (Create Path)	Nested Property + Media + Listing create (atomic per Prisma); conditional PriceSnapshot insert	Single nested create is atomic; snapshot insert is independent
-Import (Update Path)	Listing update; conditional PriceSnapshot insert; fillIfEmpty Property update; Media re-create with phash preservation by URL	Sequential â€” no explicit transaction; fillIfEmpty semantics make repeat application safe
+Import (Update Path)	Listing update; conditional PriceSnapshot insert; fillIfEmpty Property update; Media re-create with phash preservation by URL	Sequential — no explicit transaction; fillIfEmpty semantics make repeat application safe
 Recheck	Always update lastCheckedAt; conditional lastPrice, lastSeenAt, status; conditional PriceSnapshot and Property.currentPrice on priceChanged	Independent updates; sanity gate prevents anomalous writes
-Merge	updateMany Listing â†’ updateMany PriceSnapshot â†’ loop Media with phash dedup â†’ fillIfEmpty Property â†’ delete source Property (CASCADE)	Idempotent: source-not-found returns zero counts; failures leave partial state recoverable on retry
+Merge	updateMany Listing → updateMany PriceSnapshot → loop Media with phash dedup → fillIfEmpty Property → delete source Property (CASCADE)	Idempotent: source-not-found returns zero counts; failures leave partial state recoverable on retry
 Background Enrichment	One persisted change per stage (HASH writes Media.phash; CATASTRO writes Property NULL fields + FLOORPLAN media; GEOCODE writes lat/lng; BORROW_FIELDS writes whitelisted fields; MATCH writes MatchSuggestion)	Each stage is independently try/catch-protected; per-stage failure logged but does not abort pipeline
 4.3.5 Caching Strategy
 
@@ -4185,17 +4185,17 @@ constraint, deadlock
 Any operation boundary
 
 Browser sidecar escalation
-(one shot, HTTP â†’ Playwright)
+(one shot, HTTP → Playwright)
 
 Console fallback
-(Resend â†’ console.log)
+(Resend → console.log)
 
 400 Bad Request
 + parsed.error.flatten()
 
 401 Unauthorized
 'No autenticado' /
-'CÃ³digo incorrecto' / 'caducado'
+'Código incorrecto' / 'caducado'
 
 500 + trimmed stack
 
@@ -4219,12 +4219,12 @@ Still blocked
 
 The platform implements no automatic retry loops in the scraper or the enrichment pipeline. Instead, the design favors:
 
-One-shot browser escalation: A single HTTPâ†’Playwright escalation per scrape attempt. If the sidecar also fails, the outcome degrades to blocked with an actionable user hint.
-Anti-bot pacing: 1000 ms between batch listings, 800 ms between photo hashes, 1100 ms between Nominatim queries â€” these throttles substitute for retries.
-Future-attempt resilience: Failed enrichment stages do not block subsequent imports â€” the next call to postImportTasks will re-attempt the same stage if the underlying data is still missing (e.g., cadastralRef IS NULL re-triggers Stage 2).
+One-shot browser escalation: A single HTTP→Playwright escalation per scrape attempt. If the sidecar also fails, the outcome degrades to blocked with an actionable user hint.
+Anti-bot pacing: 1000 ms between batch listings, 800 ms between photo hashes, 1100 ms between Nominatim queries — these throttles substitute for retries.
+Future-attempt resilience: Failed enrichment stages do not block subsequent imports — the next call to postImportTasks will re-attempt the same stage if the underlying data is still missing (e.g., cadastralRef IS NULL re-triggers Stage 2).
 Retry Class	Mechanism	Where
 Browser fallback	One escalation to Playwright sidecar	_common.ts loadPage
-Resend â†’ console	Implicit fallback when RESEND_API_KEY not set	auth.ts, mobile/request/route.ts
+Resend → console	Implicit fallback when RESEND_API_KEY not set	auth.ts, mobile/request/route.ts
 Catastro dual-path	Coordinate + address attempts always run; best score wins	cadastre/lookup.ts
 Geocode query variants	Multiple query strings tried sequentially	geocode.ts
 Sidecar dead detection	browser?.isConnected() re-launches singleton	scraper-service.mjs
@@ -4256,7 +4256,7 @@ ok flag + meta JSON
 Console diagnostics
 (dev only)
 
-Dashboard 'Necesita atenciÃ³n'
+Dashboard 'Necesita atención'
 stale listings,
 pending matches,
 unhashed photos
@@ -4269,21 +4269,21 @@ Userscript toast
 Operational recovery is supported by command-line scripts exposed as npm-script aliases in package.json:
 
 Script	Command	Purpose
-Hash backfill	npm run hash-photos â†’ scripts/hash-existing-photos.ts	Reprocesses photos with phash IS NULL, fixing dashboard "missing phash" alerts
-Price cleanup	npm run fix-prices â†’ scripts/fix-corrupt-prices.ts	Clears invalid currentPrice/lastPrice rows that escaped sanity validation
+Hash backfill	npm run hash-photos → scripts/hash-existing-photos.ts	Reprocesses photos with phash IS NULL, fixing dashboard "missing phash" alerts
+Price cleanup	npm run fix-prices → scripts/fix-corrupt-prices.ts	Clears invalid currentPrice/lastPrice rows that escaped sanity validation
 Orphan claim	npm run claim-orphans	Reassigns properties with ownerId IS NULL (from prior NextAuth schema migrations)
-Manual batch recheck	npm run check-listings	Invokes checkAllActiveListings() with CLI progress logging â€” useful when the API route times out
+Manual batch recheck	npm run check-listings	Invokes checkAllActiveListings() with CLI progress logging — useful when the API route times out
 Idempotent merge	n/a (built into mergeProperties)	Re-running a merge after partial failure returns zero counts if source is already gone
 4.5 Validation Rules And Decision Points
 4.5.1 Business Rules Per Workflow Step
 Step	Rule	Source
 Property create	Title minimum 3 characters	PropertyInput Zod schema
-Property create	Country defaults to "EspaÃ±a"	validators.ts
+Property create	Country defaults to "España"	validators.ts
 Property create (import)	Province defaults to "Asturias"	import-listing.ts
 Property create (import)	City defaults to "Desconcida" if missing	import-listing.ts
 Property create	Status defaults to FOR_SALE	prisma/schema.prisma
 Property create	EnergyRating defaults to UNKNOWN	prisma/schema.prisma
-All prices	Stored as integer cents (Ã— 100 on submit, Ã· 100 on display)	validators.ts, throughout
+All prices	Stored as integer cents (× 100 on submit, ÷ 100 on display)	validators.ts, throughout
 Field borrowing	Only fills NULL or empty strings; never overwrites	borrow-fields.ts
 Merge	EnergyRating only overwritten if target is UNKNOWN	merge.ts
 Merge	Tags merged as union (deduplicated)	merge.ts
@@ -4292,15 +4292,15 @@ Merge	Tags merged as union (deduplicated)	merge.ts
 The shared package @buysell/shared/sanity exposes uniform validators consumed across the web, mobile, and script surfaces:
 
 Validator	Acceptance Band	Used By
-isValidPriceEur	10,000 â‰¤ p â‰¤ 50,000,000 EUR	F-003, F-007, F-011, F-021
-isValidBuiltArea	5 â‰¤ a â‰¤ 5,000 mÂ²	F-011 sanitize
+isValidPriceEur	10,000 ≤ p ≤ 50,000,000 EUR	F-003, F-007, F-011, F-021
+isValidBuiltArea	5 ≤ a ≤ 5,000 m²	F-011 sanitize
 isValidPlotArea	Plot-specific bounds	F-011 sanitize
-isValidYear	1700 â‰¤ y â‰¤ currentYear + 5	F-011 sanitize
-isReasonablePriceChange(prev, new)	New must lie within [0.5 Ã— prev, 2.0 Ã— prev]	F-007 generic adapter, F-011 import, F-021 runner
+isValidYear	1700 ≤ y ≤ currentYear + 5	F-011 sanitize
+isReasonablePriceChange(prev, new)	New must lie within [0.5 × prev, 2.0 × prev]	F-007 generic adapter, F-011 import, F-021 runner
 Mobile OTP regex	^\d{6}$	/api/auth/mobile/verify
-API token length	â‰¥ 16 characters	resolveUserFromToken
-Search minimum query	â‰¥ 2 characters	/api/search
-Image minimum size	â‰¥ 1000 bytes (placeholder filter)	dhashFromUrl
+API token length	≥ 16 characters	resolveUserFromToken
+Search minimum query	≥ 2 characters	/api/search
+Image minimum size	≥ 1000 bytes (placeholder filter)	dhashFromUrl
 4.5.3 Authorization Checkpoints
 
 Authorization is layered at four levels, each with its own concern:
@@ -4309,14 +4309,14 @@ Edge middleware (src/middleware.ts): Public allowlist OR Bearer header OR valid 
 Route handler entry (every authenticated endpoint): requireUserId() from src/lib/auth-helpers.ts resolves either a NextAuth session or a mobile JWT.
 Owner scoping (every mutation on a Property): The ensureOwner(id, ownerId) pattern returns 404 (not 403, to avoid leaking existence) when the property is owned by a different user.
 Cross-owner exposure guards (matching and merging):
-Match suggestions filtered by sourceId IN (owner's property IDs) â€” cross-owner candidates are never surfaced.
+Match suggestions filtered by sourceId IN (owner's property IDs) — cross-owner candidates are never surfaced.
 Manual merge requires both source and target to belong to the same owner.
 4.5.4 Auto-merge Safety Guards
 
 The auto-merge path (Stage 5 of the enrichment pipeline) is the only place where the system performs destructive operations without human confirmation. It applies a defense-in-depth ladder:
 
 Layer	Threshold	Effect on Violation
-Score gate	top.score < 95	No merge attempted; suggestion persisted at score â‰¥ 60
+Score gate	top.score < 95	No merge attempted; suggestion persisted at score ≥ 60
 Price diff	Math.abs(priceA - priceB) / Math.max(priceA, priceB) > 0.3	Block, log MATCH blocked: true, priceTooDifferent: true
 Type mismatch	me.type !== them.type	Block, log MATCH blocked: true, typeMismatch: true
 Skip flag	opts.skipAutoMerge === true (re-imports with no media refresh)	Entire match stage short-circuits
@@ -4352,13 +4352,13 @@ Nominatim inter-call throttle	1,100 ms	src/lib/geocode.ts
 Mobile search debounce	250 ms	apps/mobile/app/(tabs)/search.tsx
 4.6.3 Numeric Thresholds Governing Workflows
 Threshold	Value	Purpose
-Sanity price band	0.5Ã— â€“ 2Ã— previous	isReasonablePriceChange
-Photo hamming threshold (match)	â‰¤ 8 (out of 64 bits)	PHOTO_HAMMING_THRESHOLD
+Sanity price band	0.5× – 2× previous	isReasonablePriceChange
+Photo hamming threshold (match)	≤ 8 (out of 64 bits)	PHOTO_HAMMING_THRESHOLD
 Photo minimum size	1,000 bytes	dhashFromUrl (placeholder filter)
-MatchSuggestion persist threshold	score â‰¥ 60	find-similar.ts upsert gate
+MatchSuggestion persist threshold	score ≥ 60	find-similar.ts upsert gate
 MatchSuggestion discard threshold	score < 30	find-similar.ts
 Field borrowing minimum score	70	borrow-fields.ts MIN_SCORE
-Auto-merge trigger threshold	score â‰¥ 95	postImportTasks
+Auto-merge trigger threshold	score ≥ 95	postImportTasks
 Auto-merge price diff guard	> 30%	import-listing.ts
 Candidate set cap	50 properties	find-similar.ts take: 50
 dHash batch cap per import	60 photos	import-listing.ts take: 60
@@ -4368,64 +4368,64 @@ Property filter limit	100 rows	parseFilters / buildPropertyWhere
 Activity feed limit	100 snapshots	src/app/activity/page.tsx
 4.7 References
 4.7.1 Technical Specification Sections Consulted
-1.2 SYSTEM OVERVIEW â€” Architecture diagram, stack versions, and integration landscape grounding the high-level workflow.
-2.1 FEATURE CATALOG â€” Feature IDs (F-001 through F-026) referenced inline across all workflows.
-2.3 FEATURE RELATIONSHIPS â€” Inter-feature dependency edges informing the cross-cutting integration paths.
-3.4 THIRD-PARTY SERVICES â€” External service endpoints and authentication contracts for Catastro, Resend, Nominatim, and the sidecar.
+1.2 SYSTEM OVERVIEW — Architecture diagram, stack versions, and integration landscape grounding the high-level workflow.
+2.1 FEATURE CATALOG — Feature IDs (F-001 through F-026) referenced inline across all workflows.
+2.3 FEATURE RELATIONSHIPS — Inter-feature dependency edges informing the cross-cutting integration paths.
+3.4 THIRD-PARTY SERVICES — External service endpoints and authentication contracts for Catastro, Resend, Nominatim, and the sidecar.
 4.7.2 Source Files Examined
-src/middleware.ts â€” Edge auth gate with public allowlist and Bearer bypass logic.
-src/lib/auth.ts â€” NextAuth v5 setup with custom EmailResendProvider (24-hour token, JWT session strategy).
-src/lib/auth-helpers.ts â€” getUserId / requireUserId dual-path resolver (web session + mobile JWT).
-src/lib/mobile-jwt.ts â€” HS256 JWT issuance/verification with buysell-mobile issuer and 90-day expiry.
-src/lib/api-token.ts â€” bs_-prefixed 256-bit token generation, resolution, and best-effort lastUsed update.
-src/lib/db.ts â€” Prisma singleton cached on globalThis in development.
-src/lib/import-listing.ts â€” Full import workflow including sanitizePayload, create/update branching, postImportTasks orchestrating 5 enrichment stages, and enrichInBackground Catastro coordinator.
-src/lib/import-log.ts â€” Non-blocking append-only event logger with console.error exception swallowing.
-src/lib/geocode.ts â€” Nominatim wrapper with 1100 ms throttle, query variants, and Spain-specific parameters.
-src/lib/dhash.ts â€” 64-bit dHash algorithm via Sharp resize to 9Ã—8 grayscale and Hamming distance helper.
-src/lib/validators.ts â€” Zod schemas including PropertyInput and ImportListingInput.
-src/middleware.ts â€” Edge runtime auth gate.
-src/features/scraping/runner.ts â€” checkListing and checkAllActiveListings orchestrator with outcome dispatch.
-src/features/scraping/types.ts â€” PortalAdapter contract and ScrapeOutcome discriminated union.
-src/features/scraping/http.ts â€” Direct HTTP fetch with anti-bot status classification and content sniffing.
-src/features/scraping/browser-fetch.ts â€” Sidecar HTTP client with ECONNREFUSED degradation.
-src/features/scraping/adapters/_common.ts â€” loadPage HTTPâ†’browser escalation logic.
-src/features/scraping/adapters/_genericAdapter.ts â€” 3-tier price extraction (JSON-LD â†’ CSS â†’ body regex).
-src/features/scraping/adapters/idealista.ts, milanuncios.ts, yaencontre.ts â€” Manual-only adapter stubs.
-src/features/matching/find-similar.ts â€” 5-signal candidate filter, scoring, and threshold gating.
-src/features/matching/merge.ts â€” 5-step destructive merge with phash dedup and fillIfEmpty backfill.
-src/features/matching/borrow-fields.ts â€” Non-destructive enrichment with MIN_SCORE = 70 gate and 19-field whitelist.
-src/features/cadastre/lookup.ts â€” Parallel coordinate/address Catastro resolution with richness scoring and HTML detection.
-src/app/api/listings/import/route.ts â€” CORS preflight, token validation, Zod parsing, importer dispatch.
-src/app/api/listings/check/route.ts â€” Single/batch recheck dispatcher with 5-minute maxDuration.
-src/app/api/auth/mobile/request/route.ts â€” OTP generation, Verification token persistence, Resend dispatch.
-src/app/api/auth/mobile/verify/route.ts â€” OTP verification, one-time consumption, JWT issuance.
-src/app/api/properties/[id]/merge/route.ts â€” Manual merge endpoint with Zod body validation.
-src/app/api/bookmarklet/[portal]/route.ts â€” Per-user userscript generation with token injection and no-store cache control.
-src/app/dashboard/page.tsx â€” 10-query parallel KPI aggregation with force-dynamic rendering.
-src/app/activity/page.tsx â€” Snapshot timeline with by-property/by-day classification and relative time labels.
-scripts/scraper-service.mjs â€” Playwright sidecar with loopback binding, anti-automation init scripts, and 5-minute idle close.
-scripts/hash-existing-photos.ts â€” Offline phash backfill recovery procedure.
-scripts/fix-corrupt-prices.ts â€” Price sanitization recovery procedure.
-prisma/schema.prisma â€” Complete data model including 8 enums, 11 models, indexes, and cascade rules.
-public/bookmarklet/buysell-fotocasa.user.js â€” Representative userscript with GM_xmlhttpRequest, MutationObserver, and toast notifications.
-packages/shared/src/sanity.ts â€” Cross-surface validators (isValidPriceEur, isValidBuiltArea, isValidYear, isReasonablePriceChange).
-packages/shared/src/similarity.ts â€” slugify, bigrams, jaccard, haversine consumed by the matching engine.
+src/middleware.ts — Edge auth gate with public allowlist and Bearer bypass logic.
+src/lib/auth.ts — NextAuth v5 setup with custom EmailResendProvider (24-hour token, JWT session strategy).
+src/lib/auth-helpers.ts — getUserId / requireUserId dual-path resolver (web session + mobile JWT).
+src/lib/mobile-jwt.ts — HS256 JWT issuance/verification with buysell-mobile issuer and 90-day expiry.
+src/lib/api-token.ts — bs_-prefixed 256-bit token generation, resolution, and best-effort lastUsed update.
+src/lib/db.ts — Prisma singleton cached on globalThis in development.
+src/lib/import-listing.ts — Full import workflow including sanitizePayload, create/update branching, postImportTasks orchestrating 5 enrichment stages, and enrichInBackground Catastro coordinator.
+src/lib/import-log.ts — Non-blocking append-only event logger with console.error exception swallowing.
+src/lib/geocode.ts — Nominatim wrapper with 1100 ms throttle, query variants, and Spain-specific parameters.
+src/lib/dhash.ts — 64-bit dHash algorithm via Sharp resize to 9×8 grayscale and Hamming distance helper.
+src/lib/validators.ts — Zod schemas including PropertyInput and ImportListingInput.
+src/middleware.ts — Edge runtime auth gate.
+src/features/scraping/runner.ts — checkListing and checkAllActiveListings orchestrator with outcome dispatch.
+src/features/scraping/types.ts — PortalAdapter contract and ScrapeOutcome discriminated union.
+src/features/scraping/http.ts — Direct HTTP fetch with anti-bot status classification and content sniffing.
+src/features/scraping/browser-fetch.ts — Sidecar HTTP client with ECONNREFUSED degradation.
+src/features/scraping/adapters/_common.ts — loadPage HTTP→browser escalation logic.
+src/features/scraping/adapters/_genericAdapter.ts — 3-tier price extraction (JSON-LD → CSS → body regex).
+src/features/scraping/adapters/idealista.ts, milanuncios.ts, yaencontre.ts — Manual-only adapter stubs.
+src/features/matching/find-similar.ts — 5-signal candidate filter, scoring, and threshold gating.
+src/features/matching/merge.ts — 5-step destructive merge with phash dedup and fillIfEmpty backfill.
+src/features/matching/borrow-fields.ts — Non-destructive enrichment with MIN_SCORE = 70 gate and 19-field whitelist.
+src/features/cadastre/lookup.ts — Parallel coordinate/address Catastro resolution with richness scoring and HTML detection.
+src/app/api/listings/import/route.ts — CORS preflight, token validation, Zod parsing, importer dispatch.
+src/app/api/listings/check/route.ts — Single/batch recheck dispatcher with 5-minute maxDuration.
+src/app/api/auth/mobile/request/route.ts — OTP generation, Verification token persistence, Resend dispatch.
+src/app/api/auth/mobile/verify/route.ts — OTP verification, one-time consumption, JWT issuance.
+src/app/api/properties/[id]/merge/route.ts — Manual merge endpoint with Zod body validation.
+src/app/api/bookmarklet/[portal]/route.ts — Per-user userscript generation with token injection and no-store cache control.
+src/app/dashboard/page.tsx — 10-query parallel KPI aggregation with force-dynamic rendering.
+src/app/activity/page.tsx — Snapshot timeline with by-property/by-day classification and relative time labels.
+scripts/scraper-service.mjs — Playwright sidecar with loopback binding, anti-automation init scripts, and 5-minute idle close.
+scripts/hash-existing-photos.ts — Offline phash backfill recovery procedure.
+scripts/fix-corrupt-prices.ts — Price sanitization recovery procedure.
+prisma/schema.prisma — Complete data model including 8 enums, 11 models, indexes, and cascade rules.
+public/bookmarklet/buysell-fotocasa.user.js — Representative userscript with GM_xmlhttpRequest, MutationObserver, and toast notifications.
+packages/shared/src/sanity.ts — Cross-surface validators (isValidPriceEur, isValidBuiltArea, isValidYear, isReasonablePriceChange).
+packages/shared/src/similarity.ts — slugify, bigrams, jaccard, haversine consumed by the matching engine.
 4.7.3 Folders Explored
-src/ â€” Web app source tree.
-src/lib/ â€” Shared utility and infrastructure layer.
-src/app/api/ â€” Next.js App Router API endpoint namespace.
-src/app/api/listings/ â€” Import and recheck endpoints.
-src/app/api/auth/mobile/ â€” Mobile OTP request/verify endpoints.
-src/features/scraping/ â€” Scraping subsystem with adapter registry.
-src/features/scraping/adapters/ â€” Per-portal adapter implementations.
-src/features/matching/ â€” Duplicate detection, merge, and review UI.
-src/features/cadastre/ â€” Catastro integration module.
-scripts/ â€” Operational utilities (scraper sidecar, hash backfill, recheck CLI, price cleanup).
-prisma/ â€” Schema, seed, and migrations.
-public/bookmarklet/ â€” Per-portal userscripts and shared documentation reference.
-apps/mobile/app/ â€” Expo Router tree with login, tabs, and property detail screens.
-packages/shared/src/ â€” Cross-surface sanity and similarity helpers.
+src/ — Web app source tree.
+src/lib/ — Shared utility and infrastructure layer.
+src/app/api/ — Next.js App Router API endpoint namespace.
+src/app/api/listings/ — Import and recheck endpoints.
+src/app/api/auth/mobile/ — Mobile OTP request/verify endpoints.
+src/features/scraping/ — Scraping subsystem with adapter registry.
+src/features/scraping/adapters/ — Per-portal adapter implementations.
+src/features/matching/ — Duplicate detection, merge, and review UI.
+src/features/cadastre/ — Catastro integration module.
+scripts/ — Operational utilities (scraper sidecar, hash backfill, recheck CLI, price cleanup).
+prisma/ — Schema, seed, and migrations.
+public/bookmarklet/ — Per-portal userscripts and shared documentation reference.
+apps/mobile/app/ — Expo Router tree with login, tabs, and property detail screens.
+packages/shared/src/ — Cross-surface sanity and similarity helpers.
 5. System Architecture
 5.1 High-level Architecture
 5.1.1 System Overview
@@ -4436,9 +4436,9 @@ The architectural intent is explicit and conservative: keep the deployable surfa
 
 Architectural style is a layered composition of three patterns:
 
-Modular monolith for the core web/API surface â€” feature modules are vertically sliced under src/features/ (scraping/, matching/, cadastre/, properties/, floorplan-ai/), each owning its types, helpers, and integration adapters.
-Sidecar pattern for headless browser work â€” scripts/scraper-service.mjs runs a Playwright Chromium instance on 127.0.0.1:4201 and exposes a minimal POST /fetch endpoint; the web application calls it only after direct HTTP fetch returns a blocked outcome.
-Polyglot client surface â€” packages/shared/ exposes sanity.ts, similarity.ts, format.ts, and types.ts consumed by both the web (next.config.ts transpilePackages: ["@buysell/shared"]) and the mobile app (workspace dependency).
+Modular monolith for the core web/API surface — feature modules are vertically sliced under src/features/ (scraping/, matching/, cadastre/, properties/, floorplan-ai/), each owning its types, helpers, and integration adapters.
+Sidecar pattern for headless browser work — scripts/scraper-service.mjs runs a Playwright Chromium instance on 127.0.0.1:4201 and exposes a minimal POST /fetch endpoint; the web application calls it only after direct HTTP fetch returns a blocked outcome.
+Polyglot client surface — packages/shared/ exposes sanity.ts, similarity.ts, format.ts, and types.ts consumed by both the web (next.config.ts transpilePackages: ["@buysell/shared"]) and the mobile app (workspace dependency).
 5.1.1.1 Key Architectural Principles
 
 The repository reveals five guiding principles applied consistently across modules:
@@ -4447,17 +4447,17 @@ Idempotency over atomicity. Both mergeProperties() (src/features/matching/merge.
 Fire-and-forget enrichment. After the synchronous portion of an import completes, void postImportTasks(propertyId) schedules a 5-stage background pipeline that runs without blocking the HTTP response. The pipeline is observable through ImportLog rows rather than tracked via a job queue.
 Defaults over rejection. The import create-path defaults missing fields rather than returning a 4xx (city: payload.city ?? "Desconocida", province: payload.province ?? "Asturias", type: payload.type ?? "PISO", energyRating: payload.energyRating ?? "UNKNOWN"). Userscripts can always push partial data.
 Edge bypass for Bearer tokens. src/middleware.ts short-circuits authentication for any /api/* request that carries an Authorization: Bearer header because the Edge runtime cannot perform HS256 verification (jose depends on Node Buffer). Validation is delegated to the Node-runtime route handler.
-Sanity-first defensive computation. Every scraped price passes through isReasonablePriceChange (0.5xâ€“2x band) before any DB mutation. Auto-merges are blocked when prices differ by more than 30% or types mismatch. These guards prevent destructive cascades from noisy scraper output.
+Sanity-first defensive computation. Every scraped price passes through isReasonablePriceChange (0.5x–2x band) before any DB mutation. Auto-merges are blocked when prices differ by more than 30% or types mismatch. These guards prevent destructive cascades from noisy scraper output.
 5.1.1.2 System Boundaries
 
 The system has four distinct trust and runtime boundaries:
 
-Edge runtime (src/middleware.ts) â€” authentication gate; cannot use Prisma, Buffer, or HS256 JWT verification.
-Node runtime (src/app/api/**/route.ts) â€” all API handlers, server components, server actions; full Node API surface including Prisma, jose, and sharp.
-Sidecar process (scripts/scraper-service.mjs) â€” Playwright Chromium; bound explicitly to 127.0.0.1 with no authentication (host-level isolation only); idle-closes after 5 minutes.
-External tier â€” Catastro OVC, Nominatim, Resend, and 8 Spanish real-estate portals; all reached over HTTPS.
+Edge runtime (src/middleware.ts) — authentication gate; cannot use Prisma, Buffer, or HS256 JWT verification.
+Node runtime (src/app/api/**/route.ts) — all API handlers, server components, server actions; full Node API surface including Prisma, jose, and sharp.
+Sidecar process (scripts/scraper-service.mjs) — Playwright Chromium; bound explicitly to 127.0.0.1 with no authentication (host-level isolation only); idle-closes after 5 minutes.
+External tier — Catastro OVC, Nominatim, Resend, and 8 Spanish real-estate portals; all reached over HTTPS.
 
-The public surface (no authentication required) is limited to /login, NextAuth routes (/api/auth/*), the userscript import endpoint (/api/listings/import), and Next.js static assets. Every other route requires either a NextAuth cookie session, a mobile HS256 JWT, or a bs_-prefixed API token. CORS * is granted only on /api/listings/import and /api/auth/mobile/{request,verify} â€” all other endpoints are same-origin.
+The public surface (no authentication required) is limited to /login, NextAuth routes (/api/auth/*), the userscript import endpoint (/api/listings/import), and Next.js static assets. Every other route requires either a NextAuth cookie session, a mobile HS256 JWT, or a bs_-prefixed API token. CORS * is granted only on /api/listings/import and /api/auth/mobile/{request,verify} — all other endpoints are same-origin.
 
 5.1.1.3 High-level Component Diagram
 
@@ -4548,47 +4548,47 @@ The following table enumerates the major architectural building blocks. All path
 Component	Primary Responsibility	Key Dependencies	Critical Considerations
 Web Application (src/)	Next.js 15 monolith serving pages, API, server components, and orchestrating background pipelines	Next.js 15.1, React 19, NextAuth 5 beta, Prisma 6, Tailwind 3.4, Zod, sharp, cheerio	Hosts three runtime tiers (Edge, Node, RSC); single-process Prisma singleton; dynamic = "force-dynamic" on read-heavy pages
 Edge Middleware (src/middleware.ts)	Route-level authentication gate, public allowlist, Bearer bypass for /api/*	NextAuth v5 auth() from @/lib/auth-edge	Cannot import Prisma; cannot verify HS256 (no Buffer); must delegate Bearer to Node handlers
-Authentication Subsystem (src/lib/auth.ts, mobile-jwt.ts, api-token.ts, auth-helpers.ts)	Issuance and verification of three token types (NextAuth JWT cookie, mobile HS256 JWT, bs_ API token)	next-auth ^5.0.0-beta.31, @auth/prisma-adapter, jose, resend	Shared AUTH_SECRET trust root; getUserId() cascades NextAuth â†’ Bearer â†’ mobile JWT
-Scraping Subsystem (src/features/scraping/)	8 portal adapters + generic 3-tier price extractor + sidecar escalation	cheerio, fast-xml-parser (via cadastre), node:fetch	5 adapters operate over generic engine; 3 are manualOnly: true; HTTPâ†’sidecar escalation gated by BUYSELL_DISABLE_BROWSER_FETCH
+Authentication Subsystem (src/lib/auth.ts, mobile-jwt.ts, api-token.ts, auth-helpers.ts)	Issuance and verification of three token types (NextAuth JWT cookie, mobile HS256 JWT, bs_ API token)	next-auth ^5.0.0-beta.31, @auth/prisma-adapter, jose, resend	Shared AUTH_SECRET trust root; getUserId() cascades NextAuth → Bearer → mobile JWT
+Scraping Subsystem (src/features/scraping/)	8 portal adapters + generic 3-tier price extractor + sidecar escalation	cheerio, fast-xml-parser (via cadastre), node:fetch	5 adapters operate over generic engine; 3 are manualOnly: true; HTTP→sidecar escalation gated by BUYSELL_DISABLE_BROWSER_FETCH
 Playwright Sidecar (scripts/scraper-service.mjs)	Headless Chromium controller bound to loopback; serves GET /healthz and POST /fetch	playwright (Chromium), Node http	Bound to 127.0.0.1:4201; idle-closes after 5 min; anti-detection init scripts for navigator.webdriver, plugins, languages
 Import Pipeline (src/lib/import-listing.ts)	Synchronous validation/persistence plus postImportTasks 5-stage enrichment	Prisma, dhash.ts, geocode.ts, cadastre/lookup.ts, borrow-fields.ts, find-similar.ts, merge.ts	Fire-and-forget continuation; each stage gated on NULL columns so re-imports re-trigger only missing work
-Matching Engine (src/features/matching/)	5-signal similarity scoring (cadastre, phash, geo, area, title Jaccard); merge consolidation	Shared bigrams/jaccard/haversineMeters, sharp-derived phashes	Persists â‰¥ 60; auto-merge â‰¥ 95 with 30%-price + type-match safety guards
-Cadastre Module (src/features/cadastre/lookup.ts)	Resolves Spanish cadastral references via coordinates AND address paths; fetches floorplan URLs	fast-xml-parser, node:fetch	XML responses (HTML on errors); parallel scoring of richness; never throws â€” returns warnings
+Matching Engine (src/features/matching/)	5-signal similarity scoring (cadastre, phash, geo, area, title Jaccard); merge consolidation	Shared bigrams/jaccard/haversineMeters, sharp-derived phashes	Persists ≥ 60; auto-merge ≥ 95 with 30%-price + type-match safety guards
+Cadastre Module (src/features/cadastre/lookup.ts)	Resolves Spanish cadastral references via coordinates AND address paths; fetches floorplan URLs	fast-xml-parser, node:fetch	XML responses (HTML on errors); parallel scoring of richness; never throws — returns warnings
 Mobile Application (apps/mobile/)	Expo Router app with OTP login, dashboard, search, matches, account, property detail	expo ~54, expo-router ~6, expo-secure-store, react-native 0.81	New architecture enabled, typedRoutes, React Compiler; LAN-default API URL for dev
 Shared Package (packages/shared/)	Cross-platform sanity validators, similarity primitives, formatters	TypeScript only	Consumed by web via transpilePackages; by mobile via workspace dependency
-Database (PostgreSQL 17)	Single source of truth â€” 11 models, 8 enums, 6 migrations	postgres:17-alpine Docker image	All money as integer cents; cadastralData as JSON; native arrays for tags/matchDismissed/reasons; cascade-on-delete except Property.ownerId (SET NULL)
+Database (PostgreSQL 17)	Single source of truth — 11 models, 8 enums, 6 migrations	postgres:17-alpine Docker image	All money as integer cents; cadastralData as JSON; native arrays for tags/matchDismissed/reasons; cascade-on-delete except Property.ownerId (SET NULL)
 Userscripts (public/bookmarklet/)	7 portal-specific Tampermonkey scripts plus 1 legacy bookmarklet	Browser DOM, fetch API	Token injected server-side via /api/bookmarklet/[portal]; Cache-Control: no-store
 Operational Scripts (scripts/)	CLI utilities: scraper-service.mjs, check-listings.ts, hash-photos.ts, fix-prices.ts, claim-orphans.ts, rewrite-imports.ts	tsx, Prisma	Manual recovery and backfill operations
 5.1.3 Data Flow Description
 
-The platform exhibits three primary inbound data flows and one significant background flow, all converging on a single PostgreSQL database. All inter-process communication is synchronous request/response over HTTP(S) â€” there is no message broker, event bus, websocket layer, or SSE channel.
+The platform exhibits three primary inbound data flows and one significant background flow, all converging on a single PostgreSQL database. All inter-process communication is synchronous request/response over HTTP(S) — there is no message broker, event bus, websocket layer, or SSE channel.
 
-5.1.3.1 Inbound Flow 1 â€” Userscript Import
+5.1.3.1 Inbound Flow 1 — Userscript Import
 
 The Tampermonkey userscripts running in the user's browser perform DOM extraction directly on portal pages (bypassing bot detection) and POST normalized JSON to POST /api/listings/import with Authorization: Bearer bs_<64-hex>. The endpoint, validated against the ImportListingInput Zod schema, invokes importListing(payload, {ownerId}). The synchronous portion either creates a new Property (with nested Media and Listing) or branches into an update path that respects the sanity band on price changes. The HTTP response (201/200) returns immediately while postImportTasks(propertyId) continues asynchronously.
 
-5.1.3.2 Inbound Flow 2 â€” Server-side Recheck
+5.1.3.2 Inbound Flow 2 — Server-side Recheck
 
-POST /api/listings/check (with export const maxDuration = 300 for a 5-minute Node budget) iterates listings ordered by oldest lastCheckedAt, applying 1-second pacing between iterations. pickAdapter(url) returns the first matching PortalAdapter; if the adapter declares manualOnly: true (Idealista, Milanuncios, Yaencontre), only lastCheckedAt is touched. Otherwise, the adapter's scrape() runs through loadPage (direct HTTP â†’ Playwright sidecar escalation on blocked) and feeds either the generic 3-tier price extractor or a portal-specific path. Sanity-passing price changes persist a PriceSnapshot and update the listing's status; sanity-failing changes touch only lastCheckedAt and log a RECHECK event with ok: false.
+POST /api/listings/check (with export const maxDuration = 300 for a 5-minute Node budget) iterates listings ordered by oldest lastCheckedAt, applying 1-second pacing between iterations. pickAdapter(url) returns the first matching PortalAdapter; if the adapter declares manualOnly: true (Idealista, Milanuncios, Yaencontre), only lastCheckedAt is touched. Otherwise, the adapter's scrape() runs through loadPage (direct HTTP → Playwright sidecar escalation on blocked) and feeds either the generic 3-tier price extractor or a portal-specific path. Sanity-passing price changes persist a PriceSnapshot and update the listing's status; sanity-failing changes touch only lastCheckedAt and log a RECHECK event with ok: false.
 
-5.1.3.3 Inbound Flow 3 â€” Mobile Api
+5.1.3.3 Inbound Flow 3 — Mobile Api
 
 The Expo client (apps/mobile/lib/api.ts) constructs requests against EXPO_PUBLIC_API_URL (default http://192.168.1.77:4200 for LAN development) and attaches Authorization: Bearer <HS256-JWT> retrieved from expo-secure-store under the key buysell.mobile.token. JWTs are issued by POST /api/auth/mobile/verify (HS256, issuer buysell-mobile, 90-day expiry, signed with AUTH_SECRET). The edge middleware bypasses these requests and the Node handlers verify the token via verifyMobileJwt in src/lib/auth-helpers.ts.
 
-5.1.3.4 Background Flow â€”
+5.1.3.4 Background Flow —
 
 After import returns, void postImportTasks(propertyId) executes five stages sequentially, each emitting one ImportLog row:
 
-Stage 1 â€” HASH (dhashFromUrl over sharp): Computes 64-bit dHashes for up to 60 photos missing Media.phash, with 800ms pacing per image.
-Stage 2 â€” CATASTRO (enrichInBackground â†’ enrichProperty): If cadastralRef is null, attempts coordinates path (Consulta_RCCOOR) and address path (Consulta_DNPLOC) in parallel, scores results by descriptive richness, and writes the best result plus a FLOORPLAN media entry if Catastro returns one.
-Stage 3 â€” GEOCODE (geocodeAddress): If latitude and longitude are both null and either address or city is set, queries Nominatim with 1100ms throttling and a User-Agent: BuySell-Asturias/1.0 header.
-Stage 4 â€” BORROW_FIELDS (borrowFieldsFromSimilar): For each NULL field in a 20-field whitelist, copies from the highest-scoring similar property (score â‰¥ 70).
-Stage 5 â€” MATCH / MERGE_AUTO (findSimilar + conditional mergeProperties): Persists MatchSuggestion rows for any candidate â‰¥ 60; if top candidate â‰¥ 95 AND price difference â‰¤ 30% AND types match, executes auto-merge.
+Stage 1 — HASH (dhashFromUrl over sharp): Computes 64-bit dHashes for up to 60 photos missing Media.phash, with 800ms pacing per image.
+Stage 2 — CATASTRO (enrichInBackground → enrichProperty): If cadastralRef is null, attempts coordinates path (Consulta_RCCOOR) and address path (Consulta_DNPLOC) in parallel, scores results by descriptive richness, and writes the best result plus a FLOORPLAN media entry if Catastro returns one.
+Stage 3 — GEOCODE (geocodeAddress): If latitude and longitude are both null and either address or city is set, queries Nominatim with 1100ms throttling and a User-Agent: BuySell-Asturias/1.0 header.
+Stage 4 — BORROW_FIELDS (borrowFieldsFromSimilar): For each NULL field in a 20-field whitelist, copies from the highest-scoring similar property (score ≥ 70).
+Stage 5 — MATCH / MERGE_AUTO (findSimilar + conditional mergeProperties): Persists MatchSuggestion rows for any candidate ≥ 60; if top candidate ≥ 95 AND price difference ≤ 30% AND types match, executes auto-merge.
 5.1.3.5 Data Transformation Points
 Currency: All prices stored as integer cents (price * 100) at insertion; UI re-formats via @buysell/shared/format.
-Photo hash: Image bytes â†’ sharp 9Ã—8 grayscale â†’ adjacent-pixel comparison â†’ 64-bit dHash (16-char hex) stored in Media.phash.
-Cadastre XML â†’ JSON: fast-xml-parser over Catastro responses; raw parsed structure persisted to Property.cadastralData as Json.
-Geocode: Nominatim JSON response â†’ {latitude, longitude} floats (WGS84 EPSG:4326).
+Photo hash: Image bytes → sharp 9×8 grayscale → adjacent-pixel comparison → 64-bit dHash (16-char hex) stored in Media.phash.
+Cadastre XML → JSON: fast-xml-parser over Catastro responses; raw parsed structure persisted to Property.cadastralData as Json.
+Geocode: Nominatim JSON response → {latitude, longitude} floats (WGS84 EPSG:4326).
 Title slug: slugifyTitle from @buysell/shared produces a VarChar(120) value stored as Property.titleSlug.
 5.1.3.6 Data Stores And Caches
 Surface	Implementation	Lifetime
@@ -4609,7 +4609,7 @@ Catastro Floorplan	URL construction only (no fetch)	HTTPS GET image at sedecatas
 Nominatim (OpenStreetMap)	Outbound HTTPS GET with required User-Agent and Accept-Language: es-ES,es;q=0.9,en;q=0.8	HTTPS GET, JSON	1100ms minimum interval between calls enforced module-side; multiple query variants per address
 Resend (Email)	Outbound HTTPS via official SDK	HTTPS via resend package	console.log fallback when RESEND_API_KEY is unset (development)
 Spanish Real-Estate Portals (8)	Outbound HTTPS direct fetch OR Playwright navigation	HTTPS GET; browser-like UA; JSON-LD / CSS / regex extraction	15s HTTP timeout, 30s sidecar timeout; 1000ms inter-listing pacing on bulk recheck
-Anthropic (Floorplan AI)	Configured via ANTHROPIC_API_KEY; scaffold only â€” not wired into production flows	HTTPS	Not active in current deliverable
+Anthropic (Floorplan AI)	Configured via ANTHROPIC_API_KEY; scaffold only — not wired into production flows	HTTPS	Not active in current deliverable
 User-Generated DOM (Userscripts)	Inbound HTTPS POST with Bearer token	JSON body validated by ImportListingInput Zod schema	CORS *; preflight OPTIONS supported; image cap 80 per import
 5.2 Component Details
 5.2.1 Web Application
@@ -4639,7 +4639,7 @@ Auth: GET/POST /api/auth/[...nextauth], POST/OPTIONS /api/auth/mobile/request, P
 Userscripts: GET /api/bookmarklet/[portal] (per-user token injection)
 5.2.1.4 Data Persistence Requirements
 
-The Prisma client is instantiated as a singleton on globalThis.prisma in src/lib/db.ts to survive Next.js dev-server hot reloads. All domain reads/writes route through this singleton; no direct SQL is used except for a single $queryRaw aggregation on the dashboard for â‚¬/mÂ² by city (with HAVING COUNT(*) >= 2).
+The Prisma client is instantiated as a singleton on globalThis.prisma in src/lib/db.ts to survive Next.js dev-server hot reloads. All domain reads/writes route through this singleton; no direct SQL is used except for a single $queryRaw aggregation on the dashboard for €/m² by city (with HAVING COUNT(*) >= 2).
 
 5.2.1.5 Scaling Considerations
 
@@ -4678,11 +4678,11 @@ POST /api/auth/mobile/request {email} upserts the User, deletes prior Verificati
 
 5.2.3.4 Api Token (
 
-API tokens are 256-bit random hex strings with a bs_ prefix, generated via crypto.randomBytes(32).toString("hex"). They are persisted in the ApiToken table with optional label and lastUsed columns. resolveUserFromToken performs a direct DB lookup; on a hit, it best-effort updates lastUsed (errors swallowed). Tokens have no built-in expiration â€” they are rotated by deletion.
+API tokens are 256-bit random hex strings with a bs_ prefix, generated via crypto.randomBytes(32).toString("hex"). They are persisted in the ApiToken table with optional label and lastUsed columns. resolveUserFromToken performs a direct DB lookup; on a hit, it best-effort updates lastUsed (errors swallowed). Tokens have no built-in expiration — they are rotated by deletion.
 
 5.2.3.5 Auth Helper Cascade
 
-src/lib/auth-helpers.ts:getUserId() performs a three-step resolution: try auth() (NextAuth session) â†’ read Authorization: Bearer header â†’ call verifyMobileJwt. requireUserId() throws "No autenticado" if all three fail; downstream route handlers catch and translate to 401 JSON.
+src/lib/auth-helpers.ts:getUserId() performs a three-step resolution: try auth() (NextAuth session) → read Authorization: Bearer header → call verifyMobileJwt. requireUserId() throws "No autenticado" if all three fail; downstream route handlers catch and translate to 401 JSON.
 
 5.2.3.6 Mobile Otp Sequence Diagram
 Syntax error in text
@@ -4723,7 +4723,7 @@ sequenceDiagram
 5.2.4 Scraping Subsystem
 5.2.4.1 Purpose And Responsibilities
 
-The scraping subsystem (src/features/scraping/) is responsible for fetching listing pages from 8 Spanish portals, extracting structured fields (price, title, status), and reporting outcomes to the recheck runner. It does not perform any database writes â€” outcomes are returned as a discriminated union for runner.ts to dispatch.
+The scraping subsystem (src/features/scraping/) is responsible for fetching listing pages from 8 Spanish portals, extracting structured fields (price, title, status), and reporting outcomes to the recheck runner. It does not perform any database writes — outcomes are returned as a discriminated union for runner.ts to dispatch.
 
 5.2.4.2 Adapter Contract
 
@@ -4731,7 +4731,7 @@ PortalAdapter (types.ts) requires portal: Portal, matches: (url: string) => bool
 
 5.2.4.3 Adapter Inventory
 Generic-engine adapters (5): Fotocasa, Pisos.com, Habitaclia, ThinkSpain, Indomio. Each declares portal, matches, and a priceSelectors array; the generic engine handles the rest.
-Manual-only adapters (3): Idealista, Milanuncios, Yaencontre â€” all declare manualOnly: true. The runner short-circuits these to touch only lastCheckedAt with reason "Manual-only (anti-bot)".
+Manual-only adapters (3): Idealista, Milanuncios, Yaencontre — all declare manualOnly: true. The runner short-circuits these to touch only lastCheckedAt with reason "Manual-only (anti-bot)".
 Base modules: _common.ts (loadPage, helpers), _genericAdapter.ts (3-tier extractor factory).
 5.2.4.4 Generic 3-tier Price Extraction
 
@@ -4739,15 +4739,15 @@ The generic adapter applies tiers in order, falling through to the next only on 
 
 JSON-LD: readJsonLd($) extracts the application/ld+json script; priceFromJsonLd checks offers.price OR offers.lowPrice.
 CSS selectors: Each portal-configured priceSelectors[] entry is parsed via parsePriceEur (locale-aware EUR parsing).
-Body regex (only when no previousPriceCents is supplied): /(\d{1,3}(?:\.\d{3})+|\d{6,})\s*â‚¬/g over the page body; first match wins (deliberately not the maximum, to avoid grabbing related-property banners).
+Body regex (only when no previousPriceCents is supplied): /(\d{1,3}(?:\.\d{3})+|\d{6,})\s*€/g over the page body; first match wins (deliberately not the maximum, to avoid grabbing related-property banners).
 
 Found prices pass through withinRange(p) = isValidPriceEur(p) && 0.5*prevEur <= p <= 2*prevEur when a previous price is known.
 
 5.2.4.5 Http-to-sidecar Escalation
 
-http.ts:fetchPage(url, timeoutMs = 15000) uses AbortController with a configurable timeout, a Chrome-like User-Agent, and Accept-Language: es-ES,es;q=0.9,en;q=0.8. Status mapping: 404/410 â†’ gone; 403/429 â†’ blocked; AbortError â†’ error: timeout. Anti-bot detection scans the first 5000 chars against /cf-chl-bypass|cloudflare|captcha|just a moment|datadome|please verify you are human/i and converts matches to blocked.
+http.ts:fetchPage(url, timeoutMs = 15000) uses AbortController with a configurable timeout, a Chrome-like User-Agent, and Accept-Language: es-ES,es;q=0.9,en;q=0.8. Status mapping: 404/410 → gone; 403/429 → blocked; AbortError → error: timeout. Anti-bot detection scans the first 5000 chars against /cf-chl-bypass|cloudflare|captcha|just a moment|datadome|please verify you are human/i and converts matches to blocked.
 
-_common.ts:loadPage escalates to the sidecar only on blocked outcomes and only when BUYSELL_DISABLE_BROWSER_FETCH !== "1". The sidecar call (browser-fetch.ts:browserFetchPage) issues POST http://127.0.0.1:4201/fetch with a 30s body timeout (+ 5s client buffer). On ECONNREFUSED, the message "Scraper sidecar no estÃ¡ arrancado (npm run scraper)" is returned.
+_common.ts:loadPage escalates to the sidecar only on blocked outcomes and only when BUYSELL_DISABLE_BROWSER_FETCH !== "1". The sidecar call (browser-fetch.ts:browserFetchPage) issues POST http://127.0.0.1:4201/fetch with a 30s body timeout (+ 5s client buffer). On ECONNREFUSED, the message "Scraper sidecar no está arrancado (npm run scraper)" is returned.
 
 5.2.4.6 Sidecar Process Details
 
@@ -4756,7 +4756,7 @@ scripts/scraper-service.mjs is a standalone Node ESM file:
 Binds explicitly to 127.0.0.1:${SCRAPER_PORT||4201} (loopback only)
 Singleton Playwright Chromium with scheduleIdleClose(5*60*1000)
 Launch args: --disable-blink-features=AutomationControlled, --no-sandbox, --disable-setuid-sandbox
-Browser context: viewport 1366Ã—768, locale es-ES, timezone Europe/Madrid
+Browser context: viewport 1366×768, locale es-ES, timezone Europe/Madrid
 addInitScript overrides navigator.webdriver, navigator.plugins, navigator.languages
 Page navigation: goto(url, {waitUntil: "domcontentloaded"}) followed by waitForLoadState("networkidle") with 5s catch
 Endpoints: GET /healthz, POST /fetch {url, timeoutMs}
@@ -4776,7 +4776,7 @@ The ImportListingInput Zod schema requires url (string) and title (string, min 2
 
 5.2.5.3 Sanitization
 
-sanitizePayload(payload) runs cross-platform validators from @buysell/shared/sanity: isValidPriceEur (10,000â€“50,000,000 â‚¬), isValidBuiltArea (5â€“5,000 mÂ²), isValidYear (1700â€“currentYear+5). Implausible values are nulled rather than rejected. When primary fields are missing, parseFeaturesArray(payload.features) extracts area, rooms, bathrooms, year, floor, and plot area from feature strings (e.g., "186 m2" â†’ builtArea, "4 hab." â†’ rooms, "Construido en 1931" â†’ yearBuilt). Strings containing "â‚¬/mÂ²" are explicitly ignored to avoid misinterpreting unit prices as totals.
+sanitizePayload(payload) runs cross-platform validators from @buysell/shared/sanity: isValidPriceEur (10,000–50,000,000 €), isValidBuiltArea (5–5,000 m²), isValidYear (1700–currentYear+5). Implausible values are nulled rather than rejected. When primary fields are missing, parseFeaturesArray(payload.features) extracts area, rooms, bathrooms, year, floor, and plot area from feature strings (e.g., "186 m2" → builtArea, "4 hab." → rooms, "Construido en 1931" → yearBuilt). Strings containing "€/m²" are explicitly ignored to avoid misinterpreting unit prices as totals.
 
 5.2.5.4 Update Path
 
@@ -4802,7 +4802,7 @@ sequenceDiagram
     participant BG as postImportTasks
 
     US->>API: POST + Bearer bs_token (CORS *)
-    API->>API: resolveUserFromToken â†’ ownerId
+    API->>API: resolveUserFromToken → ownerId
     API->>API: ImportListingInput.safeParse
     API->>Imp: importListing(data, {ownerId})
     Imp->>Imp: sanitizePayload + detectPortal
@@ -4832,9 +4832,9 @@ sequenceDiagram
     BG->>DB: ImportLog CATASTRO
     BG->>BG: Stage 3 GEOCODE (Nominatim, 1100ms throttle)
     BG->>DB: ImportLog GEOCODE
-    BG->>BG: Stage 4 BORROW_FIELDS (score â‰¥ 70)
+    BG->>BG: Stage 4 BORROW_FIELDS (score ≥ 70)
     BG->>DB: ImportLog BORROW_FIELDS
-    BG->>BG: Stage 5 MATCH (â‰¥60 persists)<br/>+ MERGE_AUTO (â‰¥95 with guards)
+    BG->>BG: Stage 5 MATCH (≥60 persists)<br/>+ MERGE_AUTO (≥95 with guards)
     BG->>DB: ImportLog MATCH or MERGE_AUTO
 5.2.6 Matching And Duplicate Detection
 5.2.6.1 Purpose And Responsibilities
@@ -4848,16 +4848,16 @@ The OR-filter retrieves up to 50 candidates ordered by recency, scoped to the ow
 5.2.6.3 Five Scoring Signals
 Signal	Score	Condition
 Cadastre identity	100	Same cadastralRef
-Photo overlap (strong)	90	â‰¥ 3 photo pairs with Hamming â‰¤ 8
+Photo overlap (strong)	90	≥ 3 photo pairs with Hamming ≤ 8
 Photo overlap (medium)	60	2 photo pairs
 Photo overlap (weak)	35	1 photo pair
-Geo + area	80	< 50m AND area diff â‰¤ 5%
+Geo + area	80	< 50m AND area diff ≤ 5%
 Geo only	55	< 50m
-Title Jaccard (strong)	75	bigram Jaccard â‰¥ 0.7
-Title Jaccard (medium)	50	Jaccard â‰¥ 0.5
+Title Jaccard (strong)	75	bigram Jaccard ≥ 0.7
+Title Jaccard (medium)	50	Jaccard ≥ 0.5
 Weak-signal bonus	+15 (cap 95)	2+ weak signals present
 
-Candidates with score < 30 are discarded. Candidates â‰¥ 60 are persisted via prisma.matchSuggestion.upsert on @@unique([sourceId, targetId]), preserving any existing dismissedAt to avoid re-surfacing user-dismissed suggestions.
+Candidates with score < 30 are discarded. Candidates ≥ 60 are persisted via prisma.matchSuggestion.upsert on @@unique([sourceId, targetId]), preserving any existing dismissedAt to avoid re-surfacing user-dismissed suggestions.
 
 5.2.6.4 Merge Algorithm
 
@@ -4865,9 +4865,9 @@ mergeProperties(sourceId, targetId) executes five steps without a Prisma transac
 
 updateMany on Listing to reassign propertyId from source to target.
 updateMany on PriceSnapshot similarly.
-Loop source media: if any target media has a phash within Hamming â‰¤ 8, DELETE the source media (skippedDuplicateMedia++); otherwise UPDATE its propertyId (movedMedia++).
+Loop source media: if any target media has a phash within Hamming ≤ 8, DELETE the source media (skippedDuplicateMedia++); otherwise UPDATE its propertyId (movedMedia++).
 fillIfEmpty on a 24-field whitelist (descriptions, address parts, coordinates, room counts, areas, floor, year, 7 amenity booleans, cadastral fields, title slug). EnergyRating is only overwritten if the target is UNKNOWN. tags is computed as a union.
-prisma.property.delete({where: {id: sourceId}}) â€” cascade rules remove any residual rows.
+prisma.property.delete({where: {id: sourceId}}) — cascade rules remove any residual rows.
 
 Self-merge throws "No te puedes fusionar con tu propia ficha". Calls where the source has already been deleted return zero counts (idempotent).
 
@@ -4893,11 +4893,11 @@ findSimilar()
 
 score < 30
 
-30 â‰¤ score < 60
+30 ≤ score < 60
 
-60 â‰¤ score < 95
+60 ≤ score < 95
 
-score â‰¥ 95
+score ≥ 95
 
 Re-import (upsert preserves dismissedAt)
 
@@ -4905,7 +4905,7 @@ User /dismiss-match
 
 User /merge
 
-priceDiff â‰¤ 30% AND types match
+priceDiff ≤ 30% AND types match
 
 priceDiff > 30% OR type mismatch
 
@@ -4921,13 +4921,13 @@ src/features/cadastre/lookup.ts resolves Spanish cadastral references (refcat) f
 enrichProperty({lat, lng, province, city, address}) runs two paths in parallel:
 
 Coordinates path: Consulta_RCCOOR?SRS=EPSG:4326&Coordenada_X=<lng>&Coordenada_Y=<lat> returning a 14-char reference ${pc1}${pc2}.
-Address path: Consulta_DNPLOC with parsed sigla (parseAddress maps Spanish street types to Catastro codes via a 13-entry SIGLA_MAP: calle â†’ CL, avenida â†’ AV, plaza â†’ PZ, etc.) handling both single-record (bico) and list (lrcdnp.rcdnp) response shapes.
+Address path: Consulta_DNPLOC with parsed sigla (parseAddress maps Spanish street types to Catastro codes via a 13-entry SIGLA_MAP: calle → CL, avenida → AV, plaza → PZ, etc.) handling both single-record (bico) and list (lrcdnp.rcdnp) response shapes.
 
 Both results are scored by descriptive richness (address +2, builtArea +2, yearBuilt +2, use +1, floor +1) and the highest-scoring result is selected. fetchByRef(ref) then issues Consulta_DNPRC?RC=<ref> for the full record and constructs the floorplan URL https://www1.sedecatastro.gob.es/Cartografia/GeneraGraficoParcela.aspx?refcat=<ref>&del=<pc1[0:2]>&mun=<pc1[2:5]>.
 
 5.2.7.3 Error Resilience
 
-enrichProperty never throws â€” every path failure is captured as a warning in the returned {ref, info, method, warnings[]} structure. The pipeline caller surfaces failures via ImportLog CATASTRO events with ok: false. The system applies a User-Agent: BuySell-Asturias/1.0 (cadastre lookup) to all outbound Catastro requests.
+enrichProperty never throws — every path failure is captured as a warning in the returned {ref, info, method, warnings[]} structure. The pipeline caller surfaces failures via ImportLog CATASTRO events with ok: false. The system applies a User-Agent: BuySell-Asturias/1.0 (cadastre lookup) to all outbound Catastro requests.
 
 5.2.8 Database Layer
 5.2.8.1 Engine And Hosting
@@ -4999,17 +4999,17 @@ Authentication helpers authRequestOtp(email) and authVerifyOtp(email, code) POST
 
 5.2.9.4 Api Url Resolution
 
-API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.1.77:4200" â€” a LAN-default that supports development against a host workstation; production deployments override via the Expo environment variable.
+API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.1.77:4200" — a LAN-default that supports development against a host workstation; production deployments override via the Expo environment variable.
 
 5.2.10 Shared Package
 
 packages/shared/src/ exports five modules consumed by both web and mobile:
 
-types.ts â€” Shared TypeScript domain types
-format.ts â€” Money, area, and date formatters with Spanish locale
-sanity.ts â€” isValidPriceEur, isValidBuiltArea, isValidYear, isReasonablePriceChange
-similarity.ts â€” bigrams, jaccard, haversineMeters, slugifyTitle
-index.ts â€” Barrel re-export
+types.ts — Shared TypeScript domain types
+format.ts — Money, area, and date formatters with Spanish locale
+sanity.ts — isValidPriceEur, isValidBuiltArea, isValidYear, isReasonablePriceChange
+similarity.ts — bigrams, jaccard, haversineMeters, slugifyTitle
+index.ts — Barrel re-export
 
 The web consumes this package via transpilePackages: ["@buysell/shared"] in next.config.ts. Mobile consumes it via npm workspace dependency. Sharing these primitives ensures that scoring, validation, and slug computation produce identical results across surfaces.
 
@@ -5031,7 +5031,7 @@ fix-prices.ts	Recovery utility for sanity-rejected prices (npm run fix-prices)
 claim-orphans.ts	Assigns ownerId to legacy properties created before authentication was introduced (npm run claim-orphans)
 rewrite-imports.ts	Codemod utility (development-only)
 5.3 Technical Decisions
-5.3.1 Architecture Style â€” Modular Monolith Plus Sidecar
+5.3.1 Architecture Style — Modular Monolith Plus Sidecar
 
 The decision to ship a single Next.js application instead of decomposing into microservices is the most consequential architectural choice. The rationale is observable in the code:
 
@@ -5041,7 +5041,7 @@ Operational simplicity: One deploy unit, one set of credentials, one log stream.
 
 The sidecar is the lone exception, driven by hard runtime constraints rather than scaling needs:
 
-Playwright Chromium binaries are ~300MB and platform-specific. Next.js standalone builds struggle with native binary inclusion. Compare with next.config.ts serverExternalPackages: ["sharp"] â€” the same anti-bundling decision applies.
+Playwright Chromium binaries are ~300MB and platform-specific. Next.js standalone builds struggle with native binary inclusion. Compare with next.config.ts serverExternalPackages: ["sharp"] — the same anti-bundling decision applies.
 Independent restart: The sidecar can crash or restart without affecting the web app.
 Memory hygiene: scheduleIdleClose(5*60*1000) releases Chromium memory between scrape bursts.
 
@@ -5058,7 +5058,7 @@ External services: HTTPS GET/POST (Catastro XML, Nominatim JSON, Resend SDK)
 
 Background work uses fire-and-forget local function dispatch (void postImportTasks(propertyId)) rather than a queue. Pipeline observability comes from ImportLog rows. The tradeoff is that work in flight is lost if the Node process crashes mid-pipeline; this is mitigated by gating each stage on NULL columns so that a subsequent re-import re-triggers only the missing work.
 
-5.3.3 Data Storage â€” Postgresql Only
+5.3.3 Data Storage — Postgresql Only
 
 Choosing PostgreSQL as the sole persistence engine reflects three observations:
 
@@ -5201,7 +5201,7 @@ JSON-LD
 price?
 
 withinRange
-0.5x â€“ 2x?
+0.5x – 2x?
 
 CSS selector
 price?
@@ -5217,9 +5217,9 @@ outcome=ok
 5.4 Cross-cutting Concerns
 5.4.1 Monitoring And Observability
 
-The platform's primary observability surface is the ImportLog table â€” an append-only event log keyed by kind (one of 8 ImportLogKind enum values: HASH, CATASTRO, GEOCODE, MATCH, MERGE_AUTO, MERGE_MANUAL, BORROW_FIELDS, RECHECK) â€” written by src/lib/import-log.ts:logImportEvent(kind, opts). Each row carries propertyId String?, ok Boolean, message String?, meta Json?, createdAt, indexed on (propertyId, createdAt), (kind, createdAt), and (createdAt).
+The platform's primary observability surface is the ImportLog table — an append-only event log keyed by kind (one of 8 ImportLogKind enum values: HASH, CATASTRO, GEOCODE, MATCH, MERGE_AUTO, MERGE_MANUAL, BORROW_FIELDS, RECHECK) — written by src/lib/import-log.ts:logImportEvent(kind, opts). Each row carries propertyId String?, ok Boolean, message String?, meta Json?, createdAt, indexed on (propertyId, createdAt), (kind, createdAt), and (createdAt).
 
-Critical design property: logImportEvent swallows DB errors via console.error only â€” observability writes never break the workflow they describe.
+Critical design property: logImportEvent swallows DB errors via console.error only — observability writes never break the workflow they describe.
 
 The /activity page reads PriceSnapshot rows directly via Prisma (the 100 most recent, ordered by observedAt desc); ImportLog rows are surfaced in property-detail views for diagnostic context. Beyond these, there is no external log aggregation (no Datadog, no New Relic, no OpenTelemetry exporter), no distributed tracing (no W3C trace context), no structured logger library (no Pino, no Winston), and no metrics endpoint (no Prometheus exposition). console.log and console.error are used directly for sidecar errors, log-write failures, and dev-mode OTP/magic-link fallbacks.
 
@@ -5248,7 +5248,7 @@ Sanity	isReasonablePriceChange returns false	logImportEvent("RECHECK", {ok:false
 External	Catastro/Nominatim/Resend network failures	Caught in pipeline stage, logImportEvent({ok:false, message: e.message}), NULL fields re-trigger on future imports
 Database	Prisma constraint or connection errors	500 JSON with {error, code, meta, name, stack}
 
-No retry loops anywhere in the codebase. Tier-based escalation (HTTP â†’ sidecar) substitutes for retry. Anti-bot pacing (1000ms inter-listing in checkAllActiveListings, 800ms inter-photo in HASH, 1100ms Nominatim throttle) substitutes for exponential backoff.
+No retry loops anywhere in the codebase. Tier-based escalation (HTTP → sidecar) substitutes for retry. Anti-bot pacing (1000ms inter-listing in checkAllActiveListings, 800ms inter-photo in HASH, 1100ms Nominatim throttle) substitutes for exponential backoff.
 
 5.4.3.1 Recovery Mechanisms
 Manual scripts (hash-photos.ts, fix-prices.ts, claim-orphans.ts) reprocess failed or anomalous data.
@@ -5349,7 +5349,7 @@ Prisma op
 5.4.4 Authentication And Authorization Framework
 5.4.4.1 Authentication Surface
 
-Detailed in Section 5.2.3. Three token types converge on getUserId() in src/lib/auth-helpers.ts, which performs a NextAuth â†’ Bearer JWT â†’ mobile JWT cascade.
+Detailed in Section 5.2.3. Three token types converge on getUserId() in src/lib/auth-helpers.ts, which performs a NextAuth → Bearer JWT → mobile JWT cascade.
 
 5.4.4.2 Authorization Model
 
@@ -5359,7 +5359,7 @@ src/app/api/properties/[id]/route.ts calls an ensureOwner(id, ownerId) helper th
 The same helper appears in src/app/api/properties/[id]/dismiss-match/route.ts and src/app/api/properties/[id]/cadastre/route.ts.
 src/app/api/matches/route.ts first loads the owner's property IDs, then filters MatchSuggestion rows to sourceId IN (...).
 
-Unauthorized access returns 404, not 403 â€” ensureOwner returns null both when the record is missing and when it exists but is not owned, avoiding existence-leak side-channels.
+Unauthorized access returns 404, not 403 — ensureOwner returns null both when the record is missing and when it exists but is not owned, avoiding existence-leak side-channels.
 
 There is no RBAC: the product runs single-user-active. The schema is multi-tenant-ready (any user can own properties), but no admin/operator role exists.
 
@@ -5382,12 +5382,12 @@ Stale listing threshold	7 days	Dashboard STALE_DAYS=7
 Mobile search debounce	250ms	Per Section 4.6
 5.4.5.1 Numeric Thresholds
 Threshold	Value	Source
-Photo Hamming distance	â‰¤ 8 of 64 bits	find-similar.ts:PHOTO_HAMMING_THRESHOLD
-MatchSuggestion persist score	â‰¥ 60	find-similar.ts
+Photo Hamming distance	≤ 8 of 64 bits	find-similar.ts:PHOTO_HAMMING_THRESHOLD
+MatchSuggestion persist score	≥ 60	find-similar.ts
 MatchSuggestion discard score	< 30	find-similar.ts
-Auto-merge score	â‰¥ 95	import-listing.ts:postImportTasks
+Auto-merge score	≥ 95	import-listing.ts:postImportTasks
 Auto-merge price guard	> 30% blocks	import-listing.ts:postImportTasks
-BORROW_FIELDS minimum score	â‰¥ 70	borrow-fields.ts:MIN_SCORE
+BORROW_FIELDS minimum score	≥ 70	borrow-fields.ts:MIN_SCORE
 Candidate cap	50	find-similar.ts:take: 50
 dHash batch size	60	import-listing.ts:take: 60
 Userscript image cap	80 per import	Per Section 4.6
@@ -5412,68 +5412,68 @@ Cross-referenced with Section 3.8, the key observed protections are:
 
 256-bit API token entropy via crypto.randomBytes(32).toString("hex") with bs_ prefix for grep-ability
 AUTH_SECRET as shared HS256 trust root between NextAuth and mobile JWT, ensuring both client surfaces derive from the same secret material
-CORS * strictly limited to /api/listings/import and /api/auth/mobile/* â€” all other endpoints are same-origin
+CORS * strictly limited to /api/listings/import and /api/auth/mobile/* — all other endpoints are same-origin
 Sidecar bound to 127.0.0.1 with no authentication, never exposed externally
 Magic-link 24-hour expiry, OTP 10-minute expiry, OTP one-time use (deleted on consumption)
 1000ms anti-DDoS pacing on bulk recheck (protects external portals)
-0.5xâ€“2x sanity band on price changes prevents rogue scraper output from corrupting price history
+0.5x–2x sanity band on price changes prevents rogue scraper output from corrupting price history
 Auto-merge guards (30% price differential AND type match required) prevent destructive false-positive merges
 References
 Files Examined
-package.json â€” Workspace declaration, npm scripts, full dependency list
-next.config.ts â€” transpilePackages, serverExternalPackages: ["sharp"], image remotePatterns
-docker-compose.yml â€” PostgreSQL 17 alpine container, buysell-pgdata volume, credentials
-prisma/schema.prisma â€” 11 models, 8 enums, indexes, cascade rules
-prisma/migrations/ â€” 6 timestamped migration folders documenting schema evolution
-src/middleware.ts â€” Edge auth gate, PUBLIC_PATHS allowlist, Bearer bypass for /api/*
-src/lib/auth.ts â€” NextAuth v5 configuration with inline EmailResendProvider
-src/lib/auth-helpers.ts â€” getUserId() cascade (NextAuth â†’ Bearer â†’ mobile JWT)
-src/lib/mobile-jwt.ts â€” HS256 issue/verify via jose; 90-day expiry, issuer buysell-mobile
-src/lib/api-token.ts â€” bs_<64-hex> token generation, resolution, extraction
-src/lib/db.ts â€” Prisma singleton on globalThis
-src/lib/import-listing.ts â€” ImportListingInput schema, sanitizePayload, importListing, 5-stage postImportTasks
-src/lib/import-log.ts â€” logImportEvent helper with error-swallowing semantics
-src/lib/geocode.ts â€” Nominatim integration with 1100ms throttle, multi-variant queries
-src/lib/dhash.ts â€” 9Ã—8 grayscale dHash via sharp, dhashFromUrl, Hamming distance
-src/app/api/listings/import/route.ts â€” Token resolution, Zod parse, CORS handling
-src/app/api/listings/check/route.ts â€” maxDuration = 300, single/batch dispatch
-src/app/api/auth/mobile/request/route.ts â€” OTP generation, VerificationToken lifecycle
-src/app/api/auth/mobile/verify/route.ts â€” OTP verification, JWT issuance
-src/app/api/properties/[id]/route.ts â€” ensureOwner ownership enforcement pattern
-src/app/api/bookmarklet/[portal]/route.ts â€” Per-user userscript generation
-src/app/dashboard/page.tsx â€” dynamic = "force-dynamic", 10-query Promise.all, STALE_DAYS=7
-src/features/scraping/runner.ts â€” pickAdapter, checkListing, checkAllActiveListings
-src/features/scraping/types.ts â€” PortalAdapter contract, ScrapeOutcome union
-src/features/scraping/adapters/_common.ts â€” loadPage with sidecar escalation
-src/features/scraping/adapters/_genericAdapter.ts â€” 3-tier price extraction
-src/features/scraping/http.ts â€” fetchPage with anti-bot detection
-src/features/scraping/browser-fetch.ts â€” Sidecar HTTP client
-src/features/matching/find-similar.ts â€” 5-signal scoring, PHOTO_HAMMING_THRESHOLD=8
-src/features/matching/merge.ts â€” 5-step idempotent consolidation
-src/features/matching/borrow-fields.ts â€” MIN_SCORE=70, 20-field whitelist
-src/features/cadastre/lookup.ts â€” Coords/address parallel paths, SIGLA_MAP, enrichProperty
-scripts/scraper-service.mjs â€” Playwright sidecar, 127.0.0.1:4201, idle close, anti-detection scripts
-scripts/check-listings.ts, hash-photos.ts, fix-prices.ts, claim-orphans.ts, rewrite-imports.ts â€” Operational utilities
-apps/mobile/lib/api.ts â€” Mobile API client, TOKEN_KEY, ApiError, OTP helpers
-apps/mobile/ â€” Expo Router app structure ((tabs)/, login, property/[id])
-packages/shared/src/ â€” types.ts, format.ts, sanity.ts, similarity.ts, index.ts
-public/bookmarklet/ â€” 7 portal-specific Tampermonkey userscripts plus legacy bookmarklet
+package.json — Workspace declaration, npm scripts, full dependency list
+next.config.ts — transpilePackages, serverExternalPackages: ["sharp"], image remotePatterns
+docker-compose.yml — PostgreSQL 17 alpine container, buysell-pgdata volume, credentials
+prisma/schema.prisma — 11 models, 8 enums, indexes, cascade rules
+prisma/migrations/ — 6 timestamped migration folders documenting schema evolution
+src/middleware.ts — Edge auth gate, PUBLIC_PATHS allowlist, Bearer bypass for /api/*
+src/lib/auth.ts — NextAuth v5 configuration with inline EmailResendProvider
+src/lib/auth-helpers.ts — getUserId() cascade (NextAuth → Bearer → mobile JWT)
+src/lib/mobile-jwt.ts — HS256 issue/verify via jose; 90-day expiry, issuer buysell-mobile
+src/lib/api-token.ts — bs_<64-hex> token generation, resolution, extraction
+src/lib/db.ts — Prisma singleton on globalThis
+src/lib/import-listing.ts — ImportListingInput schema, sanitizePayload, importListing, 5-stage postImportTasks
+src/lib/import-log.ts — logImportEvent helper with error-swallowing semantics
+src/lib/geocode.ts — Nominatim integration with 1100ms throttle, multi-variant queries
+src/lib/dhash.ts — 9×8 grayscale dHash via sharp, dhashFromUrl, Hamming distance
+src/app/api/listings/import/route.ts — Token resolution, Zod parse, CORS handling
+src/app/api/listings/check/route.ts — maxDuration = 300, single/batch dispatch
+src/app/api/auth/mobile/request/route.ts — OTP generation, VerificationToken lifecycle
+src/app/api/auth/mobile/verify/route.ts — OTP verification, JWT issuance
+src/app/api/properties/[id]/route.ts — ensureOwner ownership enforcement pattern
+src/app/api/bookmarklet/[portal]/route.ts — Per-user userscript generation
+src/app/dashboard/page.tsx — dynamic = "force-dynamic", 10-query Promise.all, STALE_DAYS=7
+src/features/scraping/runner.ts — pickAdapter, checkListing, checkAllActiveListings
+src/features/scraping/types.ts — PortalAdapter contract, ScrapeOutcome union
+src/features/scraping/adapters/_common.ts — loadPage with sidecar escalation
+src/features/scraping/adapters/_genericAdapter.ts — 3-tier price extraction
+src/features/scraping/http.ts — fetchPage with anti-bot detection
+src/features/scraping/browser-fetch.ts — Sidecar HTTP client
+src/features/matching/find-similar.ts — 5-signal scoring, PHOTO_HAMMING_THRESHOLD=8
+src/features/matching/merge.ts — 5-step idempotent consolidation
+src/features/matching/borrow-fields.ts — MIN_SCORE=70, 20-field whitelist
+src/features/cadastre/lookup.ts — Coords/address parallel paths, SIGLA_MAP, enrichProperty
+scripts/scraper-service.mjs — Playwright sidecar, 127.0.0.1:4201, idle close, anti-detection scripts
+scripts/check-listings.ts, hash-photos.ts, fix-prices.ts, claim-orphans.ts, rewrite-imports.ts — Operational utilities
+apps/mobile/lib/api.ts — Mobile API client, TOKEN_KEY, ApiError, OTP helpers
+apps/mobile/ — Expo Router app structure ((tabs)/, login, property/[id])
+packages/shared/src/ — types.ts, format.ts, sanity.ts, similarity.ts, index.ts
+public/bookmarklet/ — 7 portal-specific Tampermonkey userscripts plus legacy bookmarklet
 Cross-referenced Technical Specification Sections
-Section 1.2 SYSTEM OVERVIEW â€” Project scope and architectural scale
-Section 1.3 SCOPE â€” Deferred phases (cloud, CI/CD, R2/S3, MV3, SSE, multi-tenant UI)
-Section 2.4 IMPLEMENTATION CONSIDERATIONS â€” Node 20+ requirement, Edge limits, local storage
-Section 3.1 PROGRAMMING LANGUAGES â€” TypeScript-first, ESM sidecar, three tsconfig files
-Section 3.2 FRAMEWORKS & LIBRARIES â€” Pinned dependency matrix
-Section 3.4 THIRD-PARTY SERVICES â€” Catastro, Nominatim, Resend, Anthropic, portals
-Section 3.5 DATABASES & STORAGE â€” PostgreSQL 17, models, enums, migrations, cascade rules
-Section 3.6 DEVELOPMENT & DEPLOYMENT â€” Sidecar architecture, no CI/CD
-Section 3.8 SECURITY POSTURE â€” Token entropy, CORS scope, sidecar isolation, JWT trust
-Section 4.1 SYSTEM WORKFLOWS â€” Edge decision flow, magic link, OTP, import, enrichment, recheck
-Section 4.2 INTEGRATION WORKFLOWS â€” Catastro parallel paths, sidecar boundary, Resend, Nominatim
-Section 4.3 STATE MANAGEMENT â€” Listing/Property state machines, MatchSuggestion lifecycle
-Section 4.4 ERROR HANDLING WORKFLOWS â€” 6 error categories, retry/fallback, recovery procedures
-Section 4.5 VALIDATION RULES â€” Business rules, validators, auto-merge guards
-Section 4.6 TIMING AND SLA CONSIDERATIONS â€” All timeouts, throttles, numeric thresholds
+Section 1.2 SYSTEM OVERVIEW — Project scope and architectural scale
+Section 1.3 SCOPE — Deferred phases (cloud, CI/CD, R2/S3, MV3, SSE, multi-tenant UI)
+Section 2.4 IMPLEMENTATION CONSIDERATIONS — Node 20+ requirement, Edge limits, local storage
+Section 3.1 PROGRAMMING LANGUAGES — TypeScript-first, ESM sidecar, three tsconfig files
+Section 3.2 FRAMEWORKS & LIBRARIES — Pinned dependency matrix
+Section 3.4 THIRD-PARTY SERVICES — Catastro, Nominatim, Resend, Anthropic, portals
+Section 3.5 DATABASES & STORAGE — PostgreSQL 17, models, enums, migrations, cascade rules
+Section 3.6 DEVELOPMENT & DEPLOYMENT — Sidecar architecture, no CI/CD
+Section 3.8 SECURITY POSTURE — Token entropy, CORS scope, sidecar isolation, JWT trust
+Section 4.1 SYSTEM WORKFLOWS — Edge decision flow, magic link, OTP, import, enrichment, recheck
+Section 4.2 INTEGRATION WORKFLOWS — Catastro parallel paths, sidecar boundary, Resend, Nominatim
+Section 4.3 STATE MANAGEMENT — Listing/Property state machines, MatchSuggestion lifecycle
+Section 4.4 ERROR HANDLING WORKFLOWS — 6 error categories, retry/fallback, recovery procedures
+Section 4.5 VALIDATION RULES — Business rules, validators, auto-merge guards
+Section 4.6 TIMING AND SLA CONSIDERATIONS — All timeouts, throttles, numeric thresholds
 6. System Components Design
 6.1 Core Services Architecture
 6.1.1 Architectural Applicability And Service Topology
@@ -5518,17 +5518,17 @@ BuySell Asturias exposes three distinct user-facing surfaces, each optimized for
 2	Mobile Application	apps/mobile/	Expo SDK 54 + Expo Router	Read-mostly companion app	HS256 JWT in expo-secure-store
 3	Userscripts / Bookmarklet	public/bookmarklet/	Tampermonkey/Violentmonkey userscripts	Manual import overlay on third-party portals	bs_<64-hex> API token in Authorization: Bearer
 
-The web application is the only surface that can mutate state from the UI. The mobile app is intentionally read-mostly (browse, view detail, search, review duplicates, manage account). The userscripts are not a self-hosted UI â€” they inject capture overlays into Idealista, Milanuncios, and Yaencontre pages and are documented in src/app/bookmarklet/page.tsx for onboarding.
+The web application is the only surface that can mutate state from the UI. The mobile app is intentionally read-mostly (browse, view detail, search, review duplicates, manage account). The userscripts are not a self-hosted UI — they inject capture overlays into Idealista, Milanuncios, and Yaencontre pages and are documented in src/app/bookmarklet/page.tsx for onboarding.
 
 7.1.2 Design Philosophy And Identity
 
 The codebase reveals a deliberate aesthetic identity codified in src/app/globals.css and validated against the design-review route at src/app/brand/page.tsx:
 
-"Steel and aged brass" â€” the primary color is a muted steel blue (#3A5F8A) and the brand accent is brass (#C49A4D), self-described in the CSS variables as "latÃ³n envejecido sobre acero" (aged brass on steel).
-Warm off-white surfaces (#FAFAF7) rather than pure white, with subtle low-alpha shadows (rgba(20, 20, 18, 0.04â€“0.06)).
-Sober and information-dense â€” a 13px base font size with an 8-tier scale and tabular numerics for prices and KPIs reflects the management-tool nature of the product.
-Branded with a medieval key â€” the IconKey component is the master brand mark, surfaced both in the web AppShell header and the LoginForm, themed with the brass accent overlay.
-Asturian regional touches â€” secondary brand icons include IconHorreo (Asturian granary on stilts) and IconPicos (Picos de Europa mountains), reflecting the regional focus inherent to the product name.
+"Steel and aged brass" — the primary color is a muted steel blue (#3A5F8A) and the brand accent is brass (#C49A4D), self-described in the CSS variables as "latón envejecido sobre acero" (aged brass on steel).
+Warm off-white surfaces (#FAFAF7) rather than pure white, with subtle low-alpha shadows (rgba(20, 20, 18, 0.04–0.06)).
+Sober and information-dense — a 13px base font size with an 8-tier scale and tabular numerics for prices and KPIs reflects the management-tool nature of the product.
+Branded with a medieval key — the IconKey component is the master brand mark, surfaced both in the web AppShell header and the LoginForm, themed with the brass accent overlay.
+Asturian regional touches — secondary brand icons include IconHorreo (Asturian granary on stilts) and IconPicos (Picos de Europa mountains), reflecting the regional focus inherent to the product name.
 7.1.3 Cross-surface Architectural Patterns
 
 Several patterns recur across both web and mobile surfaces:
@@ -5542,7 +5542,7 @@ Debounced search	200ms in GlobalSearch	250ms in (tabs)/search
 No global state library	Server components + local useState only	AuthProvider context + local useState only
 Hard-coded palette	CSS custom properties in globals.css	Same hex values inlined per screen
 
-The last item â€” duplicated palette values â€” is a known minor architectural debt: design tokens are not shared programmatically between the web (globals.css) and mobile (StyleSheet definitions). Both surfaces reference the same hex codes by convention, not by import.
+The last item — duplicated palette values — is a known minor architectural debt: design tokens are not shared programmatically between the web (globals.css) and mobile (StyleSheet definitions). Both surfaces reference the same hex codes by convention, not by import.
 
 7.2 Core Ui Technologies
 7.2.1 Web Application Stack
@@ -5556,12 +5556,12 @@ Language	TypeScript	^5.7.2	package.json
 Styling	Tailwind CSS	^3.4.17	package.json, tailwind.config.ts
 CSS processor	PostCSS + Autoprefixer	^8.5.0 / ^10.4.20	package.json
 Icons (in-app)	lucide-react	^0.469.0	package.json
-Icons (brand)	Inline SVG components	â€”	src/components/brand/icons.tsx
+Icons (brand)	Inline SVG components	—	src/components/brand/icons.tsx
 Charts	Recharts	^2.15.0	PriceHistoryChart.tsx
 Class composition	clsx via @/lib/cn	^2.1.1	package.json
 Email templates	@react-email/render	^2.0.8	package.json
 Typography	Inter (Google Fonts)	via next/font/google	src/app/layout.tsx
-Image optimization	next/image with allowlist	â€”	next.config.ts
+Image optimization	next/image with allowlist	—	next.config.ts
 
 The next.config.ts remotePatterns allowlist permits remote images from **.idealista.com, **.fotocasa.es, **.pisos.com, and **.milanuncios.com, enabling thumbnail rendering from external portals without re-hosting.
 
@@ -5612,7 +5612,7 @@ Price deltas	--price-up-bg / -fg	subtle red	Price increases
 Price deltas	--price-down-bg / -fg	subtle green	Price decreases
 7.2.3.2 Non-color Tokens
 Radii: 4px, 6px, 8px, 12px
-Shadows: 3 tiers with rgba(20, 20, 18, 0.04â€“0.06) â€” intentionally very low alpha
+Shadows: 3 tiers with rgba(20, 20, 18, 0.04–0.06) — intentionally very low alpha
 Body type: 13px, line-height 1.5
 Font features enabled: cv11, ss01, ss03 (Inter stylistic alternates)
 .tabular utility class: enables font-variant-numeric: tabular-nums for prices and KPIs
@@ -5631,7 +5631,7 @@ The AppShell component (src/components/AppShell.tsx) provides:
 Sidebar (medium+ breakpoints): 56-unit-wide column with a branded header featuring IconKey, the navigation list, an Ajustes link, and the UserMenu dropdown.
 Top header: GlobalSearch (200ms debounce) on the left and a "Nuevo inmueble" CTA on the right.
 Main area: px-6 py-8 content region.
-Bypass behavior: when pathname === "/login" or starts with /login/, the shell returns bare children â€” login screens render full-bleed.
+Bypass behavior: when pathname === "/login" or starts with /login/, the shell returns bare children — login screens render full-bleed.
 
 The navigation array enumerates the primary sections:
 
@@ -5640,7 +5640,7 @@ Route	Label	Icon	Status
 /properties	Inmuebles	Building2	Active
 /matches	Duplicados	Sparkles	Active
 /activity	Actividad	Activity	Active
-/searches	BÃºsquedas	LayoutGrid	Disabled (aria-disabled) â€” not yet implemented
+/searches	Búsquedas	LayoutGrid	Disabled (aria-disabled) — not yet implemented
 
 The shell fetches /api/auth/session on mount and renders the UserMenu only once an email is resolved, gracefully handling the unauthenticated boot sequence.
 
@@ -5663,7 +5663,7 @@ PageHeader, FormSection	Page and form layout primitives
 PriceDelta	Compares two cent-denominated prices; classifies up/down/flat; renders Lucide icons with semantic color classes
 7.3.3 Brand Iconography
 
-The brand icon library at src/components/brand/icons.tsx defines nine inline SVG components, all using a 24Ã—24 viewBox and accepting { size, className, strokeWidth }. They are registered in a BRAND_ICONS map exposing a BrandIconKey union type for compile-safe selection.
+The brand icon library at src/components/brand/icons.tsx defines nine inline SVG components, all using a 24×24 viewBox and accepting { size, className, strokeWidth }. They are registered in a BRAND_ICONS map exposing a BrandIconKey union type for compile-safe selection.
 
 Component	Theme	Notes
 IconHorreo	Asturian granary	Regional landmark with 4 pegollos (stilts)
@@ -5685,7 +5685,7 @@ The complete web route map under src/app/:
 Route	File	Rendering	Purpose
 /	page.tsx	redirect	Forwards to /properties via next/navigation.redirect
 /login	login/page.tsx	force-dynamic	Passwordless magic-link sign-in
-/dashboard	dashboard/page.tsx	force-dynamic	KPI overview + "Necesita atenciÃ³n" panel
+/dashboard	dashboard/page.tsx	force-dynamic	KPI overview + "Necesita atención" panel
 /properties	properties/page.tsx	force-dynamic	Property catalog with filters, sort, table/grid toggle
 /properties/new	properties/new/page.tsx	server	Create-property form shell
 /properties/[id]	properties/[id]/page.tsx	force-dynamic	Property detail (read-only)
@@ -5760,7 +5760,7 @@ row click
 
 The login route follows a three-file pattern:
 
-page.tsx: Centered card layout with the IconKey brand mark and "BuySell Asturias" heading. Copy: "Accede a tu cuenta / Te enviaremos un enlace por email para entrar sin contraseÃ±a."
+page.tsx: Centered card layout with the IconKey brand mark and "BuySell Asturias" heading. Copy: "Accede a tu cuenta / Te enviaremos un enlace por email para entrar sin contraseña."
 LoginForm.tsx ("use client"): Email input with mail icon, submit button "Enviarme el enlace". Success state shows a CheckCircle2 icon with "Email enviado" plus a spam-folder reminder. Reacts to ?check=email (forces success view) and ?error= query parameters.
 actions.ts ("use server"): Server action sendMagicLinkAction(FormData) validates email, calls signIn("email", { email, redirectTo: "/dashboard", redirect: false }), handles the NEXT_REDIRECT thrown internally by NextAuth, and returns { ok: boolean, error?: string }.
 7.3.5.2
@@ -5770,11 +5770,11 @@ A dynamic = "force-dynamic" async server component that runs approximately 10 Pr
 Composed of six sections:
 
 PageHeader with title.
-KPI strip â€” four Stat cards: Active properties (FOR_SALE), Sold, Withdrawn, Total listings.
-Portal distribution card â€” proportional bars per portal.
-City benchmark card â€” top 8 cities by average â‚¬/mÂ² via raw SQL (cities with â‰¥2 properties).
-"Necesita atenciÃ³n" card â€” stale automatic listings, stale manual-portal listings, pending duplicate matches, photos missing perceptual hash.
-Recent activity card â€” count of price snapshots in the last 30 days plus a shortcut link to /activity.
+KPI strip — four Stat cards: Active properties (FOR_SALE), Sold, Withdrawn, Total listings.
+Portal distribution card — proportional bars per portal.
+City benchmark card — top 8 cities by average €/m² via raw SQL (cities with ≥2 properties).
+"Necesita atención" card — stale automatic listings, stale manual-portal listings, pending duplicate matches, photos missing perceptual hash.
+Recent activity card — count of price snapshots in the last 30 days plus a shortcut link to /activity.
 
 A local AttentionRow helper standardizes the icon + label + hint + clickable Badge (rendered as a link only when count > 0) pattern across the attention section.
 
@@ -5790,7 +5790,7 @@ The query fetches up to 100 properties with media (first photo) and price histor
 
 7.3.5.4
 
-A minimal route wrapper composed of a PageHeader (title "Nuevo inmueble", description "Rellena lo esencial ahora; luego aÃ±ades fotos y anuncios."), a "â† Volver" ghost button back to /properties, and <PropertyForm mode="create" /> rendering the actual form contract.
+A minimal route wrapper composed of a PageHeader (title "Nuevo inmueble", description "Rellena lo esencial ahora; luego añades fotos y anuncios."), a "← Volver" ghost button back to /properties, and <PropertyForm mode="create" /> rendering the actual form contract.
 
 7.3.5.5
 
@@ -5799,20 +5799,20 @@ dynamic = "force-dynamic", owner-scoped via requireUserId(). Uses a two-column l
 Left column (main):
 
 Gallery
-DescripciÃ³n card
+Descripción card
 SimilarPropertiesCard
-HistÃ³rico de precio (with PriceDelta indicator and PriceHistoryChart)
+Histórico de precio (with PriceDelta indicator and PriceHistoryChart)
 Entorno (tag chips)
-Planos card with media source labels: "Plano oficial (Catastro)" / "Boceto estimado por IA" / "ReconstrucciÃ³n IA" / "Del portal" / "Subido por el usuario"
+Planos card with media source labels: "Plano oficial (Catastro)" / "Boceto estimado por IA" / "Reconstrucción IA" / "Del portal" / "Subido por el usuario"
 
 Right column (aside):
 
-Status + price card: StatusBadge + PriceDelta + 3xl tabular price + â‚¬/mÂ²
-CaracterÃ­sticas card: spec rows for Type, Rooms, Bathrooms, Built area, Usable area, Plot, Floor, Year + extras chips + energy rating
-UbicaciÃ³n card: address, neighborhood, postal code, city, province, country + CadastreCard
+Status + price card: StatusBadge + PriceDelta + 3xl tabular price + €/m²
+Características card: spec rows for Type, Rooms, Bathrooms, Built area, Usable area, Plot, Floor, Year + extras chips + energy rating
+Ubicación card: address, neighborhood, postal code, city, province, country + CadastreCard
 Anuncios vinculados card
 
-Header actions: "â† Volver", SearchOtherPortalsButton, "Editar".
+Header actions: "← Volver", SearchOtherPortalsButton, "Editar".
 
 Type labels are mapped to Spanish display strings: PISO/HOUSE/ATICO/CHALET/DUPLEX/ESTUDIO/LOFT/LOCAL/TERRENO/OTRO. The feature flags rendered with Lucide icons are: hasElevator, hasGarage, hasStorage, hasTerrace, hasFireplace, hasGarden, hasPool.
 
@@ -5822,9 +5822,9 @@ Reuses the same PropertyForm component with mode="edit" and an initial-data prop
 
 7.3.5.7
 
-dynamic = "force-dynamic". Fetches the latest 100 PriceSnapshot rows. The page classifies each snapshot into a direction of up | down | flat | sold (where sold takes precedence), and applies a style map per direction producing an icon, foreground, background, and label. A formatRelative helper produces Spanish relative timestamps: Hoy, Ayer, Hace N dÃ­as, Hace N sem., or an absolute formatted date.
+dynamic = "force-dynamic". Fetches the latest 100 PriceSnapshot rows. The page classifies each snapshot into a direction of up | down | flat | sold (where sold takes precedence), and applies a style map per direction producing an icon, foreground, background, and label. A formatRelative helper produces Spanish relative timestamps: Hoy, Ayer, Hace N días, Hace N sem., or an absolute formatted date.
 
-The layout flows: PageHeader â†’ 3 KPI Stat cards (price drops, increases, sold counts in last 30d) â†’ a timeline grouped by day. Each row shows property title (Link to detail), city, direction Badge, previousâ†’current prices, portal Badge, and relative time. The empty state uses the EmptyState primitive.
+The layout flows: PageHeader → 3 KPI Stat cards (price drops, increases, sold counts in last 30d) → a timeline grouped by day. Each row shows property title (Link to detail), city, direction Badge, previous→current prices, portal Badge, and relative time. The empty state uses the EmptyState primitive.
 
 7.3.5.8
 
@@ -5832,8 +5832,8 @@ dynamic = "force-dynamic". Filters: dismissedAt: null, score >= 60, ordered by s
 
 Two empty-state branches:
 
-No properties at all â€” Sparkles icon with onboarding copy.
-No pending matches â€” friendly "all caught up" note.
+No properties at all — Sparkles icon with onboarding copy.
+No pending matches — friendly "all caught up" note.
 
 Rendering is delegated to MatchesList in @/features/matching/MatchesList.
 
@@ -5841,8 +5841,8 @@ Rendering is delegated to MatchesList in @/features/matching/MatchesList.
 
 dynamic = "force-static". Two-card layout:
 
-"CÃ³mo importar inmuebles a BuySell" â€” Tampermonkey requirement note (Idealista blocks bookmarklets via CSP), links to Chrome/Edge/Brave and Firefox extensions, mentions Violentmonkey as alternative.
-Notas tÃ©cnicas â€” GM_xmlhttpRequest CORS bypass, localhost target details, selector maintenance notes.
+"Cómo importar inmuebles a BuySell" — Tampermonkey requirement note (Idealista blocks bookmarklets via CSP), links to Chrome/Edge/Brave and Firefox extensions, mentions Violentmonkey as alternative.
+Notas técnicas — GM_xmlhttpRequest CORS bypass, localhost target details, selector maintenance notes.
 
 The page generates portal-specific userscript links from a slug array: idealista, fotocasa, pisos, habitaclia, yaencontre, thinkspain, indomio. Each link points at /api/bookmarklet/<slug>.user.js. The BookmarkletLink.tsx component renders a draggable anchor with preventDefault and an alert prompting the user to drag rather than click; BookmarkletTextarea.tsx renders a read-only textarea with focus-select for copy.
 
@@ -5903,7 +5903,7 @@ Order	Name	Title	Ionicon
 2	matches	Duplicados	sparkles-outline
 3	search	Buscar	search-outline
 4	account	Cuenta	person-outline
-Hidden	explore	â€”	(href: null) â€” vestigial Expo template demo
+Hidden	explore	—	(href: null) — vestigial Expo template demo
 7.4.2 Screen Inventory
 Route	File	Type
 /login	login.tsx	Two-phase OTP auth screen
@@ -5911,7 +5911,7 @@ Route	File	Type
 /(tabs)/matches	(tabs)/matches.tsx	Duplicados (duplicate review)
 /(tabs)/search	(tabs)/search.tsx	Buscar (debounced search)
 /(tabs)/account	(tabs)/account.tsx	Cuenta (profile + logout)
-/(tabs)/explore	(tabs)/explore.tsx	Hidden â€” vestigial demo route
+/(tabs)/explore	(tabs)/explore.tsx	Hidden — vestigial demo route
 /property/[id]	property/[id].tsx	Property detail
 /modal	modal.tsx	Generic modal
 7.4.3 Detailed Mobile Screen Specifications
@@ -5919,24 +5919,24 @@ Route	File	Type
 
 A two-phase passwordless flow, distinct from the web's magic-link approach because cookies cannot bridge a native app:
 
-Phase 1 â€” Email entry:
+Phase 1 — Email entry:
 
 TextInput with keyboardType="email-address", autoCapitalize="none", autoComplete="email"
-Primary button "Enviarme el cÃ³digo" (44px height, #3A5F8A background, white text, 0.5 opacity when disabled)
+Primary button "Enviarme el código" (44px height, #3A5F8A background, white text, 0.5 opacity when disabled)
 Calls useAuth().requestOtp(email) which triggers backend OTP generation
 
-Phase 2 â€” Code entry:
+Phase 2 — Code entry:
 
 6-digit numeric TextInput styled as a code field: monospace font (Menlo/monospace), letter-spacing 8, center-aligned, maxLength={6}, keyboardType="number-pad"
 Primary button "Acceder"
-Secondary link "â† Cambiar email" to return to Phase 1
+Secondary link "← Cambiar email" to return to Phase 1
 Calls useAuth().verifyOtp(email, code) which returns the HS256 JWT and stores it in expo-secure-store
 
 Visual elements:
 
-Brand block: 56Ã—56 rounded square with #EAEFF6 background and ðŸ”‘ emoji + "BuySell Asturias" title
+Brand block: 56×56 rounded square with #EAEFF6 background and 🔑 emoji + "BuySell Asturias" title
 Card: white surface, borderRadius: 12, 24px padding, #e5e5e5 border
-Footer text: "Sin contraseÃ±as. Cada acceso pide un cÃ³digo por email."
+Footer text: "Sin contraseñas. Cada acceso pide un código por email."
 Outer container: #FAFAF7 background (matches web), SafeAreaView wrapping KeyboardAvoidingView (iOS uses padding behavior)
 7.4.3.2
 
@@ -5954,23 +5954,23 @@ The header shows "Inmuebles" (22px, weight 700) plus a "N fichas" count. Pull-to
 
 Fetches /api/matches ({ items: Match[] }). Each card displays:
 
-A score badge with color coding: #15803D (â‰¥90), #A86A17 (â‰¥70), otherwise #666, all using a 22 hex alpha background.
+A score badge with color coding: #15803D (≥90), #A86A17 (≥70), otherwise #666, all using a 22 hex alpha background.
 A reasons block (2-line truncated).
-Two PropTiles separated by an â†” arrow glyph.
+Two PropTiles separated by an ↔ arrow glyph.
 
 The PropTile subcomponent renders an expo-image thumbnail (4:3 aspect ratio, #f3f3f3 placeholder), a 2-line truncated title, and a city + price meta line. Each tile wraps a Link href="/property/[id]". Pull-to-refresh is enabled. Empty state: "Sin duplicados pendientes" plus helper text.
 
 7.4.3.4
 
-Free-text TextInput with a search Ionicon (16px, #999) and placeholder "TÃ­tulo, ciudad, barrio, ref. catastralâ€¦". Query is debounced at 250ms (compared to 200ms on the web's GlobalSearch), and queries shorter than 2 characters are ignored.
+Free-text TextInput with a search Ionicon (16px, #999) and placeholder "Título, ciudad, barrio, ref. catastral…". Query is debounced at 250ms (compared to 200ms on the web's GlobalSearch), and queries shorter than 2 characters are ignored.
 
 Hits /api/search?q=... ({ results: SearchResult[] }). Results render as PropertyCard components with synthesized fields (status = "FOR_SALE", rooms/bathrooms/builtArea = null) because the search endpoint returns a slim projection. Empty state: Sin resultados para "{q}". A loading indicator renders inline on the right of the search bar while the query is in flight.
 
 7.4.3.5
-Profile card: a 56Ã—56 round avatar with #EAEFF6 background showing the first 2 characters of the email, uppercased; below it the email (15px, weight 500) and optional display name.
+Profile card: a 56×56 round avatar with #EAEFF6 background showing the first 2 characters of the email, uppercased; below it the email (15px, weight 500) and optional display name.
 "Servidor" section: shows the API_URL constant in monospace, helpful for troubleshooting LAN connectivity (default http://192.168.1.77:4200).
-Logout button: full-width, "Cerrar sesiÃ³n" with a log-out-outline Ionicon, red text (#B91C1C), white card surface with a #F6E5E5 border.
-Footer: "BuySell Asturias Â· v0.1.0"
+Logout button: full-width, "Cerrar sesión" with a log-out-outline Ionicon, red text (#B91C1C), white card surface with a #F6E5E5 border.
+Footer: "BuySell Asturias · v0.1.0"
 
 The screen returns null when not authenticated, which is a defensive guard since AuthGate should have already redirected.
 
@@ -5980,13 +5980,13 @@ Reads id from useLocalSearchParams and fetches /api/properties/${id}. Three stat
 
 Sections (each in a card with borderRadius: 10):
 
-Horizontal paged gallery â€” Image from expo-image with width: SCREEN_WIDTH, height: SCREEN_WIDTH * 0.66, contentFit: "cover", 150ms transition
-Photo count â€” "ðŸ“¸ N fotos" right-aligned
-Title + location chain + price â€” price at 26px weight 700, plus â‚¬/mÂ² when both builtArea and currentPrice are present
-CaracterÃ­sticas â€” 2-column grid of Spec tiles (Habitaciones, BaÃ±os, Construidos, Ãštiles, Parcela, Planta, AÃ±o, EnergÃ­a) + amenity tag chips
-DescripciÃ³n (conditional)
-Anuncios vinculados (conditional) â€” each row taps Linking.openURL(l.url) with an open-outline icon
-Catastro (conditional) â€” displays the cadastralRef value
+Horizontal paged gallery — Image from expo-image with width: SCREEN_WIDTH, height: SCREEN_WIDTH * 0.66, contentFit: "cover", 150ms transition
+Photo count — "📸 N fotos" right-aligned
+Title + location chain + price — price at 26px weight 700, plus €/m² when both builtArea and currentPrice are present
+Características — 2-column grid of Spec tiles (Habitaciones, Baños, Construidos, Útiles, Parcela, Planta, Año, Energía) + amenity tag chips
+Descripción (conditional)
+Anuncios vinculados (conditional) — each row taps Linking.openURL(l.url) with an open-outline icon
+Catastro (conditional) — displays the cadastralRef value
 7.4.3.7
 
 Minimal centered container with a title and a Link back to / to dismiss. Used as a placeholder for future modal-presented flows.
@@ -6045,7 +6045,7 @@ Endpoint	Method	Caller	Purpose
 /api/properties/[id]/dismiss-match	POST	MatchesList	Dismiss candidate ({ candidateId })
 /api/matches	GET	MatchesList	Hydration
 
-Server Actions â€” currently used only by the login flow. sendMagicLinkAction(FormData) in src/app/login/actions.ts wraps signIn("email", â€¦) and is invoked via a form action={â€¦} attribute, eliminating the need for a dedicated API route.
+Server Actions — currently used only by the login flow. sendMagicLinkAction(FormData) in src/app/login/actions.ts wraps signIn("email", …) and is invoked via a form action={…} attribute, eliminating the need for a dedicated API route.
 
 7.5.2 Mobile Boundaries
 
@@ -6066,11 +6066,11 @@ Endpoint	Method	Caller
 /api/matches	GET	(tabs)/matches
 7.5.3 Communication Patterns
 
-The mobile and web surfaces share the same /api/properties, /api/search, and /api/matches endpoints â€” the backend is unaware of the calling client. The differentiator is the authentication token presented:
+The mobile and web surfaces share the same /api/properties, /api/search, and /api/matches endpoints — the backend is unaware of the calling client. The differentiator is the authentication token presented:
 
-Web â†’ NextAuth session cookie (set by magic-link verification)
-Mobile â†’ Authorization: Bearer <HS256-JWT> (verified by src/lib/mobile-jwt.ts)
-Userscript â†’ Authorization: Bearer bs_<64-hex> (verified by src/lib/api-token.ts)
+Web → NextAuth session cookie (set by magic-link verification)
+Mobile → Authorization: Bearer <HS256-JWT> (verified by src/lib/mobile-jwt.ts)
+Userscript → Authorization: Bearer bs_<64-hex> (verified by src/lib/api-token.ts)
 
 A getUserId() cascade in src/lib/auth-helpers.ts resolves the user ID from whichever credential is present, transparently bridging the three auth models to a single owner-scoping mechanism.
 
@@ -6144,9 +6144,9 @@ The PropertyForm.tsx component (used by both /properties/new and /properties/[id
 
 Transformation	Detail
 Empty stripping	Empty string values removed from payload
-Price conversion	currentPrice euros â†’ cents via Math.round(Number(v) * 100)
+Price conversion	currentPrice euros → cents via Math.round(Number(v) * 100)
 Tag splitting	tags CSV split into trimmed array
-Feature coercion	Checkbox values (hasElevator, â€¦) coerced to `true
+Feature coercion	Checkbox values (hasElevator, …) coerced to `true
 Submission	POST /api/properties (create) or PATCH /api/properties/[id] (edit)
 Post-success	router.push("/properties/" + saved.id) followed by router.refresh()
 
@@ -6177,8 +6177,8 @@ NextAuth v5
 Server Action
 Web UI (LoginForm)
 User
-Web Flow â€” Magic Link
-Mobile Flow â€” OTP
+Web Flow — Magic Link
+Mobile Flow — OTP
 Enter email
 1
 sendMagicLinkAction(FormData)
@@ -6221,27 +6221,27 @@ sell.mobile.token", token)
 router.replace("/(tabs)")
 20
 
-Web â€” Magic Link:
+Web — Magic Link:
 
-User enters email in LoginForm â†’ server action sendMagicLinkAction(FormData) fires.
+User enters email in LoginForm → server action sendMagicLinkAction(FormData) fires.
 Resend sends the email containing the magic link (or console.log falls back when RESEND_API_KEY is unset).
 Success view shows "Email enviado" with a CheckCircle2 icon and spam-folder reminder.
-User clicks the link â†’ NextAuth verifies â†’ cookie session established â†’ redirect to /dashboard.
+User clicks the link → NextAuth verifies → cookie session established → redirect to /dashboard.
 
-Mobile â€” OTP:
+Mobile — OTP:
 
-Phase email: TextInput â†’ requestOtp(email) â†’ backend sends a 6-digit code via Resend.
-Phase code: 6-digit numeric TextInput â†’ verifyOtp(email, code) â†’ backend returns an HS256 JWT.
+Phase email: TextInput → requestOtp(email) → backend sends a 6-digit code via Resend.
+Phase code: 6-digit numeric TextInput → verifyOtp(email, code) → backend returns an HS256 JWT.
 JWT is saved in expo-secure-store. AuthGate observes state.kind === "authed" and redirects to /(tabs).
 7.7.2 Property Management Flows
 Flow	Surface	Entry Point	Mechanism
-Browse	Web	/properties	URL-state filters (city, type, status, price, rooms, amenities), sort dropdown, tableâ†”grid toggle
-Create	Web	/properties/new	PropertyForm (mode="create") â†’ POST â†’ redirect to detail
+Browse	Web	/properties	URL-state filters (city, type, status, price, rooms, amenities), sort dropdown, table↔grid toggle
+Create	Web	/properties/new	PropertyForm (mode="create") → POST → redirect to detail
 View detail	Web + Mobile	/properties/[id]	Read-only with side-panel summary (web) / stacked cards (mobile)
-Edit	Web	/properties/[id]/edit	PropertyForm (mode="edit") â†’ PATCH
+Edit	Web	/properties/[id]/edit	PropertyForm (mode="edit") → PATCH
 External search	Web	SearchOtherPortalsButton	Dropdown opens outbound searches on other portals (excluding current), optional Google Lens reverse-image search
 Recheck listing	Web	ListingRecheck button	Per-listing portal recheck with stale warnings + toast feedback
-Merge duplicates	Web	MatchesList	confirm() dialog â†’ POST /api/properties/[sourceId]/merge with { intoId }
+Merge duplicates	Web	MatchesList	confirm() dialog → POST /api/properties/[sourceId]/merge with { intoId }
 Dismiss match	Web	MatchesList	POST /api/properties/[sourceId]/dismiss-match with { candidateId }
 7.7.3 Search Interactions
 Behavior	Web (GlobalSearch)	Mobile ((tabs)/search)
@@ -6250,7 +6250,7 @@ Minimum query length	n/a	2 characters
 Result panel	Dropdown with thumbnail + title + city + price (right-aligned tabular)	Vertical FlatList of PropertyCard
 Dismissal	Outside-click via document.addEventListener("mousedown")	Native back / clear input
 Loading affordance	Subtle spinner overlay	Inline spinner inside search bar (right side)
-Endpoint	/api/search?q=â€¦	/api/search?q=â€¦
+Endpoint	/api/search?q=…	/api/search?q=…
 7.7.4 Duplicate Detection Workflows
 
 The duplicate review surface is one of the most consequential interaction patterns:
@@ -6266,9 +6266,9 @@ OK
 Cancel
 
 Pending matches surface in:
-â€¢ Dashboard 'Necesita atenciÃ³n'
-â€¢ /matches list
-â€¢ Mobile (tabs)/matches
+• Dashboard 'Necesita atención'
+• /matches list
+• Mobile (tabs)/matches
 
 User reviews score, reasons, both PropTiles
 
@@ -6292,7 +6292,7 @@ Because merge is destructive, the UI uses native confirm() with detailed Spanish
 
 7.7.5 Visual Feedback Patterns
 Feedback	Pattern	Implementation
-Pending submit	Button disables + label change to "Enviandoâ€¦"	useTransition + pending state
+Pending submit	Button disables + label change to "Enviando…"	useTransition + pending state
 Confirmation toasts	Native alert() (basic)	Standard browser dialog
 Destructive confirmations	Native confirm() with Spanish copy	Browser-native modal
 Empty states	Composed EmptyState primitive	Icon + title + description + optional CTA
@@ -6302,20 +6302,20 @@ Price deltas	PriceDelta icon + colored chip (up = red, down = green, flat = neut
 7.8 Visual Design Considerations
 7.8.1 Language And Localization
 
-The application is entirely Spanish-language. Every label, copy block, error message, and placeholder is authored in Spanish â€” examples include "Inmuebles", "Duplicados", "Actividad", "Email enviado", "Sin resultados", "Cerrar sesiÃ³n", and "Nuevo inmueble".
+The application is entirely Spanish-language. Every label, copy block, error message, and placeholder is authored in Spanish — examples include "Inmuebles", "Duplicados", "Actividad", "Email enviado", "Sin resultados", "Cerrar sesión", and "Nuevo inmueble".
 
 HTML lang attribute: <html lang="es"> is set in src/app/layout.tsx.
-Number formatting: toLocaleString("es-ES") is used for â‚¬/mÂ² values throughout the property detail page.
-Date formatting: relative time helpers produce Spanish output (Hoy, Ayer, Hace N dÃ­as, Hace N sem.), and absolute dates use formatDate from @buysell/shared.
+Number formatting: toLocaleString("es-ES") is used for €/m² values throughout the property detail page.
+Date formatting: relative time helpers produce Spanish output (Hoy, Ayer, Hace N días, Hace N sem.), and absolute dates use formatDate from @buysell/shared.
 7.8.2 Color Palette And Tokens
 
 The palette is detailed in Section 7.2.3.1. The salient visual decisions:
 
-Surfaces are warm off-white, not pure white (#FAFAF7 background, #FFFFFF cards) â€” this softens the screen for long management sessions.
-Color is used sparingly â€” semantic colors are reserved for status badges, alerts, price deltas, and the brand accent.
-Shadows are barely perceptible â€” all three shadow tiers use rgba(20, 20, 18, 0.04â€“0.06), far below typical SaaS UI levels, reinforcing the "sober" identity.
+Surfaces are warm off-white, not pure white (#FAFAF7 background, #FFFFFF cards) — this softens the screen for long management sessions.
+Color is used sparingly — semantic colors are reserved for status badges, alerts, price deltas, and the brand accent.
+Shadows are barely perceptible — all three shadow tiers use rgba(20, 20, 18, 0.04–0.06), far below typical SaaS UI levels, reinforcing the "sober" identity.
 7.8.3 Typography System
-Body: 13px Inter with line-height 1.5 â€” information-dense and explicitly small for a management UI.
+Body: 13px Inter with line-height 1.5 — information-dense and explicitly small for a management UI.
 Scale: 8 tiers from xs (12px) to 3xl (32px) with tuned letter-spacing for headings.
 Stylistic features: cv11, ss01, ss03 (Inter alternates) enabled globally.
 Tabular numerics: a dedicated .tabular class enables font-variant-numeric: tabular-nums so prices and KPIs align cleanly in columns.
@@ -6330,9 +6330,9 @@ The deliberate use of outline-style iconography on both surfaces ties together t
 7.8.5 Responsive Behavior
 Breakpoint	Web Behavior
 < md (768px)	Sidebar hidden (hidden ... md:flex); top bar only
-â‰¥ md	Full sidebar visible
+≥ md	Full sidebar visible
 < lg	Properties page filters and detail asides stack below content
-â‰¥ lg	lg:grid-cols-[1fr_280px] on /properties, lg:grid-cols-[1fr_320px] on /properties/[id]
+≥ lg	lg:grid-cols-[1fr_280px] on /properties, lg:grid-cols-[1fr_320px] on /properties/[id]
 Grid view	grid-cols-1 md:grid-cols-2 xl:grid-cols-3
 
 The mobile app is phone-first with SafeAreaView insets. Tablet support is enabled in app.json (supportsTablet: true) and react-native-web is included for potential web preview, but the layouts are not specifically tablet-optimized beyond what flexbox provides.
@@ -6342,7 +6342,7 @@ The mobile app is phone-first with SafeAreaView insets. Tablet support is enable
 Accessibility affordances observed in the codebase:
 
 Universal focus-visible ring: 2px solid --primary with 2px offset, declared globally in globals.css.
-Semantic disabled states: aria-disabled on the disabled "BÃºsquedas" nav link in AppShell.
+Semantic disabled states: aria-disabled on the disabled "Búsquedas" nav link in AppShell.
 Decorative SVG handling: aria-hidden="true" on brand SVG icons that are paired with text labels.
 Input autocomplete hints: autoComplete="email" on email inputs (both web and mobile).
 Mobile keyboard hints: keyboardType="email-address" and keyboardType="number-pad" on email and OTP inputs respectively.
@@ -6352,90 +6352,90 @@ Placeholder styling: subtle text color (--text-subtle / #9A9690) preserves contr
 
 The product's regional Asturian identity is woven into the UI in several subtle ways:
 
-IconHorreo â€” the Asturian granary on stilts is one of the brand icon options, labeled "Distintivo regional" in the design showcase.
-IconPicos â€” the Picos de Europa mountain range (Asturias' iconic landscape) is another candidate brand mark.
-Default placeholders â€” the city field in PropertyForm uses "Oviedo" as a placeholder example.
-Catastro/cadastral integration â€” the CadastreCard on the property detail screen surfaces Spanish cadastral references natively, reinforcing the product's deep integration with Spanish government data.
+IconHorreo — the Asturian granary on stilts is one of the brand icon options, labeled "Distintivo regional" in the design showcase.
+IconPicos — the Picos de Europa mountain range (Asturias' iconic landscape) is another candidate brand mark.
+Default placeholders — the city field in PropertyForm uses "Oviedo" as a placeholder example.
+Catastro/cadastral integration — the CadastreCard on the property detail screen surfaces Spanish cadastral references natively, reinforcing the product's deep integration with Spanish government data.
 
-The combination of muted steel-blue primaries, brass accents, Asturian regional iconography, and Spanish-only copy gives the product a distinctive identity within the Spanish real-estate tooling market â€” visibly different from the dominant portal aesthetics described in Section 1.2.1.1.
+The combination of muted steel-blue primaries, brass accents, Asturian regional iconography, and Spanish-only copy gives the product a distinctive identity within the Spanish real-estate tooling market — visibly different from the dominant portal aesthetics described in Section 1.2.1.1.
 
 7.9 References
 Files Examined
 
 Configuration & Documentation:
 
-tailwind.config.ts â€” Design system tokens, font scales, color mappings to CSS variables
-src/app/layout.tsx â€” Root HTML scaffold, Inter font, AppShell wrapping
-src/app/globals.css â€” Complete CSS custom property palette and global styles
-next.config.ts â€” Image optimization remote patterns allowlist
-apps/mobile/app.json â€” Mobile manifest, deep-link scheme, New Architecture
-apps/mobile/package.json â€” Mobile dependency declarations
-package.json â€” Web dependency declarations
+tailwind.config.ts — Design system tokens, font scales, color mappings to CSS variables
+src/app/layout.tsx — Root HTML scaffold, Inter font, AppShell wrapping
+src/app/globals.css — Complete CSS custom property palette and global styles
+next.config.ts — Image optimization remote patterns allowlist
+apps/mobile/app.json — Mobile manifest, deep-link scheme, New Architecture
+apps/mobile/package.json — Mobile dependency declarations
+package.json — Web dependency declarations
 
 Web Shell & Design System:
 
-src/components/AppShell.tsx â€” Sidebar, navigation, top header, GlobalSearch integration
-src/components/GlobalSearch.tsx â€” Debounced global search dropdown
-src/components/UserMenu.tsx â€” Profile dropdown and logout
-src/components/ui/index.ts â€” UI primitives barrel exports
-src/components/brand/icons.tsx â€” Nine brand SVG icons (IconHorreo, IconKey, etc.)
+src/components/AppShell.tsx — Sidebar, navigation, top header, GlobalSearch integration
+src/components/GlobalSearch.tsx — Debounced global search dropdown
+src/components/UserMenu.tsx — Profile dropdown and logout
+src/components/ui/index.ts — UI primitives barrel exports
+src/components/brand/icons.tsx — Nine brand SVG icons (IconHorreo, IconKey, etc.)
 
 Web Routes:
 
-src/app/login/page.tsx â€” Login page shell
-src/app/login/LoginForm.tsx â€” Magic-link client form
-src/app/login/actions.ts â€” sendMagicLinkAction server action
-src/app/dashboard/page.tsx â€” KPI dashboard with parallel queries
-src/app/properties/page.tsx â€” Property catalog page
-src/app/properties/new/page.tsx â€” Create wrapper
-src/app/properties/[id]/page.tsx â€” Property detail
-src/app/properties/[id]/edit/page.tsx â€” Edit wrapper
-src/app/activity/page.tsx â€” Activity timeline
-src/app/matches/page.tsx â€” Duplicate review queue
-src/app/bookmarklet/page.tsx â€” Userscript onboarding
-src/app/brand/page.tsx â€” Internal design showcase
+src/app/login/page.tsx — Login page shell
+src/app/login/LoginForm.tsx — Magic-link client form
+src/app/login/actions.ts — sendMagicLinkAction server action
+src/app/dashboard/page.tsx — KPI dashboard with parallel queries
+src/app/properties/page.tsx — Property catalog page
+src/app/properties/new/page.tsx — Create wrapper
+src/app/properties/[id]/page.tsx — Property detail
+src/app/properties/[id]/edit/page.tsx — Edit wrapper
+src/app/activity/page.tsx — Activity timeline
+src/app/matches/page.tsx — Duplicate review queue
+src/app/bookmarklet/page.tsx — Userscript onboarding
+src/app/brand/page.tsx — Internal design showcase
 
 Web Feature Components:
 
-src/features/properties/PropertyForm.tsx â€” Create/edit form contract and transformations
-src/features/matching/MatchesList.tsx â€” Duplicate match review UI
+src/features/properties/PropertyForm.tsx — Create/edit form contract and transformations
+src/features/matching/MatchesList.tsx — Duplicate match review UI
 
 Mobile Routes:
 
-apps/mobile/app/_layout.tsx â€” Root layout, AuthProvider, ThemeProvider, AuthGate, stack
-apps/mobile/app/login.tsx â€” Two-phase OTP login
-apps/mobile/app/(tabs)/_layout.tsx â€” Bottom tab navigator configuration
-apps/mobile/app/(tabs)/index.tsx â€” Inmuebles list screen
-apps/mobile/app/(tabs)/search.tsx â€” Buscar screen
-apps/mobile/app/(tabs)/matches.tsx â€” Duplicados screen
-apps/mobile/app/(tabs)/account.tsx â€” Cuenta screen
-apps/mobile/app/property/[id].tsx â€” Property detail (mobile)
-apps/mobile/app/modal.tsx â€” Generic modal stub
+apps/mobile/app/_layout.tsx — Root layout, AuthProvider, ThemeProvider, AuthGate, stack
+apps/mobile/app/login.tsx — Two-phase OTP login
+apps/mobile/app/(tabs)/_layout.tsx — Bottom tab navigator configuration
+apps/mobile/app/(tabs)/index.tsx — Inmuebles list screen
+apps/mobile/app/(tabs)/search.tsx — Buscar screen
+apps/mobile/app/(tabs)/matches.tsx — Duplicados screen
+apps/mobile/app/(tabs)/account.tsx — Cuenta screen
+apps/mobile/app/property/[id].tsx — Property detail (mobile)
+apps/mobile/app/modal.tsx — Generic modal stub
 
 Mobile Components:
 
-apps/mobile/components/PropertyCard.tsx â€” Reusable property card primitive
-apps/mobile/lib/api.ts â€” API helper with EXPO_PUBLIC_API_URL and Authorization: Bearer header
+apps/mobile/components/PropertyCard.tsx — Reusable property card primitive
+apps/mobile/lib/api.ts — API helper with EXPO_PUBLIC_API_URL and Authorization: Bearer header
 Folders Explored
-src/ â€” Web app source root
-src/app/ â€” Next.js App Router root
-src/app/properties/, src/app/properties/[id]/, src/app/properties/new/ â€” Property routes
-src/app/dashboard/, src/app/activity/, src/app/matches/, src/app/bookmarklet/, src/app/brand/, src/app/login/ â€” Top-level route groups
-src/components/ â€” Shared web components
-src/components/ui/ â€” UI design system primitives
-src/features/ â€” Domain feature components
-src/features/properties/, src/features/matching/ â€” Property and matching feature UIs
-apps/ â€” Mobile workspace container
-apps/mobile/ â€” Expo mobile app
-apps/mobile/app/ â€” Mobile route tree
-apps/mobile/app/(tabs)/, apps/mobile/app/property/ â€” Mobile route groups
-apps/mobile/components/ â€” Mobile shared components
+src/ — Web app source root
+src/app/ — Next.js App Router root
+src/app/properties/, src/app/properties/[id]/, src/app/properties/new/ — Property routes
+src/app/dashboard/, src/app/activity/, src/app/matches/, src/app/bookmarklet/, src/app/brand/, src/app/login/ — Top-level route groups
+src/components/ — Shared web components
+src/components/ui/ — UI design system primitives
+src/features/ — Domain feature components
+src/features/properties/, src/features/matching/ — Property and matching feature UIs
+apps/ — Mobile workspace container
+apps/mobile/ — Expo mobile app
+apps/mobile/app/ — Mobile route tree
+apps/mobile/app/(tabs)/, apps/mobile/app/property/ — Mobile route groups
+apps/mobile/components/ — Mobile shared components
 Technical Specification Cross-references
-Section 1.2 SYSTEM OVERVIEW â€” Project context, capability inventory, and confirmed stack versions
-Section 3.2 FRAMEWORKS & LIBRARIES â€” Authoritative version pinning for web and mobile
-Next.js Web Application (Section 6.1.2) â€” UI/backend communication patterns, sidecar boundary, mobile bearer flow
-Section 5.1 HIGH-LEVEL ARCHITECTURE â€” System overview and component diagrams
-Section 6.4 Security Architecture â€” Three concurrent token systems (NextAuth cookie, mobile JWT, API token) bridged by getUserId()
+Section 1.2 SYSTEM OVERVIEW — Project context, capability inventory, and confirmed stack versions
+Section 3.2 FRAMEWORKS & LIBRARIES — Authoritative version pinning for web and mobile
+Next.js Web Application (Section 6.1.2) — UI/backend communication patterns, sidecar boundary, mobile bearer flow
+Section 5.1 HIGH-LEVEL ARCHITECTURE — System overview and component diagrams
+Section 6.4 Security Architecture — Three concurrent token systems (NextAuth cookie, mobile JWT, API token) bridged by getUserId()
 8. Infrastructure
 8.1 Infrastructure Applicability Assessment
 8.1.1 Current Posture Statement
@@ -6446,35 +6446,35 @@ This section is therefore documented in hybrid form: the system does host two di
 
 8.1.2 Infrastructure Inventory: Present Vs. Absent
 
-The following matrix consolidates the canonical infrastructure components and their disposition in the current codebase. This is the authoritative reference for "what exists today" â€” every claim has been verified against repository contents.
+The following matrix consolidates the canonical infrastructure components and their disposition in the current codebase. This is the authoritative reference for "what exists today" — every claim has been verified against repository contents.
 
 Component	Status	Source / Evidence
-Local PostgreSQL container	âœ… Present	docker-compose.yml (17 lines, single service)
-buysell-pgdata named volume	âœ… Present	docker-compose.yml line 13
-Two-process topology (Next.js + Sidecar)	âœ… Present	package.json scripts; scripts/scraper-service.mjs
-.env.example env contract	âœ… Present	7 documented variables
-npm-script operational tooling	âœ… Present	package.json (16 root scripts)
-Production Dockerfile	âŒ Absent	Repository scan returns empty
-.github/workflows/ CI/CD pipeline	âŒ Absent	Directory does not exist
-Cloud deployment	âŒ Absent	No provider selected; deferred per Section 3.4.4
-Infrastructure as Code (Terraform, Pulumi, CloudFormation, Bicep)	âŒ Absent	No .tf, .bicep, or equivalent files
-Kubernetes manifests / Helm charts	âŒ Absent	No k8s/ or helm/ directories
-Container orchestration (Swarm, Nomad, ECS, EKS)	âŒ Absent	None configured
-.dockerignore	âŒ Absent	No build optimization yet
-Automated backups (pg_dump cron, snapshot policy)	âŒ Absent	Per Section 5.4.6
-External monitoring (Sentry, Datadog, OpenTelemetry)	âŒ Absent	Per Section 6.5.1.1
-Secret management (Vault, KMS, Doppler)	âŒ Absent	Process env vars only
+Local PostgreSQL container	✅ Present	docker-compose.yml (17 lines, single service)
+buysell-pgdata named volume	✅ Present	docker-compose.yml line 13
+Two-process topology (Next.js + Sidecar)	✅ Present	package.json scripts; scripts/scraper-service.mjs
+.env.example env contract	✅ Present	7 documented variables
+npm-script operational tooling	✅ Present	package.json (16 root scripts)
+Production Dockerfile	❌ Absent	Repository scan returns empty
+.github/workflows/ CI/CD pipeline	❌ Absent	Directory does not exist
+Cloud deployment	❌ Absent	No provider selected; deferred per Section 3.4.4
+Infrastructure as Code (Terraform, Pulumi, CloudFormation, Bicep)	❌ Absent	No .tf, .bicep, or equivalent files
+Kubernetes manifests / Helm charts	❌ Absent	No k8s/ or helm/ directories
+Container orchestration (Swarm, Nomad, ECS, EKS)	❌ Absent	None configured
+.dockerignore	❌ Absent	No build optimization yet
+Automated backups (pg_dump cron, snapshot policy)	❌ Absent	Per Section 5.4.6
+External monitoring (Sentry, Datadog, OpenTelemetry)	❌ Absent	Per Section 6.5.1.1
+Secret management (Vault, KMS, Doppler)	❌ Absent	Process env vars only
 8.1.3 Critical Infrastructure Gaps
 
 Per Section 1.2.1.2's gap matrix, the following critical gaps block production-grade operation:
 
 Gap	Severity	Phase 1 Effort	Priority Indicator
-No cloud deployment	Critical	2â€“4h (Dockerfile + Railway/Fly.io)	ðŸ”´
-No CI/CD pipeline	Critical	Low complexity	ðŸ”´
-NEXTAUTH_URL not configured for production	Critical	30 min	ðŸ”´
-Local image storage (public/uploads/)	High	Medium (R2 migration)	ðŸŸ¡
-No decoupled cron for scraper	High	3â€“4h (pg-boss or Railway Cron)	ðŸŸ 
-No real-time sync	High	Phase 2 (SSE/WebSocket)	ðŸŸ¡
+No cloud deployment	Critical	2–4h (Dockerfile + Railway/Fly.io)	🔴
+No CI/CD pipeline	Critical	Low complexity	🔴
+NEXTAUTH_URL not configured for production	Critical	30 min	🔴
+Local image storage (public/uploads/)	High	Medium (R2 migration)	🟡
+No decoupled cron for scraper	High	3–4h (pg-boss or Railway Cron)	🟠
+No real-time sync	High	Phase 2 (SSE/WebSocket)	🟡
 
 The remainder of this section documents both what currently exists and what is planned so future contributors have a complete trajectory reference.
 
@@ -6482,7 +6482,7 @@ The remainder of this section documents both what currently exists and what is p
 8.2.1 Target Environment Assessment
 8.2.1.1 Environment Type
 
-The system currently targets a single local development workstation. There is no on-premises, cloud, hybrid, or multi-cloud deployment configured. Per Section 3.4.4, all cloud topics â€” hosting, R2/Cloudflare image storage, managed Postgres â€” are explicitly deferred per docs/ROADMAP.md Phase 1.
+The system currently targets a single local development workstation. There is no on-premises, cloud, hybrid, or multi-cloud deployment configured. Per Section 3.4.4, all cloud topics — hosting, R2/Cloudflare image storage, managed Postgres — are explicitly deferred per docs/ROADMAP.md Phase 1.
 
 The deployable surface consists of two long-running Node processes plus one supporting database container, all colocated on the operator's machine:
 
@@ -6495,7 +6495,7 @@ PostgreSQL Database	postgres:17-alpine Docker container	Container port 5432 (map
 There are no geographic distribution requirements. The product targets Spain exclusively (per Section 1.3.2):
 
 Geo-Specific Setting	Value	Source
-Default country	"EspaÃ±a"	Sanity defaults in import-listing.ts
+Default country	"España"	Sanity defaults in import-listing.ts
 Default province	"Asturias"	Sanity defaults in import-listing.ts
 HTML language attribute	lang="es"	Hardcoded in root layout
 Currency	EUR only (integer cents)	Sanity validators in @buysell/shared
@@ -6512,7 +6512,7 @@ The following resource requirements are derived directly from the codebase and r
 Resource	Specification	Source
 Node runtime	20+ required	README.md setup instructions
 PostgreSQL	Version 17 (alpine variant)	docker-compose.yml
-Sidecar memory	~300â€“500 MB RAM per Chromium instance	docs/ROADMAP.md Fase 2 notes
+Sidecar memory	~300–500 MB RAM per Chromium instance	docs/ROADMAP.md Fase 2 notes
 Playwright Chromium binary	~300 MB on disk	Per Section 5.3.1
 Persistent volume	Docker named volume buysell-pgdata	docker-compose.yml line 13
 Image storage	Local filesystem public/uploads/ (R2 deferred)	Per Section 3.5.4
@@ -6523,7 +6523,7 @@ Recommended workstation sizing (extrapolated from observed resource footprint):
 
 Resource	Minimum	Recommended	Justification
 CPU	2 cores	4 cores	Concurrent Next.js + Playwright + PostgreSQL
-RAM	4 GB	8 GB	Chromium 300â€“500 MB + Node processes + PG buffer pool
+RAM	4 GB	8 GB	Chromium 300–500 MB + Node processes + PG buffer pool
 Disk	5 GB	20 GB	Playwright binary, public/uploads/, PG volume growth
 Network	Broadband	Broadband	External portal scraping bandwidth
 8.2.1.4 Compliance And Regulatory Requirements
@@ -6539,12 +6539,12 @@ HIPAA	Not applicable	No health data
 SOC 2	Not pursued	No enterprise customers
 ISO 27001	Not pursued	No certification driver
 
-The Property.ownerId â†’ User.id ON DELETE SET NULL cascade rule is the only GDPR-style erasure hook in the schema â€” it preserves the property record but severs the identity link, allowing data retention with anonymization. All other foreign keys CASCADE on delete (per Section 3.5.2).
+The Property.ownerId → User.id ON DELETE SET NULL cascade rule is the only GDPR-style erasure hook in the schema — it preserves the property record but severs the identity link, allowing data retention with anonymization. All other foreign keys CASCADE on delete (per Section 3.5.2).
 
 8.2.2 Environment Management
 8.2.2.1 Infrastructure As Code (iac) Approach
 
-The repository contains no Infrastructure as Code tooling. Per Section 3.7, Terraform IaC is "Not present â€” Not adopted." Repository scans confirm the absence of:
+The repository contains no Infrastructure as Code tooling. Per Section 3.7, Terraform IaC is "Not present — Not adopted." Repository scans confirm the absence of:
 
 IaC Tool	Status	Search Confirmation
 Terraform	Absent	No .tf files
@@ -6583,11 +6583,11 @@ No staging or production environment is configured. The current promotion model 
 
 Environment	Status	Trigger	Configuration
 Development	Present	npm run dev	next dev -p 4200; .env.local
-Staging	Not configured	â€”	â€”
+Staging	Not configured	—	—
 Production	Local only	npm run build && npm start	next start -p 4200; .env
 Cloud production	Deferred	Roadmap Fase 1	Railway or Fly.io target
 
-The Phase 1 promotion target documented in docs/ROADMAP.md is a Railway or Fly.io deployment with a Dockerfile that has not yet been authored â€” listed as a ðŸ”´ Critical priority item with 2â€“4 hour estimated effort.
+The Phase 1 promotion target documented in docs/ROADMAP.md is a Railway or Fly.io deployment with a Dockerfile that has not yet been authored — listed as a 🔴 Critical priority item with 2–4 hour estimated effort.
 
 8.2.2.4 Backup And Disaster Recovery
 
@@ -6595,10 +6595,10 @@ Per Section 5.4.6, the current DR posture reflects the product's local/personal-
 
 DR Mechanism	Current State	Future Plan
 PostgreSQL persistence	Docker named volume buysell-pgdata (survives container recreation)	Managed Postgres with provider snapshots (Fase 1)
-Automated backups	None â€” no pg_dump cron, no snapshot policy	Scheduled pg_dump to object storage (Fase 1 prerequisite)
-Image storage backup	None â€” public/uploads/ not versioned	Cloudflare R2 with object versioning (Fase 1)
-CI/CD-based recovery	None â€” no .github/workflows/	GitHub Actions deploy pipeline (Fase 1)
-Idempotent operations (primary DR mechanism)	âœ… Present per ADR-4	Maintained â€” re-running operations is safe
+Automated backups	None — no pg_dump cron, no snapshot policy	Scheduled pg_dump to object storage (Fase 1 prerequisite)
+Image storage backup	None — public/uploads/ not versioned	Cloudflare R2 with object versioning (Fase 1)
+CI/CD-based recovery	None — no .github/workflows/	GitHub Actions deploy pipeline (Fase 1)
+Idempotent operations (primary DR mechanism)	✅ Present per ADR-4	Maintained — re-running operations is safe
 
 Idempotent operations are the primary DR mechanism today. Re-running an import on the same URL hits the update path safely; re-running merge on an already-deleted source returns empty counts; each background pipeline stage is gated on NULL columns so re-imports re-trigger only the missing work. This eliminates the need for atomic transaction recovery.
 
@@ -6661,17 +6661,17 @@ When cloud deployment is performed, the security posture documented in Section 6
 
 AUTH_SECRET must be provisioned via the cloud provider's environment-variable / secret-store mechanism, not committed to repository
 NEXTAUTH_URL must be set to the production domain to enable correct OAuth-style redirect URI handling for magic links
-The Playwright sidecar's 127.0.0.1 bind must be preserved on the host (cloud or otherwise) â€” exposing it externally would create an unauthenticated browser-control endpoint
+The Playwright sidecar's 127.0.0.1 bind must be preserved on the host (cloud or otherwise) — exposing it externally would create an unauthenticated browser-control endpoint
 CORS * must remain limited to /api/listings/import and /api/auth/mobile/* (per Section 5.4.7)
 8.4 Containerization
 8.4.1 Container Platform Selection
 
-Docker with Docker Compose is the chosen container platform â€” but its use is currently limited to the local PostgreSQL container only. Per Section 3.6.4:
+Docker with Docker Compose is the chosen container platform — but its use is currently limited to the local PostgreSQL container only. Per Section 3.6.4:
 
 Container	State
-PostgreSQL container	âœ… postgres:17-alpine via docker-compose.yml (local dev only)
-Application container	âŒ No Dockerfile present. Production Dockerfile is a Fase 1 critical gap per Section 1.2.1.2
-Sidecar container	âŒ No Dockerfile present for the Playwright sidecar
+PostgreSQL container	✅ postgres:17-alpine via docker-compose.yml (local dev only)
+Application container	❌ No Dockerfile present. Production Dockerfile is a Fase 1 critical gap per Section 1.2.1.2
+Sidecar container	❌ No Dockerfile present for the Playwright sidecar
 8.4.2 Postgresql Container Configuration
 
 The complete docker-compose.yml file is 17 lines and provisions a single service:
@@ -6686,15 +6686,15 @@ Database password	buysell (development credentials)
 Host port mapping	5432:5432
 Persistent volume	buysell-pgdata mounted at /var/lib/postgresql/data
 
-The restart: unless-stopped directive ensures the database container recovers from host reboots and Docker daemon restarts without manual intervention â€” the only HA-like behavior currently in production. The named volume buysell-pgdata is the only persistent storage primitive in the system aside from the host filesystem under public/uploads/.
+The restart: unless-stopped directive ensures the database container recovers from host reboots and Docker daemon restarts without manual intervention — the only HA-like behavior currently in production. The named volume buysell-pgdata is the only persistent storage primitive in the system aside from the host filesystem under public/uploads/.
 
 8.4.3 Application Container Status
 
 No Dockerfile exists in the repository for the Next.js application or the Playwright sidecar. This has been confirmed by repository scan (find . -name "Dockerfile*" returns empty) and is explicitly flagged in docs/ROADMAP.md line 46:
 
-"Despliegue en la nube: AÃ±adir Dockerfile de producciÃ³n + config Railway/Fly.io. Sin esto no hay producto. Prioridad: ðŸ”´ CrÃ­tica"
+"Despliegue en la nube: Añadir Dockerfile de producción + config Railway/Fly.io. Sin esto no hay producto. Prioridad: 🔴 Crítica"
 
-Translation: "Cloud deployment: Add production Dockerfile + Railway/Fly.io config. Without this there is no product. Priority: ðŸ”´ Critical."
+Translation: "Cloud deployment: Add production Dockerfile + Railway/Fly.io config. Without this there is no product. Priority: 🔴 Critical."
 
 When authored, the Dockerfile will need to address:
 
@@ -6725,22 +6725,22 @@ Not yet defined. When Dockerfile authoring proceeds, the expected versioning app
 
 Semantic version tags matching package.json version (0.1.0 currently)
 Git SHA tags for traceability to source commit
-latest tag avoided in production â€” per ADR best practices
+latest tag avoided in production — per ADR best practices
 8.4.6 Build Optimization And Security Scanning
 
 Not implemented. The current state per find scans:
 
 Optimization / Scan	Status
-.dockerignore file	âŒ Absent
-Multi-stage builds	âŒ N/A (no Dockerfile)
-Layer caching strategy	âŒ N/A (no Dockerfile)
-Trivy image scanning	âŒ Not configured
-Snyk container scanning	âŒ Not configured
-Grype scanning	âŒ Not configured
-Image signing (Cosign / Notary)	âŒ Not configured
-SBOM generation	âŒ Not configured
+.dockerignore file	❌ Absent
+Multi-stage builds	❌ N/A (no Dockerfile)
+Layer caching strategy	❌ N/A (no Dockerfile)
+Trivy image scanning	❌ Not configured
+Snyk container scanning	❌ Not configured
+Grype scanning	❌ Not configured
+Image signing (Cosign / Notary)	❌ Not configured
+SBOM generation	❌ Not configured
 
-When containerization proceeds, security scanning should be integrated into the CI/CD pipeline (also pending â€” see Section 8.6).
+When containerization proceeds, security scanning should be integrated into the CI/CD pipeline (also pending — see Section 8.6).
 
 8.5 Orchestration
 8.5.1 Orchestration Applicability Statement
@@ -6759,12 +6759,12 @@ Network policies	Not applicable	Single-host networking
 
 The repository contains no orchestration platform configurations:
 
-âŒ Kubernetes: No k8s/, no manifests, no kustomization.yaml
-âŒ Docker Swarm: No stack.yml, no docker stack mode
-âŒ HashiCorp Nomad: No .nomad files
-âŒ AWS ECS / Fargate: No taskdef.json, no service definitions
-âŒ Google Cloud Run: No service.yaml
-âŒ Azure Container Apps: No containerapps.bicep
+❌ Kubernetes: No k8s/, no manifests, no kustomization.yaml
+❌ Docker Swarm: No stack.yml, no docker stack mode
+❌ HashiCorp Nomad: No .nomad files
+❌ AWS ECS / Fargate: No taskdef.json, no service definitions
+❌ Google Cloud Run: No service.yaml
+❌ Azure Container Apps: No containerapps.bicep
 8.5.3 Justification For Non-orchestration Posture
 
 The architectural justification is rooted in three observations from Section 6.1.1.1:
@@ -6781,13 +6781,13 @@ When the system migrates to cloud (Phase 1), the target platforms (Railway, Fly.
 Per Section 3.6.5, no CI/CD pipeline exists in the repository:
 
 Concern	Current State
-GitHub Actions workflows	âŒ Absent â€” no .github/workflows/ directory
-Deployment automation	âŒ None
-Static analysis in CI	âŒ Not configured
-Test runs in CI	âŒ Not configured
-Pre-commit hooks (Husky, lefthook)	âŒ Not configured
+GitHub Actions workflows	❌ Absent — no .github/workflows/ directory
+Deployment automation	❌ None
+Static analysis in CI	❌ Not configured
+Test runs in CI	❌ Not configured
+Pre-commit hooks (Husky, lefthook)	❌ Not configured
 
-This is confirmed by repository scan (find . -name ".github" -type d returns empty) and is listed as a ðŸ”´ Critical priority Phase 1 gap.
+This is confirmed by repository scan (find . -name ".github" -type d returns empty) and is listed as a 🔴 Critical priority Phase 1 gap.
 
 8.6.2 Build Pipeline (local Only)
 8.6.2.1 Existing Build Capabilities
@@ -6836,26 +6836,26 @@ Prisma Client	node_modules/.prisma/client/	Regenerated on prisma generate
 
 Per docs/ROADMAP.md Phase 1, the target CI/CD shape is:
 
-GitHub Actions: lint â†’ test â†’ build â†’ deploy on PR merge
+GitHub Actions: lint → test → build → deploy on PR merge
 
 Phase 1 ordered implementation steps (from docs/ROADMAP.md):
 
 Step	Task	Priority	Estimated Effort
-1	Configure domain + NEXTAUTH_URL for production	ðŸ”´ Critical	30 min
-2	Author Dockerfile + Railway/Fly.io config	ðŸ”´ Critical	2â€“4h
-3	Email notification on price drop	ðŸŸ  High	TBD
-4	Mortgage calculator	ðŸŸ  High	TBD
-5	Side-by-side comparator	ðŸŸ  High	TBD
-6	Decoupled cron scraper (pg-boss or Railway Cron)	ðŸŸ  High	3â€“4h
-7	Chrome MV3 extension	ðŸŸ  High	TBD
+1	Configure domain + NEXTAUTH_URL for production	🔴 Critical	30 min
+2	Author Dockerfile + Railway/Fly.io config	🔴 Critical	2–4h
+3	Email notification on price drop	🟠 High	TBD
+4	Mortgage calculator	🟠 High	TBD
+5	Side-by-side comparator	🟠 High	TBD
+6	Decoupled cron scraper (pg-boss or Railway Cron)	🟠 High	3–4h
+7	Chrome MV3 extension	🟠 High	TBD
 
-Deployment strategy for Phase 1 (target): Rolling deployment is the default for both Railway and Fly.io. Blue/green and canary strategies are explicitly out of scope at this scale â€” the platform target is "first cloud deploy," not advanced release engineering.
+Deployment strategy for Phase 1 (target): Rolling deployment is the default for both Railway and Fly.io. Blue/green and canary strategies are explicitly out of scope at this scale — the platform target is "first cloud deploy," not advanced release engineering.
 
 Rollback procedures for Phase 1 (target): Provider-native rollback (Railway "redeploy previous", Fly.io flyctl releases rollback) supplemented by idempotent operations (ADR-4) at the application level.
 
 Post-deployment validation for Phase 1 (target): Manual smoke test via /dashboard page load + the existing /healthz endpoint on the sidecar. No automated smoke-test suite exists today.
 
-Release management process: Currently informal. Roadmap items are tracked as checkboxes in docs/ROADMAP.md; improvement closure is informal â€” items are checked off as code lands in main (per Section 6.5.4.5).
+Release management process: Currently informal. Roadmap items are tracked as checkboxes in docs/ROADMAP.md; improvement closure is informal — items are checked off as code lands in main (per Section 6.5.4.5).
 
 8.7 Infrastructure Monitoring
 
@@ -6886,7 +6886,7 @@ There is no request-duration histogram, no p50/p95/p99 latency tracking, and no 
 
 8.7.3 Cost Monitoring And Optimization
 
-Not implemented â€” there is no cloud cost integration because there is no cloud deployment. When Phase 1 deploys to Railway or Fly.io, cost monitoring will rely on:
+Not implemented — there is no cloud cost integration because there is no cloud deployment. When Phase 1 deploys to Railway or Fly.io, cost monitoring will rely on:
 
 Provider-native cost dashboards (Railway usage metrics, Fly.io organization billing)
 Free-tier consumption alerts where available
@@ -6903,7 +6903,7 @@ Failed auto-merges	ImportLog MERGE_AUTO rows with ok: false, blocked: true
 CORS-allowlist enforcement	Implicit in route handler code (no log emission)
 Magic-link / OTP issuance	[auth] and [auth-mobile] console prefixes
 
-The console.log / console.error pattern with bracketed module tags ([scraper], [auth], [import-listing]) constitutes the entire logging stack â€” no structured logger library (no Pino, Winston, Bunyan).
+The console.log / console.error pattern with bracketed module tags ([scraper], [auth], [import-listing]) constitutes the entire logging stack — no structured logger library (no Pino, Winston, Bunyan).
 
 8.7.5 Compliance Auditing
 
@@ -6914,7 +6914,7 @@ No compliance reporting (SOC 2, ISO 27001 not pursued)
 No GDPR Article 30 records of processing activities
 No data lineage tracking
 
-The append-only ImportLog table is the closest analog to a compliance audit log, but its purpose is operational forensics, not regulatory reporting. The three composite indexes on ImportLog â€” (propertyId, createdAt), (kind, createdAt), and (createdAt) â€” support both per-property forensic queries and time-window aggregations should compliance reporting become a future requirement.
+The append-only ImportLog table is the closest analog to a compliance audit log, but its purpose is operational forensics, not regulatory reporting. The three composite indexes on ImportLog — (propertyId, createdAt), (kind, createdAt), and (createdAt) — support both per-property forensic queries and time-window aggregations should compliance reporting become a future requirement.
 
 8.8 Infrastructure Architecture Diagrams
 8.8.1 Current Infrastructure Architecture
@@ -7038,7 +7038,7 @@ Port 4201
 127.0.0.1 only
 Playwright Sidecar
 
-Security implication of the binding strategy: The Playwright sidecar's 127.0.0.1-only bind is a deliberate security control. Per Section 5.4.7, the sidecar has no authentication â€” host-level isolation is the only protection. Exposing port 4201 externally would create an unauthenticated browser-control endpoint capable of arbitrary HTTP requests.
+Security implication of the binding strategy: The Playwright sidecar's 127.0.0.1-only bind is a deliberate security control. Per Section 5.4.7, the sidecar has no authentication — host-level isolation is the only protection. Exposing port 4201 externally would create an unauthenticated browser-control endpoint capable of arbitrary HTTP requests.
 
 8.8.3 Current Deployment Workflow
 
@@ -7145,13 +7145,13 @@ The dashed borders on the CI and Cloud Production subgraphs denote their pending
 The current infrastructure footprint generates zero cloud cost because nothing is deployed to a cloud provider. Costs are limited to:
 
 Cost Center	Current Cost	Notes
-Cloud hosting	â‚¬0.00	Local-only deployment
-Managed Postgres	â‚¬0.00	Local Docker container
-Image storage (R2/S3)	â‚¬0.00	Local public/uploads/
-Resend email (free tier)	â‚¬0.00	Within free tier; falls back to console in dev
-Anthropic API	â‚¬0.00	Scaffolded but not active
-Domain / DNS	â‚¬0.00	None registered
-Total monthly run-cost	â‚¬0.00	
+Cloud hosting	€0.00	Local-only deployment
+Managed Postgres	€0.00	Local Docker container
+Image storage (R2/S3)	€0.00	Local public/uploads/
+Resend email (free tier)	€0.00	Within free tier; falls back to console in dev
+Anthropic API	€0.00	Scaffolded but not active
+Domain / DNS	€0.00	None registered
+Total monthly run-cost	€0.00	
 
 Operator time (manual deployment, manual recheck, manual recovery) is the de-facto resource cost today.
 
@@ -7160,15 +7160,15 @@ Operator time (manual deployment, manual recheck, manual recovery) is the de-fac
 The following projections are derived from docs/ROADMAP.md Phase 1 targets and reflect free-tier-first selection. Actual costs depend on provider tier selection.
 
 Cost Center	Provider	Tier	Projected Monthly
-Application hosting	Railway hobby	$5 starter / usage-based	â‚¬5â€“10
-Application hosting (alt)	Fly.io free allowance	3 shared-CPU 256MB VMs	â‚¬0â€“10
-Managed PostgreSQL	Railway PG bundled / Fly Postgres	TBD	â‚¬5â€“15
-Image storage	Cloudflare R2	10 GB free tier	â‚¬0â€“2
-Resend email	Free tier (3000 emails/mo)	Free	â‚¬0
-Domain	Registrar (varies)	â€”	â‚¬1â€“2
-Total monthly run-cost (Phase 1)			â‚¬11â€“39
+Application hosting	Railway hobby	$5 starter / usage-based	€5–10
+Application hosting (alt)	Fly.io free allowance	3 shared-CPU 256MB VMs	€0–10
+Managed PostgreSQL	Railway PG bundled / Fly Postgres	TBD	€5–15
+Image storage	Cloudflare R2	10 GB free tier	€0–2
+Resend email	Free tier (3000 emails/mo)	Free	€0
+Domain	Registrar (varies)	—	€1–2
+Total monthly run-cost (Phase 1)			€11–39
 
-This envelope assumes single-tenant personal use (Fase 1 target). Scaling to Fase 2's 100-user target may increase costs by approximately 2â€“5Ã—, depending on email volume, R2 bandwidth, and Postgres connection count.
+This envelope assumes single-tenant personal use (Fase 1 target). Scaling to Fase 2's 100-user target may increase costs by approximately 2–5×, depending on email volume, R2 bandwidth, and Postgres connection count.
 
 8.9.3 Resource Sizing Guidelines
 8.9.3.1 Local Workstation (current)
@@ -7182,11 +7182,11 @@ Resource	Target	Justification
 Web container CPU	1 shared vCPU	Bursty load; idle 95% of the time
 Web container RAM	512 MB	Next.js base + Prisma client pool
 Sidecar container CPU	1 shared vCPU	Bursty during scrape batches
-Sidecar container RAM	1 GB	Chromium 300â€“500 MB + Node overhead
+Sidecar container RAM	1 GB	Chromium 300–500 MB + Node overhead
 Postgres CPU	1 shared vCPU	Single-tenant query volume
-Postgres RAM	256â€“512 MB	Modest working set (â‰¤1000 properties)
-Postgres disk	1â€“5 GB	11 models, JSON cadastralData, modest growth
-R2 storage	0â€“5 GB	Within 10 GB free tier for foreseeable future
+Postgres RAM	256–512 MB	Modest working set (≤1000 properties)
+Postgres disk	1–5 GB	11 models, JSON cadastralData, modest growth
+R2 storage	0–5 GB	Within 10 GB free tier for foreseeable future
 8.9.3.3 Scaling Triggers And Thresholds
 
 The following thresholds, derived from Section 5.4.5, indicate when infrastructure should scale up:
@@ -7214,7 +7214,7 @@ Service	SLA Assumption	Failure Mode
 Catastro OVC	Best-effort (public, no SLA)	enrichInBackground catches; logs CATASTRO ok:false; preserves NULL fields for retry on next import
 Nominatim	Public rate-limit (1 req/sec)	1100ms throttle enforced module-side; multiple query variants tried
 Resend	Per-tier SLA	Falls back to console.log when RESEND_API_KEY unset (dev)
-Real-estate portals	None (adversarial)	Tier escalation HTTP â†’ sidecar; manualOnly: true for 3 portals; BUYSELL_DISABLE_BROWSER_FETCH circuit breaker
+Real-estate portals	None (adversarial)	Tier escalation HTTP → sidecar; manualOnly: true for 3 portals; BUYSELL_DISABLE_BROWSER_FETCH circuit breaker
 Anthropic	N/A (not active)	generateSketchFromPhotos throws "pendiente de implementar"
 8.10.3 Critical External Dependency: Anti-bot Posture
 
@@ -7222,7 +7222,7 @@ The Playwright sidecar configures anti-detection masking to bypass DataDome and 
 
 Configuration	Value
 Launch arguments	--disable-blink-features=AutomationControlled, --no-sandbox, --disable-setuid-sandbox
-Viewport	1366Ã—768
+Viewport	1366×768
 Locale	es-ES
 Timezone	Europe/Madrid
 User-Agent	Chrome 131 desktop
@@ -7231,21 +7231,21 @@ Init script overrides	navigator.webdriver, navigator.plugins, navigator.language
 These configurations are infrastructure-relevant because changing the host operating system (e.g., from local development on Windows to Linux containers in cloud production) may alter the default Chromium fingerprint and require re-tuning of the anti-detection scripts.
 
 8.11 Roadmap-documented Future Infrastructure
-8.11.1 Phase 1 Infrastructure Items (0â€“8 Weeks)
+8.11.1 Phase 1 Infrastructure Items (0–8 Weeks)
 
 Per docs/ROADMAP.md Sections 1 and 4, the following infrastructure items are tracked for Phase 1:
 
 Task	Priority	Estimated Effort	Dependencies
-Configure domain + NEXTAUTH_URL	ðŸ”´ Critical	30 min	Domain registration
-Author production Dockerfile	ðŸ”´ Critical	2â€“4h	None
-Configure Railway/Fly.io deployment	ðŸ”´ Critical	Included above	Dockerfile
-GitHub Actions CI/CD (lint+build+deploy)	ðŸ”´ Critical	Low complexity	Dockerfile + provider
-Migrate public/uploads/ to Cloudflare R2	ðŸŸ¡ Medium	Medium	R2 account
-Decoupled cron scraper	ðŸŸ  High	3â€“4h	pg-boss OR Railway Cron OR Trigger.dev
-Lightweight task queue	ðŸŸ  High	Medium	pg-boss (PostgreSQL-backed)
-tsvector full-text search index	ðŸŸ¡ Medium	Lowâ€“Medium	Prisma migration
-Upstash Redis for response caching	ðŸŸ¡ Medium	Medium	Upstash account
-8.11.2 Phase 2 Monitoring-adjacent Items (2â€“6 Months)
+Configure domain + NEXTAUTH_URL	🔴 Critical	30 min	Domain registration
+Author production Dockerfile	🔴 Critical	2–4h	None
+Configure Railway/Fly.io deployment	🔴 Critical	Included above	Dockerfile
+GitHub Actions CI/CD (lint+build+deploy)	🔴 Critical	Low complexity	Dockerfile + provider
+Migrate public/uploads/ to Cloudflare R2	🟡 Medium	Medium	R2 account
+Decoupled cron scraper	🟠 High	3–4h	pg-boss OR Railway Cron OR Trigger.dev
+Lightweight task queue	🟠 High	Medium	pg-boss (PostgreSQL-backed)
+tsvector full-text search index	🟡 Medium	Low–Medium	Prisma migration
+Upstash Redis for response caching	🟡 Medium	Medium	Upstash account
+8.11.2 Phase 2 Monitoring-adjacent Items (2–6 Months)
 Item	Infrastructure Implication
 Real-time SSE/WebSocket layer	Requires hosting platform that supports long-lived connections
 Web Push / Expo Push notifications	Requires push service credentials (Firebase / Apple Push)
@@ -7269,12 +7269,12 @@ ADR-2 implication: The cloud deployment must either colocate Web + Sidecar in th
 ADR-8 implication: Migration of public/uploads/ to Cloudflare R2 requires updating image upload paths, the next/image loader configuration, and the existing image references in the database.
 8.11.4 Maintenance Procedures (current And Future)
 
-Current maintenance procedures are encoded as npm scripts surfaced via the dashboard's "Necesita atenciÃ³n" panel (per Section 6.5.4.3):
+Current maintenance procedures are encoded as npm scripts surfaced via the dashboard's "Necesita atención" panel (per Section 6.5.4.3):
 
 Script	Trigger Condition	Recovery Action
 npm run scraper	Initial startup; sidecar restart needed	Starts Playwright sidecar
 npm run check-listings	Stale auto listings > 7 days	Bulk recheck via CLI
-npm run hash-photos	Photos missing phash (dashboard signal)	Backfill 9Ã—8 dHashes
+npm run hash-photos	Photos missing phash (dashboard signal)	Backfill 9×8 dHashes
 npm run fix-prices	Sanity-rejected prices accumulate	Cleans up corrupt price data
 npm run claim-orphans	ownerId IS NULL rows post-migration	Reassigns ownership
 npm run db:studio	Direct ImportLog inspection	Launches Prisma Studio
@@ -7289,48 +7289,48 @@ Provider-native log retention configuration (Railway / Fly.io log streaming setu
 Domain certificate renewal monitoring (provider-managed in current Phase 1 targets)
 References
 Files Examined
-docker-compose.yml â€” Sole infrastructure-as-code artifact: PostgreSQL 17 alpine service, buysell-postgres container, buysell-pgdata volume, port mapping, credentials, restart policy
-package.json â€” npm workspace definition, all root npm scripts (dev/build/start/db:*/scraper/lint), root dependency inventory
-apps/mobile/package.json â€” Expo SDK 54 mobile workspace, platform-specific Expo scripts
-apps/mobile/app.json â€” Expo manifest, plugin configuration, experiments (typedRoutes, reactCompiler), newArchEnabled
-next.config.ts â€” outputFileTracingRoot, transpilePackages: ["@buysell/shared"], serverExternalPackages: ["sharp"], image remotePatterns
-tsconfig.json â€” TypeScript ES2022 strict mode, path aliases, exclusion of apps/mobile
-.env.example â€” Complete environment-variable contract documenting the integration boundary
-.gitignore â€” Confirms .env and public/uploads/* exclusion, Expo native folder exclusion
-README.md â€” Setup instructions, Node 20+ requirement, dev workflow
-CLAUDE.md â€” Product objective brief (pre-implementation; no infrastructure content)
-docs/ROADMAP.md â€” Complete phased roadmap, priority indicators (ðŸ”´/ðŸŸ /ðŸŸ¡), Phase 1 ordered implementation steps, risk matrix
-scripts/scraper-service.mjs â€” Playwright sidecar entry point: 127.0.0.1 bind, port 4201, 5-minute idle close, anti-detection scripts, SIGINT/SIGTERM cleanup
-scripts/check-listings.ts â€” Manual recheck CLI runner with onProgress consumer
-scripts/hash-existing-photos.ts â€” Backfill script for Media.phash NULL rows
-scripts/fix-corrupt-prices.ts â€” Manual recovery for sanity-rejected prices
-scripts/claim-orphan-properties.ts â€” Manual recovery for ownerId IS NULL rows
-prisma/migrations/ â€” 6 timestamped migration folders + migration_lock.toml (postgresql provider lock)
+docker-compose.yml — Sole infrastructure-as-code artifact: PostgreSQL 17 alpine service, buysell-postgres container, buysell-pgdata volume, port mapping, credentials, restart policy
+package.json — npm workspace definition, all root npm scripts (dev/build/start/db:*/scraper/lint), root dependency inventory
+apps/mobile/package.json — Expo SDK 54 mobile workspace, platform-specific Expo scripts
+apps/mobile/app.json — Expo manifest, plugin configuration, experiments (typedRoutes, reactCompiler), newArchEnabled
+next.config.ts — outputFileTracingRoot, transpilePackages: ["@buysell/shared"], serverExternalPackages: ["sharp"], image remotePatterns
+tsconfig.json — TypeScript ES2022 strict mode, path aliases, exclusion of apps/mobile
+.env.example — Complete environment-variable contract documenting the integration boundary
+.gitignore — Confirms .env and public/uploads/* exclusion, Expo native folder exclusion
+README.md — Setup instructions, Node 20+ requirement, dev workflow
+CLAUDE.md — Product objective brief (pre-implementation; no infrastructure content)
+docs/ROADMAP.md — Complete phased roadmap, priority indicators (🔴/🟠/🟡), Phase 1 ordered implementation steps, risk matrix
+scripts/scraper-service.mjs — Playwright sidecar entry point: 127.0.0.1 bind, port 4201, 5-minute idle close, anti-detection scripts, SIGINT/SIGTERM cleanup
+scripts/check-listings.ts — Manual recheck CLI runner with onProgress consumer
+scripts/hash-existing-photos.ts — Backfill script for Media.phash NULL rows
+scripts/fix-corrupt-prices.ts — Manual recovery for sanity-rejected prices
+scripts/claim-orphan-properties.ts — Manual recovery for ownerId IS NULL rows
+prisma/migrations/ — 6 timestamped migration folders + migration_lock.toml (postgresql provider lock)
 Folders Explored
-/ (repository root) â€” Confirmed presence of only docker-compose.yml, no Dockerfile, no .github/, no IaC files
-scripts/ â€” Six operational/maintenance scripts; only scraper-service.mjs is infrastructure-relevant (long-running process)
-prisma/ and prisma/migrations/ â€” Schema, seed, and migration history for database lifecycle
-apps/mobile/ â€” Expo Router application; no infrastructure files beyond Metro config
-public/ â€” Only bookmarklet/ subfolder (userscripts); no infrastructure assets
+/ (repository root) — Confirmed presence of only docker-compose.yml, no Dockerfile, no .github/, no IaC files
+scripts/ — Six operational/maintenance scripts; only scraper-service.mjs is infrastructure-relevant (long-running process)
+prisma/ and prisma/migrations/ — Schema, seed, and migration history for database lifecycle
+apps/mobile/ — Expo Router application; no infrastructure files beyond Metro config
+public/ — Only bookmarklet/ subfolder (userscripts); no infrastructure assets
 Repository Search Confirmations
-find . -name "Dockerfile*" â†’ empty (no Dockerfile exists)
-find . -name ".github" -type d â†’ empty (no GitHub Actions workflows)
-find . -name "*.tf" -o -name "vercel.json" -o -name "fly.toml" -o -name "railway.toml" -o -name "render.yaml" -o -name "kubernetes*" â†’ empty (no IaC/PaaS configs)
-find . -name ".dockerignore" â†’ empty
+find . -name "Dockerfile*" → empty (no Dockerfile exists)
+find . -name ".github" -type d → empty (no GitHub Actions workflows)
+find . -name "*.tf" -o -name "vercel.json" -o -name "fly.toml" -o -name "railway.toml" -o -name "render.yaml" -o -name "kubernetes*" → empty (no IaC/PaaS configs)
+find . -name ".dockerignore" → empty
 Cross-referenced Technical Specification Sections
-Section 1.2 SYSTEM OVERVIEW â€” Critical infrastructure gap matrix, success-criteria phases
-Section 1.3 SCOPE â€” Spain-only constraint, deferred phases
-Section 2.6 ASSUMPTIONS AND CONSTRAINTS â€” Single-user assumption, sidecar localhost constraint
-Section 3.4 THIRD-PARTY SERVICES â€” External integration inventory, "no cloud deployment yet" statement
-Section 3.5 DATABASES & STORAGE â€” PostgreSQL 17 container, buysell-pgdata volume, storage strategy
-Section 3.6 DEVELOPMENT & DEPLOYMENT â€” Sidecar architecture, no CI/CD, containerization status
-Section 3.7 DEVIATIONS FROM THE DEFAULT TECHNOLOGY STACK â€” Cloud, IaC, CI/CD all flagged as deferred
-Section 5.1 HIGH-LEVEL ARCHITECTURE â€” Two-process topology, system boundaries, modular monolith architecture
-Section 5.3 TECHNICAL DECISIONS â€” ADRs 1, 2, 3, 4, 5, 8 affecting infrastructure
-Section 5.4 CROSS-CUTTING CONCERNS â€” Section 5.4.5 thresholds, Section 5.4.6 DR posture, Section 5.4.7 security
-Section 6.1 Core Services Architecture â€” Section 6.1.1.1 "Microservices Concepts Not Applicable" table
-Section 6.4 Security Architecture â€” Compliance posture (Section 6.4.4.5)
-Section 6.5 Monitoring and Observability â€” Section 6.5.1.1 "Detailed Monitoring Architecture is not applicable"
+Section 1.2 SYSTEM OVERVIEW — Critical infrastructure gap matrix, success-criteria phases
+Section 1.3 SCOPE — Spain-only constraint, deferred phases
+Section 2.6 ASSUMPTIONS AND CONSTRAINTS — Single-user assumption, sidecar localhost constraint
+Section 3.4 THIRD-PARTY SERVICES — External integration inventory, "no cloud deployment yet" statement
+Section 3.5 DATABASES & STORAGE — PostgreSQL 17 container, buysell-pgdata volume, storage strategy
+Section 3.6 DEVELOPMENT & DEPLOYMENT — Sidecar architecture, no CI/CD, containerization status
+Section 3.7 DEVIATIONS FROM THE DEFAULT TECHNOLOGY STACK — Cloud, IaC, CI/CD all flagged as deferred
+Section 5.1 HIGH-LEVEL ARCHITECTURE — Two-process topology, system boundaries, modular monolith architecture
+Section 5.3 TECHNICAL DECISIONS — ADRs 1, 2, 3, 4, 5, 8 affecting infrastructure
+Section 5.4 CROSS-CUTTING CONCERNS — Section 5.4.5 thresholds, Section 5.4.6 DR posture, Section 5.4.7 security
+Section 6.1 Core Services Architecture — Section 6.1.1.1 "Microservices Concepts Not Applicable" table
+Section 6.4 Security Architecture — Compliance posture (Section 6.4.4.5)
+Section 6.5 Monitoring and Observability — Section 6.5.1.1 "Detailed Monitoring Architecture is not applicable"
 9. Appendices
 
 This section consolidates supplementary technical information that supports the preceding chapters of the BuySell Asturias Technical Specification. It captures operational details, file inventories, and reference data that did not fit naturally into the architectural narrative, followed by a comprehensive glossary and acronym index for the document.
@@ -7358,7 +7358,7 @@ The scripts/ folder contains six standalone Node-executable utilities that suppl
 
 Script File	Runtime	Purpose
 scraper-service.mjs	Node ESM HTTP service	Playwright sidecar bound to 127.0.0.1:4201; idle-closes after 5 minutes
-check-listings.ts	TypeScript CLI	Wraps checkAllActiveListings(); emits âœ“ ok / âœ— gone / âŠ˜ blocked / ! error per listing
+check-listings.ts	TypeScript CLI	Wraps checkAllActiveListings(); emits ✓ ok / ✗ gone / ⊘ blocked / ! error per listing
 hash-existing-photos.ts	TypeScript CLI	Backfills Media.phash for NULL rows with ~500ms inter-photo throttle
 fix-corrupt-prices.ts	TypeScript CLI	Cleans currentPrice / lastPrice / PriceSnapshot.price outside the sanity band
 claim-orphan-properties.ts	TypeScript CLI	Reassigns Property.ownerId IS NULL rows to a target user by email
@@ -7400,7 +7400,7 @@ Token	Value	Description
 Steel (primary)	#3A5F8A	Muted steel-blue used for primary actions and chrome
 Aged brass (accent)	#C49A4D	Secondary highlight color
 Warm off-white (surface)	#FAFAF7	Background surfaces and cards
-CSS self-description	"latÃ³n envejecido sobre acero"	Spanish: "aged brass on steel"
+CSS self-description	"latón envejecido sobre acero"	Spanish: "aged brass on steel"
 
 The master brand mark is the IconKey component (a medieval key). Secondary brand icons include IconHorreo (Asturian granary on stilts, an iconic regional structure) and IconPicos (the Picos de Europa mountain range).
 
@@ -7496,7 +7496,7 @@ Run-at directive: document-idle (fires after initial DOM and resources settle)
 Cross-origin POST: GM_xmlhttpRequest (Tampermonkey API that bypasses browser CORS)
 SPA navigation resilience: MutationObserver plus history.pushState monkey-patching to detect client-side route changes
 Image extraction cap: 80 deduplicated URLs per import
-Data source priority: __NEXT_DATA__ hydration JSON â†’ JSON-LD Schema.org â†’ Open Graph meta tags â†’ breadcrumb DOM â†’ regex fallback over the HTML body
+Data source priority: __NEXT_DATA__ hydration JSON → JSON-LD Schema.org → Open Graph meta tags → breadcrumb DOM → regex fallback over the HTML body
 9.1.11 Shared Package Module Capabilities
 
 The @buysell/shared workspace package provides the domain primitives shared between the Next.js web application and the Expo mobile client. Each subpath export covers a distinct concern:
@@ -7515,7 +7515,7 @@ The Playwright sidecar (scripts/scraper-service.mjs) is launched with a stack of
 Configuration	Value
 Launch arguments	--disable-blink-features=AutomationControlled, --no-sandbox, --disable-setuid-sandbox
 User-Agent	Chrome 131 desktop string
-Viewport	1366 Ã— 768
+Viewport	1366 × 768
 Locale	es-ES
 Timezone	Europe/Madrid
 navigator.webdriver override	undefined
@@ -7537,36 +7537,36 @@ Server Component (RSC)	A React component executed on the server. Can directly qu
 App Router	The Next.js routing model based on the src/app/ directory and React Server Components.
 Soft Reference	A database column that references another entity by ID but without a database-enforced foreign key. Used by MatchSuggestion.sourceId, ImportLog.propertyId, and SavedSearch.ownerId.
 Discriminated Union	TypeScript pattern for tagged variants. Used here for ScrapeOutcome = ok | gone | blocked | error.
-Adapter Pattern	Implementation strategy used for portal scrapers â€” the PortalAdapter interface (portal, matches, manualOnly?, scrape) with 10 concrete implementations.
+Adapter Pattern	Implementation strategy used for portal scrapers — the PortalAdapter interface (portal, matches, manualOnly?, scrape) with 10 concrete implementations.
 Three-tier Price Extractor	Waterfall used by _genericAdapter.ts: (1) JSON-LD offers.price, (2) portal-specific CSS selectors, (3) regex against the body.
 9.2.2 Authentication And Security Terms
 Term	Definition
 Magic Link	Passwordless authentication via an emailed one-time URL (24-hour validity, 32-byte hex token).
 OTP (One-Time Password)	A 6-digit numeric code emailed for mobile authentication (10-minute validity).
-HS256	HMAC-SHA-256 â€” the symmetric JWT signing algorithm used for both NextAuth cookies and mobile JWTs.
+HS256	HMAC-SHA-256 — the symmetric JWT signing algorithm used for both NextAuth cookies and mobile JWTs.
 Bearer Token	The Authorization: Bearer <token> HTTP header convention. Used for both bs_-prefixed API tokens and mobile JWTs.
 Trust Root	A single secret (AUTH_SECRET) that signs both NextAuth JWTs and mobile HS256 JWTs.
 Ownership-Based Authorization	Access control where access is granted only if userId === resource.ownerId. No role-based access control exists.
 Policy Enforcement Point (PEP)	A code site where authorization is checked. The system has three PEPs: Edge middleware, route-handler requireUserId, and query-layer ensureOwner.
 Existence-Leak Side Channel	A response that reveals whether a resource exists (e.g., returning 403 vs 404). BuySell returns 404 in both "not found" and "not owned" cases.
-CSRF	Cross-Site Request Forgery â€” mitigated by the Bearer-token requirement on import and same-origin CORS on all other endpoints.
+CSRF	Cross-Site Request Forgery — mitigated by the Bearer-token requirement on import and same-origin CORS on all other endpoints.
 9.2.3 Domain Terms (real Estate / Spain)
 Term	Definition
 Catastro / OVC	Spain's public cadastral registry, exposed via the Oficina Virtual del Catastro XML services (OVCSWLocalizacionRC, OVCCallejero).
 Cadastral Reference (RC)	A 14-character unique identifier for a parcel in the Spanish cadastre. Stored in Property.cadastralRef.
 Floorplan	Architectural plan. May come from CADASTRE (official) or AI_SKETCH (generated approximation, deferred feature F-027).
-Asturias	Autonomous community in northern Spain â€” the project's initial geographic focus.
+Asturias	Autonomous community in northern Spain — the project's initial geographic focus.
 Idealista	The largest Spanish real-estate portal. Protected by DataDome and therefore manual-only in this system.
 DataDome	Commercial anti-bot service used by Idealista. Defeats both direct HTTP and headless-browser fetching.
 9.2.4 Algorithms And Computational Terms
 Term	Definition
-dHash (Difference Hash)	A 64-bit perceptual hash computed via sharp 9Ã—8 grayscale; encoded as a 16-character hexadecimal string.
-Hamming Distance	Number of differing bits between two binary strings. â‰¤ 8 (out of 64) indicates a same-image match in this system.
-Jaccard Similarity	Set-similarity coefficient |Aâˆ©B| / |AâˆªB|. Applied here to bigram sets of property titles.
+dHash (Difference Hash)	A 64-bit perceptual hash computed via sharp 9×8 grayscale; encoded as a 16-character hexadecimal string.
+Hamming Distance	Number of differing bits between two binary strings. ≤ 8 (out of 64) indicates a same-image match in this system.
+Jaccard Similarity	Set-similarity coefficient |A∩B| / |A∪B|. Applied here to bigram sets of property titles.
 Bigram	Two consecutive characters. Used to convert titles into character n-gram sets for Jaccard scoring.
 Haversine Distance	Great-circle distance formula computing meters between two lat/lng pairs on the WGS84 ellipsoid.
-WGS84 / EPSG:4326	World Geodetic System 1984 â€” the standard latitude/longitude coordinate system.
-Sanity Band	Price-range gate (0.5Ã— to 2Ã— of last known price) used by isReasonablePriceChange to reject implausible scraped prices.
+WGS84 / EPSG:4326	World Geodetic System 1984 — the standard latitude/longitude coordinate system.
+Sanity Band	Price-range gate (0.5× to 2× of last known price) used by isReasonablePriceChange to reject implausible scraped prices.
 5-Signal Matching	Composite scoring combining cadastre RC, photo phash overlap, title Jaccard, geographic distance (haversine), and built-area difference.
 9.2.5 Operational Terms
 Term	Definition
@@ -7576,9 +7576,9 @@ Tampermonkey	Popular browser extension hosting userscripts. Greasemonkey and Vio
 MutationObserver	DOM API used by userscripts to detect SPA navigation and re-inject UI elements.
 `__NEXT_DATA__`	Hydration JSON blob embedded by Next.js pages on portals (e.g., Fotocasa, Yaencontre). A primary userscript data source.
 Recheck	Periodic re-fetch of a listing to detect price or status changes. Triggered manually via npm run check-listings or POST /api/listings/check.
-Background Pipeline	The five-stage post-import enrichment: HASH â†’ CATASTRO â†’ GEOCODE â†’ BORROW_FIELDS â†’ MATCH/MERGE_AUTO.
+Background Pipeline	The five-stage post-import enrichment: HASH → CATASTRO → GEOCODE → BORROW_FIELDS → MATCH/MERGE_AUTO.
 Orphan Property	A Property row with ownerId IS NULL. Produced by deleting a User (ON DELETE SET NULL); reassignable via claim-orphans.ts.
-Stale Listing	A listing whose lastCheckedAt is older than STALE_DAYS = 7. Surfaced in the dashboard's "Necesita atenciÃ³n" panel.
+Stale Listing	A listing whose lastCheckedAt is older than STALE_DAYS = 7. Surfaced in the dashboard's "Necesita atención" panel.
 Sanity Guard	A business-logic defense (price band, type-match, 30% diff) that limits damage from compromised tokens or noisy scraper data.
 9.2.6 Build And Tooling Terms
 Term	Definition
@@ -7589,7 +7589,7 @@ tsx	TypeScript script runner used for prisma/seed.ts and operational scripts.
 `transpilePackages`	Next.js config option forcing a workspace package through Next's compiler. Used for @buysell/shared.
 `serverExternalPackages`	Next.js config option keeping a package outside the bundler. Used for sharp due to its native binaries.
 Prisma Studio	GUI for inspecting and editing the database. Launched via npm run db:studio.
-JSON-LD	JSON for Linking Data â€” Schema.org structured data embedded in HTML; serves as Tier 1 of the price extractor.
+JSON-LD	JSON for Linking Data — Schema.org structured data embedded in HTML; serves as Tier 1 of the price extractor.
 Cheerio	jQuery-like server-side HTML parser used for portal HTML extraction.
 `fast-xml-parser`	XML parser used for Catastro responses. Configured with attributeNamePrefix: "@_".
 `jose`	JavaScript JWT library used for HS256 signing and verification of mobile tokens.
@@ -7698,13 +7698,13 @@ GDPR	General Data Protection Regulation (EU)
 HIPAA	Health Insurance Portability and Accountability Act
 ISO 27001	International Organization for Standardization 27001 (information security)
 PCI-DSS	Payment Card Industry Data Security Standard
-RGPD	Reglamento General de ProtecciÃ³n de Datos (Spanish for GDPR)
+RGPD	Reglamento General de Protección de Datos (Spanish for GDPR)
 SOC 2	Service Organization Control 2
 9.3.5 Spain-specific Acronyms
 Acronym	Expansion
-AJD	Actos JurÃ­dicos Documentados (Documented Legal Acts tax)
-CCAA	Comunidades AutÃ³nomas (Autonomous Communities)
-INE	Instituto Nacional de EstadÃ­stica (National Statistics Institute)
+AJD	Actos Jurídicos Documentados (Documented Legal Acts tax)
+CCAA	Comunidades Autónomas (Autonomous Communities)
+INE	Instituto Nacional de Estadística (National Statistics Institute)
 ITP	Impuesto sobre Transmisiones Patrimoniales (Property Transfer Tax)
 OVC	Oficina Virtual del Catastro (Virtual Cadastre Office)
 RC	Referencia Catastral (Cadastral Reference)
@@ -7712,7 +7712,7 @@ RC	Referencia Catastral (Cadastral Reference)
 Acronym	Expansion
 EPSG	European Petroleum Survey Group (coordinate-system codes)
 EPSG:4326	EPSG code for WGS84 latitude/longitude
-EUR	Euros (â‚¬)
+EUR	Euros (€)
 LAN	Local Area Network
 OSM	OpenStreetMap
 POI	Point of Interest
@@ -7736,44 +7736,44 @@ phash	Perceptual hash (generic term; BuySell uses dHash internally)
 The following files, folders, and Technical Specification sections were examined during the preparation of this Appendices section. They serve as the evidentiary basis for the inventories, definitions, and acronyms catalogued above.
 
 9.4.1 Files Examined
-README.md â€” Project overview, stack summary, repository structure, and Spanish-language documentation
-CLAUDE.md â€” Original product brief documenting objectives and functional requirements in Spanish
-.env.example â€” Environment-variable contract with defaults and generation hints
-package.json (root) â€” Workspace declarations, version, npm scripts
-docs/ROADMAP.md â€” Phased roadmap, risk matrix, Spanish tax acronyms, future infrastructure candidates
-prisma/schema.prisma â€” Enums, model definitions, indexes, and FK cascade rules
-prisma/migrations/ â€” Six-migration history (init through auth tables)
+README.md — Project overview, stack summary, repository structure, and Spanish-language documentation
+CLAUDE.md — Original product brief documenting objectives and functional requirements in Spanish
+.env.example — Environment-variable contract with defaults and generation hints
+package.json (root) — Workspace declarations, version, npm scripts
+docs/ROADMAP.md — Phased roadmap, risk matrix, Spanish tax acronyms, future infrastructure candidates
+prisma/schema.prisma — Enums, model definitions, indexes, and FK cascade rules
+prisma/migrations/ — Six-migration history (init through auth tables)
 9.4.2 Folders Examined
-/ (repository root) â€” Top-level configuration files; confirmed no Dockerfile, no .github/, no IaC files
-docs/ â€” Single child ROADMAP.md
-packages/shared/ â€” Manifest, tsconfig, and src/ substructure for the shared domain library
-scripts/ â€” Six operational utility scripts
-public/bookmarklet/ â€” Nine userscript and bookmarklet files including documentation
+/ (repository root) — Top-level configuration files; confirmed no Dockerfile, no .github/, no IaC files
+docs/ — Single child ROADMAP.md
+packages/shared/ — Manifest, tsconfig, and src/ substructure for the shared domain library
+scripts/ — Six operational utility scripts
+public/bookmarklet/ — Nine userscript and bookmarklet files including documentation
 9.4.3 Technical Specification Sections Cross-referenced
-1.1 EXECUTIVE SUMMARY â€” Project identifier, deliverables, stakeholders, value propositions
-1.2 SYSTEM OVERVIEW â€” Stack versions, capability domains, system boundaries, KPIs
-1.3 SCOPE â€” In-scope must-haves, primary workflows, deferred items
-2.1 FEATURE CATALOG â€” Feature inventory (F-001 through F-028)
-2.4 IMPLEMENTATION CONSIDERATIONS â€” Constraints, security implications, maintenance
-2.6 ASSUMPTIONS AND CONSTRAINTS â€” Hard constraints and version tracking
-3.1 PROGRAMMING LANGUAGES â€” TypeScript-first stance, tsconfig variants, edge restrictions
-3.2 FRAMEWORKS & LIBRARIES â€” Complete dependency matrix
-3.3 OPEN-SOURCE DEPENDENCIES â€” Package inventory across workspaces
-3.4 THIRD-PARTY SERVICES â€” External services, endpoints, authentication
-3.5 DATABASES & STORAGE â€” Schema models, enums, migration history
-3.6 DEVELOPMENT & DEPLOYMENT â€” Tools, scripts, build pipeline, sidecar architecture
-3.7 DEVIATIONS FROM THE DEFAULT TECHNOLOGY STACK â€” Default vs actual stack
-3.8 SECURITY POSTURE OF THE STACK â€” Token entropy, CORS, sidecar isolation
-4.6 TIMING AND SLA CONSIDERATIONS â€” Timeouts, throttles, numeric thresholds
-5.1 HIGH-LEVEL ARCHITECTURE â€” Modular monolith principles, system boundaries
-5.3 TECHNICAL DECISIONS â€” Architecture Decision Records
-5.4 CROSS-CUTTING CONCERNS â€” Monitoring, error handling, security posture
-6.2 Database Design â€” Schema, ERD, indexes, cascade rules
-6.3 Integration Architecture â€” API design, message processing
-6.4 Security Architecture â€” Three-token system, ownership-based authorization
-6.5 Monitoring and Observability â€” Limited observability primitives, npm-script runbooks
-7.1 UI ARCHITECTURE OVERVIEW â€” Three surfaces, "steel and aged brass" identity
-7.6 UI DATA SCHEMAS â€” Property card, detail, match, search schemas
-8.1 INFRASTRUCTURE APPLICABILITY ASSESSMENT â€” Current vs absent components
-8.10 EXTERNAL DEPENDENCIES â€” Six external service surfaces with failure posture
-8.11 ROADMAP-DOCUMENTED FUTURE INFRASTRUCTURE â€” Phase 1/2 items and ADR implications
+1.1 EXECUTIVE SUMMARY — Project identifier, deliverables, stakeholders, value propositions
+1.2 SYSTEM OVERVIEW — Stack versions, capability domains, system boundaries, KPIs
+1.3 SCOPE — In-scope must-haves, primary workflows, deferred items
+2.1 FEATURE CATALOG — Feature inventory (F-001 through F-028)
+2.4 IMPLEMENTATION CONSIDERATIONS — Constraints, security implications, maintenance
+2.6 ASSUMPTIONS AND CONSTRAINTS — Hard constraints and version tracking
+3.1 PROGRAMMING LANGUAGES — TypeScript-first stance, tsconfig variants, edge restrictions
+3.2 FRAMEWORKS & LIBRARIES — Complete dependency matrix
+3.3 OPEN-SOURCE DEPENDENCIES — Package inventory across workspaces
+3.4 THIRD-PARTY SERVICES — External services, endpoints, authentication
+3.5 DATABASES & STORAGE — Schema models, enums, migration history
+3.6 DEVELOPMENT & DEPLOYMENT — Tools, scripts, build pipeline, sidecar architecture
+3.7 DEVIATIONS FROM THE DEFAULT TECHNOLOGY STACK — Default vs actual stack
+3.8 SECURITY POSTURE OF THE STACK — Token entropy, CORS, sidecar isolation
+4.6 TIMING AND SLA CONSIDERATIONS — Timeouts, throttles, numeric thresholds
+5.1 HIGH-LEVEL ARCHITECTURE — Modular monolith principles, system boundaries
+5.3 TECHNICAL DECISIONS — Architecture Decision Records
+5.4 CROSS-CUTTING CONCERNS — Monitoring, error handling, security posture
+6.2 Database Design — Schema, ERD, indexes, cascade rules
+6.3 Integration Architecture — API design, message processing
+6.4 Security Architecture — Three-token system, ownership-based authorization
+6.5 Monitoring and Observability — Limited observability primitives, npm-script runbooks
+7.1 UI ARCHITECTURE OVERVIEW — Three surfaces, "steel and aged brass" identity
+7.6 UI DATA SCHEMAS — Property card, detail, match, search schemas
+8.1 INFRASTRUCTURE APPLICABILITY ASSESSMENT — Current vs absent components
+8.10 EXTERNAL DEPENDENCIES — Six external service surfaces with failure posture
+8.11 ROADMAP-DOCUMENTED FUTURE INFRASTRUCTURE — Phase 1/2 items and ADR implications
