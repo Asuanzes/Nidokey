@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__filesystem__directory_tree",
+      "mcp__filesystem__list_directory_with_sizes",
+      "Bash(Get-ChildItem -Recurse -Directory)",
+      "Bash(Select-Object -First 50 FullName)",
+      "mcp__filesystem__read_text_file",
+      "Bash(cd \"/c/Users/suanz/Desktop/BuySell Asturias\" && find . -type f \\\\\\( -name \"*.json\" -o -name \"*.ts\" -o -name \"*.tsx\" -o -name \"*.prisma\" -o -name \"*.sql\" -o -name \"*.md\" -o -name \"Dockerfile*\" -o -name \".env*\" -o -name \"docker-compose*\" \\\\\\) | head -100)",
+      "Read(//c/c/Users/suanz/Desktop/**)",
+      "Bash(xargs wc -l)"
+    ]
+  }
+}

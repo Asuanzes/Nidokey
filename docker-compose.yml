@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: buysell-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: buysell
+      POSTGRES_PASSWORD: buysell
+      POSTGRES_DB: buysell
+    ports:
+      - "5432:5432"
+    volumes:
+      - buysell-pgdata:/var/lib/postgresql/data
+
+volumes:
+  buysell-pgdata:

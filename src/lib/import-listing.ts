@@ -1,0 +1,630 @@
+import { z } from "zod";
+import type { Portal, PropertyType } from "@prisma/client";
+import { prisma } from "@/lib/db";
+import { enrichProperty } from "@/features/cadastre/lookup";
+import { dhashFromUrl } from "@/lib/dhash";
+import { slugifyTitle } from "@buysell/shared";
+import { findSimilar } from "@/features/matching/find-similar";
+import { mergeProperties } from "@/features/matching/merge";
+import { borrowFieldsFromSimilar } from "@/features/matching/borrow-fields";
+import { geocodeAddress } from "@/lib/geocode";
+import { logImportEvent } from "@/lib/import-log";
+import {
+  isValidPriceEur,
+  isValidBuiltArea,
+  isValidPlotArea,
+  isValidYear,
+  isReasonablePriceChange,
+} from "@buysell/shared";
+
+/**
+ * Payload normalizado que el bookmarklet (o cualquier importador) envía
+ * a /api/listings/import. Todos los campos opcionales salvo url + título mínimo.
+ */
+export const ImportListingInput = z.object({
+  url: z.string().url(),
+  portal: z.enum(["IDEALISTA", "FOTOCASA", "PISOS_COM", "MILANUNCIOS", "HABITACLIA", "YAENCONTRE", "THINKSPAIN", "INDOMIO", "OTHER", "MANUAL"]).optional(),
+  externalId: z.string().optional().nullable(),
+
+  title: z.string().min(2),
+  description: z.string().optional().nullable(),
+
+  // precio en EUROS enteros (lo convertimos a céntimos al guardar)
+  price: z.coerce.number().int().nonnegative().optional().nullable(),
+
+  type: z.enum(["HOUSE", "PISO", "ATICO", "CHALET", "DUPLEX", "ESTUDIO", "LOFT", "LOCAL", "TERRENO", "OTRO"]).optional(),
+
+  address: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  province: z.string().optional().nullable(),
+  postalCode: z.string().optional().nullable(),
+  neighborhood: z.string().optional().nullable(),
+  latitude: z.coerce.number().optional().nullable(),
+  longitude: z.coerce.number().optional().nullable(),
+
+  rooms: z.coerce.number().int().optional().nullable(),
+  bathrooms: z.coerce.number().int().optional().nullable(),
+  builtArea: z.coerce.number().int().optional().nullable(),
+  usableArea: z.coerce.number().int().optional().nullable(),
+  plotArea: z.coerce.number().int().optional().nullable(),
+  floor: z.string().optional().nullable(),
+  yearBuilt: z.coerce.number().int().optional().nullable(),
+  hasElevator: z.boolean().optional().nullable(),
+  hasGarage: z.boolean().optional().nullable(),
+  hasStorage: z.boolean().optional().nullable(),
+  hasTerrace: z.boolean().optional().nullable(),
+  hasFireplace: z.boolean().optional().nullable(),
+  hasGarden: z.boolean().optional().nullable(),
+  hasPool: z.boolean().optional().nullable(),
+  energyRating: z.enum(["A", "B", "C", "D", "E", "F", "G", "UNKNOWN"]).optional(),
+
+  images: z.array(z.string().url()).default([]),
+  features: z.array(z.string()).default([]),
+});
+
+export type ImportListingPayload = z.infer<typeof ImportListingInput>;
+
+export function detectPortal(url: string): Portal {
+  const u = url.toLowerCase();
+  if (u.includes("idealista.")) return "IDEALISTA";
+  if (u.includes("fotocasa.")) return "FOTOCASA";
+  if (u.includes("pisos.com")) return "PISOS_COM";
+  if (u.includes("milanuncios.")) return "MILANUNCIOS";
+  if (u.includes("habitaclia.")) return "HABITACLIA";
+  if (u.includes("yaencontre.")) return "YAENCONTRE";
+  if (u.includes("thinkspain.")) return "THINKSPAIN";
+  if (u.includes("indomio.")) return "INDOMIO";
+  return "OTHER";
+}
+
+export type ImportResult = {
+  created: boolean;
+  priceChanged: boolean;
+  mediaRefreshed: boolean;
+  photoCount: number;
+  propertyId: string;
+  listingId: string;
+  previousPrice: number | null;
+  newPrice: number | null;
+};
+
+/**
+ * Devuelve un objeto solo con las claves que tienen valor (no null/undefined).
+ * Útil para fusionar payload con la fila existente sin pisar datos con NULL.
+ */
+function fillIfEmpty<T extends Record<string, unknown>>(
+  existing: T,
+  patch: Partial<T>
+): Partial<T> {
+  const out: Partial<T> = {};
+  for (const key of Object.keys(patch) as (keyof T)[]) {
+    const v = patch[key];
+    if (v == null) continue;
+    if (existing[key] == null || existing[key] === "") {
+      out[key] = v;
+    }
+  }
+  return out;
+}
+
+/**
+ * Importa un anuncio: crea Property + Listing + Media + PriceSnapshot la primera vez,
+ * o actualiza precio/estado y añade snapshot si ya existía el Listing por URL.
+ */
+/**
+ * Re-parsea el array `features` (strings sueltos extraídos por el userscript)
+ * para rellenar campos que vienen NULL del payload. Útil cuando el parser
+ * cliente no reconoció el formato pero la string está ahí.
+ *
+ * Ejemplos manejados:
+ *   "186 m2"                → builtArea: 186
+ *   "65 m² útiles"          → usableArea: 65
+ *   "4 hab."                → rooms: 4
+ *   "3 baños"               → bathrooms: 3
+ *   "Construido en 1931"    → yearBuilt: 1931
+ *   "4ª Planta"             → floor: "4ª Planta"
+ *   "Parcela de 1.200 m²"   → plotArea: 1200
+ *   "4.153 €/m²"            → IGNORADO (precio unitario)
+ */
+function parseFeaturesArray(features: string[] | undefined): Partial<ImportListingPayload> {
+  const out: Partial<ImportListingPayload> = {};
+  if (!features?.length) return out;
+  for (const raw of features) {
+    if (!raw || typeof raw !== "string") continue;
+    const t = raw.trim();
+    if (!t) continue;
+    const low = t.toLowerCase();
+    // Descartar €/m²
+    if (/€\s*\/\s*m|€\/m|€\s*por\s*m/i.test(t)) continue;
+    const num = (() => {
+      const m = t.replace(/[\.\s]/g, "").match(/-?\d+/);
+      return m ? parseInt(m[0], 10) : null;
+    })();
+    if (num == null) {
+      if (/planta/.test(low) && !out.floor) out.floor = t;
+      continue;
+    }
+    // Construido / año
+    const yb = low.match(/(?:construido en|año\s*(?:de\s*)?construcci[oó]n)\D*(\d{4})/);
+    if (yb) {
+      const y = parseInt(yb[1], 10);
+      if (isValidYear(y) && !out.yearBuilt) out.yearBuilt = y;
+      continue;
+    }
+    // Áreas
+    if (/m²|\bm2\b|metros/i.test(t)) {
+      if (/parcela|terreno|plot/i.test(low)) {
+        if (isValidPlotArea(num) && !out.plotArea) out.plotArea = num;
+      } else if (/útil|util/i.test(low)) {
+        if (isValidBuiltArea(num) && !out.usableArea) out.usableArea = num;
+      } else if (/constru|edificad/i.test(low)) {
+        if (isValidBuiltArea(num) && !out.builtArea) out.builtArea = num;
+      } else if (isValidBuiltArea(num) && !out.builtArea) {
+        out.builtArea = num;
+      }
+      continue;
+    }
+    // Habitaciones / baños
+    if (/habitaci[oó]n|dormit|\bhabs?\.?\b/i.test(low)) {
+      if (num >= 0 && num <= 50 && !out.rooms) out.rooms = num;
+      continue;
+    }
+    if (/baño|aseo/i.test(low)) {
+      if (num >= 0 && num <= 50 && !out.bathrooms) out.bathrooms = num;
+      continue;
+    }
+    if (/planta/i.test(low) && !out.floor) out.floor = t;
+  }
+  return out;
+}
+
+/**
+ * Sanea el payload: pone a null cualquier valor que no pase los validadores
+ * de cordura. Evita que un parser-error contamine la BBDD. Adicionalmente
+ * intenta rellenar campos vacíos re-parseando el array `features`.
+ */
+function sanitizePayload(p: ImportListingPayload): ImportListingPayload {
+  const out = { ...p };
+  // 1. Validar y nulear lo que no sea cuerdo
+  if (!isValidPriceEur(out.price ?? null)) out.price = null;
+  if (!isValidBuiltArea(out.builtArea ?? null)) out.builtArea = null;
+  if (!isValidBuiltArea(out.usableArea ?? null)) out.usableArea = null;
+  if (out.rooms != null && (out.rooms < 0 || out.rooms > 50)) out.rooms = null;
+  if (out.bathrooms != null && (out.bathrooms < 0 || out.bathrooms > 50)) out.bathrooms = null;
+  if (!isValidYear(out.yearBuilt ?? null)) out.yearBuilt = null;
+  if (out.latitude != null && (out.latitude < -90 || out.latitude > 90)) out.latitude = null;
+  if (out.longitude != null && (out.longitude < -180 || out.longitude > 180)) out.longitude = null;
+
+  // 2. Si tras nulear quedan huecos, re-parsear array `features` como fallback
+  const fromFeatures = parseFeaturesArray(out.features);
+  if (out.builtArea == null && fromFeatures.builtArea != null) out.builtArea = fromFeatures.builtArea;
+  if (out.usableArea == null && fromFeatures.usableArea != null) out.usableArea = fromFeatures.usableArea;
+  if (out.plotArea == null && fromFeatures.plotArea != null) {
+    // plotArea no está en ImportListingInput original; lo añadimos al any del schema
+    (out as unknown as Record<string, unknown>).plotArea = fromFeatures.plotArea;
+  }
+  if (out.rooms == null && fromFeatures.rooms != null) out.rooms = fromFeatures.rooms;
+  if (out.bathrooms == null && fromFeatures.bathrooms != null) out.bathrooms = fromFeatures.bathrooms;
+  if (out.yearBuilt == null && fromFeatures.yearBuilt != null) out.yearBuilt = fromFeatures.yearBuilt;
+  if (!out.floor && fromFeatures.floor) out.floor = fromFeatures.floor;
+
+  return out;
+}
+
+export async function importListing(
+  rawPayload: ImportListingPayload,
+  opts: { ownerId?: string | null } = {}
+): Promise<ImportResult> {
+  const payload = sanitizePayload(rawPayload);
+  const portal = payload.portal ?? detectPortal(payload.url);
+  const priceCents = payload.price != null ? payload.price * 100 : null;
+  const ownerId = opts.ownerId ?? null;
+
+  const existing = await prisma.listing.findUnique({
+    where: { url: payload.url },
+    include: { property: true },
+  });
+
+  // ---------- Update path ----------
+  if (existing) {
+    const previousPrice = existing.lastPrice ?? null;
+
+    // Sanity check: si el cambio es brutal (>5x o <0.2x), NO escribimos
+    // el precio nuevo ni creamos snapshot. Log para revisión.
+    const sanity = isReasonablePriceChange(previousPrice, priceCents);
+    if (!sanity.ok) {
+      await prisma.listing.update({
+        where: { id: existing.id },
+        data: { lastSeenAt: new Date(), lastCheckedAt: new Date() },
+      });
+      await logImportEvent("RECHECK", {
+        propertyId: existing.propertyId,
+        ok: false,
+        message: `Import rechazado: ${sanity.reason}`,
+        meta: { listingId: existing.id, attempted: priceCents, previousPrice, url: payload.url },
+      });
+      return {
+        created: false,
+        priceChanged: false,
+        mediaRefreshed: false,
+        photoCount: payload.images.length,
+        propertyId: existing.propertyId,
+        listingId: existing.id,
+        previousPrice,
+        newPrice: previousPrice,
+      };
+    }
+
+    const priceChanged = priceCents != null && priceCents !== previousPrice;
+
+    await prisma.listing.update({
+      where: { id: existing.id },
+      data: {
+        lastPrice: priceCents ?? existing.lastPrice,
+        lastSeenAt: new Date(),
+        lastCheckedAt: new Date(),
+        status: priceChanged
+          ? priceCents! < (previousPrice ?? Infinity)
+            ? "PRICE_DROP"
+            : "PRICE_UP"
+          : existing.status,
+      },
+    });
+
+    if (priceChanged && priceCents != null) {
+      await prisma.priceSnapshot.create({
+        data: {
+          listingId: existing.id,
+          propertyId: existing.propertyId,
+          price: priceCents,
+          source: portal,
+        },
+      });
+    }
+
+    // Refrescar campos escalares que estuvieran vacíos (no pisamos lo editado a mano)
+    const propPatch = fillIfEmpty(existing.property as unknown as Record<string, unknown>, {
+      description: payload.description ?? undefined,
+      address: payload.address ?? undefined,
+      city: payload.city ?? undefined,
+      province: payload.province ?? undefined,
+      postalCode: payload.postalCode ?? undefined,
+      neighborhood: payload.neighborhood ?? undefined,
+      latitude: payload.latitude ?? undefined,
+      longitude: payload.longitude ?? undefined,
+      rooms: payload.rooms ?? undefined,
+      bathrooms: payload.bathrooms ?? undefined,
+      builtArea: payload.builtArea ?? undefined,
+      usableArea: payload.usableArea ?? undefined,
+      plotArea: payload.plotArea ?? undefined,
+      floor: payload.floor ?? undefined,
+      yearBuilt: payload.yearBuilt ?? undefined,
+      hasElevator: payload.hasElevator ?? undefined,
+      hasGarage: payload.hasGarage ?? undefined,
+      hasStorage: payload.hasStorage ?? undefined,
+      hasTerrace: payload.hasTerrace ?? undefined,
+      hasFireplace: payload.hasFireplace ?? undefined,
+      hasGarden: payload.hasGarden ?? undefined,
+      hasPool: payload.hasPool ?? undefined,
+      energyRating: payload.energyRating ?? undefined,
+    });
+
+    await prisma.property.update({
+      where: { id: existing.propertyId },
+      data: {
+        ...propPatch,
+        ...(priceChanged && priceCents != null ? { currentPrice: priceCents } : {}),
+      },
+    });
+
+    // Refrescar fotos del portal: borramos las anteriores PHOTO+PORTAL_SCRAPE
+    // (las USER_UPLOAD se conservan intactas) y volvemos a crear desde el payload.
+    // Preservamos `phash` previo: si la URL ya estaba en BBDD con phash calculado,
+    // lo reutilizamos en la nueva fila para no tener que rehashear.
+    let mediaRefreshed = false;
+    if (payload.images.length > 0) {
+      const existingPhashes = await prisma.media.findMany({
+        where: { propertyId: existing.propertyId, kind: "PHOTO", source: "PORTAL_SCRAPE", phash: { not: null } },
+        select: { url: true, phash: true },
+      });
+      const phashByUrl = new Map(existingPhashes.map((m) => [m.url, m.phash]));
+
+      await prisma.media.deleteMany({
+        where: { propertyId: existing.propertyId, kind: "PHOTO", source: "PORTAL_SCRAPE" },
+      });
+      await prisma.media.createMany({
+        data: payload.images.map((url, i) => ({
+          propertyId: existing.propertyId,
+          kind: "PHOTO" as const,
+          source: "PORTAL_SCRAPE" as const,
+          url,
+          order: i,
+          phash: phashByUrl.get(url) ?? null,
+        })),
+      });
+      mediaRefreshed = true;
+    }
+
+    // Background: re-hashear fotos nuevas (no auto-merge en re-import,
+    // pero sí buscar duplicados por si han aparecido tras importar otro portal).
+    void postImportTasks(existing.propertyId, { skipAutoMerge: !mediaRefreshed });
+
+    return {
+      created: false,
+      priceChanged,
+      mediaRefreshed,
+      photoCount: payload.images.length,
+      propertyId: existing.propertyId,
+      listingId: existing.id,
+      previousPrice,
+      newPrice: priceCents,
+    };
+  }
+
+  // ---------- Create path ----------
+  const inferredType: PropertyType = payload.type ?? "PISO";
+
+  const property = await prisma.property.create({
+    data: {
+      ownerId,
+      title: payload.title,
+      titleSlug: slugifyTitle(payload.title),
+      description: payload.description ?? null,
+      type: inferredType,
+      status: "FOR_SALE",
+      currentPrice: priceCents,
+
+      address: payload.address ?? null,
+      city: payload.city ?? "Desconocida",
+      province: payload.province ?? "Asturias",
+      postalCode: payload.postalCode ?? null,
+      neighborhood: payload.neighborhood ?? null,
+      latitude: payload.latitude ?? null,
+      longitude: payload.longitude ?? null,
+
+      rooms: payload.rooms ?? null,
+      bathrooms: payload.bathrooms ?? null,
+      builtArea: payload.builtArea ?? null,
+      usableArea: payload.usableArea ?? null,
+      plotArea: payload.plotArea ?? null,
+      floor: payload.floor ?? null,
+      yearBuilt: payload.yearBuilt ?? null,
+      hasElevator: payload.hasElevator ?? null,
+      hasGarage: payload.hasGarage ?? null,
+      hasStorage: payload.hasStorage ?? null,
+      hasTerrace: payload.hasTerrace ?? null,
+      hasFireplace: payload.hasFireplace ?? null,
+      hasGarden: payload.hasGarden ?? null,
+      hasPool: payload.hasPool ?? null,
+      energyRating: payload.energyRating ?? "UNKNOWN",
+
+      tags: payload.features ?? [],
+
+      media: {
+        create: payload.images.map((url, i) => ({
+          kind: "PHOTO" as const,
+          source: "PORTAL_SCRAPE" as const,
+          url,
+          order: i,
+        })),
+      },
+      listings: {
+        create: {
+          portal,
+          url: payload.url,
+          externalId: payload.externalId ?? null,
+          lastPrice: priceCents,
+          lastSeenAt: new Date(),
+          lastCheckedAt: new Date(),
+          status: "ACTIVE",
+        },
+      },
+    },
+    include: { listings: true },
+  });
+
+  const listing = property.listings[0];
+
+  if (priceCents != null) {
+    await prisma.priceSnapshot.create({
+      data: {
+        listingId: listing.id,
+        propertyId: property.id,
+        price: priceCents,
+        source: portal,
+      },
+    });
+  }
+
+  // Lanzar tareas de background: hash de fotos, enriquecer catastro,
+  // buscar duplicados y posible auto-merge.
+  void postImportTasks(property.id);
+
+  return {
+    created: true,
+    priceChanged: false,
+    mediaRefreshed: payload.images.length > 0,
+    photoCount: payload.images.length,
+    propertyId: property.id,
+    listingId: listing.id,
+    previousPrice: null,
+    newPrice: priceCents,
+  };
+}
+
+async function postImportTasks(propertyId: string, opts: { skipAutoMerge?: boolean } = {}): Promise<void> {
+  // 1. dHash de fotos sin hash. Throttle suave para no martillear CDNs.
+  try {
+    const pendingMedia = await prisma.media.findMany({
+      where: { propertyId, kind: "PHOTO", phash: null },
+      select: { id: true, url: true },
+      take: 60,
+    });
+    let hashedOk = 0, hashedFail = 0;
+    for (const m of pendingMedia) {
+      const h = await dhashFromUrl(m.url);
+      if (h) {
+        await prisma.media.update({ where: { id: m.id }, data: { phash: h } });
+        hashedOk++;
+      } else {
+        hashedFail++;
+      }
+      await new Promise((r) => setTimeout(r, 800));
+    }
+    if (pendingMedia.length) {
+      await logImportEvent("HASH", {
+        propertyId,
+        ok: hashedOk > 0,
+        message: `${hashedOk} hash OK / ${hashedFail} fallidas (${pendingMedia.length} pendientes)`,
+        meta: { ok: hashedOk, fail: hashedFail, total: pendingMedia.length },
+      });
+    }
+  } catch (e) {
+    await logImportEvent("HASH", { propertyId, ok: false, message: (e as Error).message });
+  }
+
+  // 2. Catastro
+  await enrichInBackground(propertyId);
+
+  // 3. Geocode si seguimos sin coords pero tenemos dirección/ciudad.
+  try {
+    const p = await prisma.property.findUnique({ where: { id: propertyId } });
+    if (p && p.latitude == null && p.longitude == null && (p.address || p.city)) {
+      const g = await geocodeAddress({
+        address: p.address,
+        city: p.city,
+        province: p.province,
+        postalCode: p.postalCode,
+        country: p.country,
+      });
+      if (g) {
+        await prisma.property.update({
+          where: { id: propertyId },
+          data: { latitude: g.latitude, longitude: g.longitude },
+        });
+        await logImportEvent("GEOCODE", {
+          propertyId, ok: true,
+          message: `${g.latitude.toFixed(5)}, ${g.longitude.toFixed(5)}`,
+          meta: { displayName: g.displayName },
+        });
+      } else {
+        await logImportEvent("GEOCODE", { propertyId, ok: false, message: "Sin resultado" });
+      }
+    }
+  } catch (e) {
+    await logImportEvent("GEOCODE", { propertyId, ok: false, message: (e as Error).message });
+  }
+
+  // 4. Préstamo de campos vacíos desde una ficha similar.
+  try {
+    const b = await borrowFieldsFromSimilar(propertyId);
+    if (b.borrowed.length) {
+      await logImportEvent("BORROW_FIELDS", {
+        propertyId, ok: true,
+        message: `${b.borrowed.length} campos prestados desde ${b.fromPropertyId} (score ${b.score})`,
+        meta: { borrowed: b.borrowed, fromPropertyId: b.fromPropertyId, score: b.score },
+      });
+    }
+  } catch (e) {
+    await logImportEvent("BORROW_FIELDS", { propertyId, ok: false, message: (e as Error).message });
+  }
+
+  // 5. Buscar duplicados. Si score ≥ 95, auto-merge (salvo skipAutoMerge).
+  if (!opts.skipAutoMerge) {
+    try {
+      const candidates = await findSimilar(propertyId);
+      const top = candidates[0];
+      if (top && top.score >= 95) {
+        // Safety: si los precios difieren >30%, NO auto-merge.
+        const me = await prisma.property.findUnique({ where: { id: propertyId } });
+        const them = await prisma.property.findUnique({ where: { id: top.propertyId } });
+        const priceA = me?.currentPrice ?? null;
+        const priceB = them?.currentPrice ?? null;
+        const priceTooDifferent =
+          priceA && priceB && Math.abs(priceA - priceB) / Math.max(priceA, priceB) > 0.3;
+        const typeMismatch = me && them && me.type !== them.type;
+        if (priceTooDifferent || typeMismatch) {
+          await logImportEvent("MATCH", {
+            propertyId, ok: true,
+            message: `Sugerencia ${top.score}% bloqueada por safety (precio/tipo distinto)`,
+            meta: { candidateId: top.propertyId, score: top.score, reasons: top.reasons, blocked: true, priceTooDifferent, typeMismatch },
+          });
+        } else {
+          try {
+            const result = await mergeProperties(propertyId, top.propertyId);
+            await logImportEvent("MERGE_AUTO", {
+              propertyId: top.propertyId, ok: true,
+              message: `Fusionado ${propertyId} → ${top.propertyId} (score ${top.score}, ${top.reasons.join(", ")})`,
+              meta: { sourceId: propertyId, targetId: top.propertyId, score: top.score, reasons: top.reasons, ...result },
+            });
+          } catch (e) {
+            await logImportEvent("MERGE_AUTO", { propertyId, ok: false, message: (e as Error).message, meta: { candidateId: top.propertyId } });
+          }
+        }
+      } else if (top) {
+        await logImportEvent("MATCH", {
+          propertyId, ok: true,
+          message: `Sugerencia ${top.propertyId} (score ${top.score})`,
+          meta: { candidateId: top.propertyId, score: top.score, reasons: top.reasons },
+        });
+      }
+    } catch (e) {
+      await logImportEvent("MATCH", { propertyId, ok: false, message: (e as Error).message });
+    }
+  }
+}
+
+async function enrichInBackground(propertyId: string): Promise<void> {
+  try {
+    const p = await prisma.property.findUnique({ where: { id: propertyId } });
+    if (!p) return;
+    if (p.cadastralRef) return; // ya enriquecido
+    const r = await enrichProperty({
+      latitude: p.latitude,
+      longitude: p.longitude,
+      province: p.province,
+      city: p.city,
+      address: p.address,
+    });
+    if (!r.ref) {
+      await logImportEvent("CATASTRO", {
+        propertyId, ok: false,
+        message: r.warnings.join(" · ") || "Sin resultado",
+        meta: { warnings: r.warnings },
+      });
+      return;
+    }
+    const patch: Record<string, unknown> = {
+      cadastralRef: r.ref,
+      cadastralData: r.info as unknown as Record<string, unknown>,
+    };
+    if (r.info?.yearBuilt && !p.yearBuilt) patch.yearBuilt = r.info.yearBuilt;
+    if (r.info?.builtArea && !p.builtArea) patch.builtArea = r.info.builtArea;
+    if (r.info?.address && !p.address) patch.address = r.info.address;
+    if (r.info?.floor && !p.floor) patch.floor = r.info.floor;
+    await prisma.property.update({ where: { id: propertyId }, data: patch });
+    if (r.info?.hasFloorplan && r.info.floorplanUrl) {
+      const exists = await prisma.media.findFirst({
+        where: { propertyId, source: "CADASTRE", kind: "FLOORPLAN" },
+      });
+      if (!exists) {
+        await prisma.media.create({
+          data: {
+            propertyId,
+            kind: "FLOORPLAN",
+            source: "CADASTRE",
+            url: r.info.floorplanUrl,
+            caption: "Plano catastral",
+          },
+        });
+      }
+    }
+    await logImportEvent("CATASTRO", {
+      propertyId, ok: true,
+      message: `RC ${r.ref} vía ${r.method}`,
+      meta: { ref: r.ref, method: r.method, warnings: r.warnings },
+    });
+  } catch (e) {
+    await logImportEvent("CATASTRO", { propertyId, ok: false, message: (e as Error).message });
+  }
+}

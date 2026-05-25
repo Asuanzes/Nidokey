@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Surfaces */
+  --bg: #FAFAF7;
+  --surface: #FFFFFF;
+  --surface-muted: #F4F3EE;
+  --surface-sunken: #EFEEE8;
+
+  /* Borders */
+  --border: #E8E6E1;
+  --border-strong: #D4D1CA;
+
+  /* Text */
+  --text: #1A1A18;
+  --text-muted: #6B6862;
+  --text-subtle: #9A9690;
+  --text-inverse: #FAFAF7;
+
+  /* Brand */
+  --primary: #3A5F8A;
+  --primary-hover: #2E4D70;
+  --primary-soft: #EAEFF6;
+  --primary-fg: #FAFAF7;
+
+  /* Acento de marca (llave: latón envejecido sobre acero) */
+  --brand-accent: #C49A4D;
+
+  /* Semantic */
+  --success: #2D6A4F;
+  --success-soft: #E8F1EC;
+  --warning: #A86A17;
+  --warning-soft: #F7EFDE;
+  --danger: #A23E3E;
+  --danger-soft: #F6E5E5;
+  --info: #2C7A8A;
+  --info-soft: #E1EEF1;
+
+  /* Price deltas (sutiles) */
+  --price-up-bg: #FDF2F2;
+  --price-up-fg: #A23E3E;
+  --price-down-bg: #F0F7F2;
+  --price-down-fg: #2D6A4F;
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  /* Shadows (muy sutiles) */
+  --shadow-xs: 0 1px 2px rgba(20, 20, 18, 0.04);
+  --shadow-sm: 0 1px 3px rgba(20, 20, 18, 0.06), 0 1px 2px rgba(20, 20, 18, 0.04);
+  --shadow-md: 0 4px 12px rgba(20, 20, 18, 0.06), 0 1px 3px rgba(20, 20, 18, 0.04);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-feature-settings: "cv11", "ss01", "ss03";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: var(--font-sans, "Inter"), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Numbers monospace-aligned para precios y tablas */
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Focus ring consistente en toda la app */
+:where(button, a, input, select, textarea, [role="button"]):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Scrollbar discreta */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--text-subtle); }

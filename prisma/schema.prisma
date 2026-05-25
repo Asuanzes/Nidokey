@@ -1,0 +1,307 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PropertyType {
+  HOUSE
+  PISO
+  ATICO
+  CHALET
+  DUPLEX
+  ESTUDIO
+  LOFT
+  LOCAL
+  TERRENO
+  OTRO
+}
+
+enum PropertyStatus {
+  FOR_SALE
+  RESERVED
+  SOLD
+  WITHDRAWN
+}
+
+enum EnergyRating {
+  A
+  B
+  C
+  D
+  E
+  F
+  G
+  UNKNOWN
+}
+
+enum Portal {
+  IDEALISTA
+  FOTOCASA
+  PISOS_COM
+  MILANUNCIOS
+  HABITACLIA
+  YAENCONTRE
+  THINKSPAIN
+  INDOMIO
+  OTHER
+  MANUAL
+}
+
+enum ListingStatus {
+  ACTIVE
+  PRICE_DROP
+  PRICE_UP
+  SOLD
+  REMOVED
+  UNKNOWN
+}
+
+enum MediaKind {
+  PHOTO
+  FLOORPLAN
+  VIDEO
+  TOUR_3D
+  DOCUMENT
+}
+
+enum MediaSource {
+  USER_UPLOAD
+  PORTAL_SCRAPE
+  CADASTRE
+  AI_SKETCH
+  AI_RECONSTRUCTION
+}
+
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  apiTokens     ApiToken[]
+  properties    Property[]
+}
+
+// Tablas estándar de NextAuth / Auth.js (Prisma adapter).
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Token API por usuario para los bookmarklets (cada usuario tiene el suyo).
+// Lo embebimos en el .user.js generado dinámicamente.
+model ApiToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  label     String?
+  lastUsed  DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Property {
+  id           String         @id @default(cuid())
+  ownerId      String?
+  owner        User?          @relation(fields: [ownerId], references: [id])
+
+  title        String
+  description  String?
+  type         PropertyType
+  status       PropertyStatus @default(FOR_SALE)
+  currentPrice Int?
+
+  address      String?
+  city         String
+  province     String
+  country      String         @default("España")
+  postalCode   String?
+  latitude     Float?
+  longitude    Float?
+  neighborhood String?
+
+  environment  String?
+  tags         String[]
+
+  rooms        Int?
+  bathrooms    Int?
+  builtArea    Int?
+  usableArea   Int?
+  plotArea     Int?
+  floor        String?
+  hasElevator  Boolean?
+  hasGarage    Boolean?
+  hasStorage   Boolean?
+  hasTerrace   Boolean?
+  hasFireplace Boolean?
+  hasGarden    Boolean?
+  hasPool      Boolean?
+  yearBuilt    Int?
+  energyRating EnergyRating   @default(UNKNOWN)
+
+  cadastralRef  String?
+  cadastralData Json?
+
+  // Cross-matching de portales
+  titleSlug      String?  @db.VarChar(120)
+  matchDismissed String[] @default([])
+
+  notes        String?
+
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  media        Media[]
+  listings     Listing[]
+  priceHistory PriceSnapshot[]
+
+  @@index([city, province])
+  @@index([type, status])
+  @@index([currentPrice])
+  @@index([cadastralRef])
+  @@index([titleSlug])
+  @@index([city, builtArea])
+}
+
+model Media {
+  id         String      @id @default(cuid())
+  propertyId String
+  property   Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  kind       MediaKind
+  source     MediaSource @default(USER_UPLOAD)
+  url        String
+  caption    String?
+  order      Int         @default(0)
+  phash      String?     // dHash 64-bit en hex (16 chars)
+  createdAt  DateTime    @default(now())
+
+  @@index([propertyId, kind])
+  @@index([phash])
+}
+
+model Listing {
+  id            String          @id @default(cuid())
+  propertyId    String
+  property      Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  portal        Portal
+  url           String          @unique
+  externalId    String?
+  status        ListingStatus   @default(ACTIVE)
+  lastPrice     Int?
+  lastSeenAt    DateTime?
+  lastCheckedAt DateTime?
+  createdAt     DateTime        @default(now())
+
+  snapshots     PriceSnapshot[]
+
+  @@index([portal, status])
+}
+
+model PriceSnapshot {
+  id         String         @id @default(cuid())
+  listingId  String?
+  listing    Listing?       @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  propertyId String
+  property   Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  price      Int
+  status     ListingStatus?
+  source     Portal
+  observedAt DateTime       @default(now())
+
+  @@index([propertyId, observedAt])
+}
+
+model MatchSuggestion {
+  id          String   @id @default(cuid())
+  sourceId    String
+  targetId    String
+  score       Int      // 0..100
+  reasons     String[] @default([])
+  blocked     Boolean  @default(false) // true si fue auto-merge bloqueado por safety
+  blockedReason String?
+  dismissedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([sourceId, targetId])
+  @@index([sourceId, dismissedAt])
+  @@index([score, dismissedAt])
+}
+
+enum ImportLogKind {
+  HASH
+  CATASTRO
+  GEOCODE
+  MATCH
+  MERGE_AUTO
+  MERGE_MANUAL
+  BORROW_FIELDS
+  RECHECK
+}
+
+model ImportLog {
+  id         String        @id @default(cuid())
+  propertyId String?
+  kind       ImportLogKind
+  ok         Boolean       @default(true)
+  message    String?
+  meta       Json?
+  createdAt  DateTime      @default(now())
+
+  @@index([propertyId, createdAt])
+  @@index([kind, createdAt])
+  @@index([createdAt])
+}
+
+model SavedSearch {
+  id        String   @id @default(cuid())
+  ownerId   String?
+  name      String
+  portal    Portal
+  url       String
+  filters   Json
+  active    Boolean  @default(true)
+  lastRunAt DateTime?
+  createdAt DateTime @default(now())
+}
