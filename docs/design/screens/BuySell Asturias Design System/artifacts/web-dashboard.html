@@ -1,0 +1,112 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>BuySell · Web · Dashboard</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>html,body{margin:0;padding:0;background:#1a1a1a}body{display:flex;align-items:center;justify-content:center;min-height:100vh}#root{width:1440px;height:900px}</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head><body><div id="root"></div>
+<script type="text/babel" src="lucide-shim.jsx"></script>
+<script type="text/babel" src="shell.jsx"></script>
+<script type="text/babel" data-presets="env,react">
+
+const portals = [
+  { name: "Idealista", count: 28 }, { name: "Fotocasa", count: 22 },
+  { name: "Pisos.com", count: 14 }, { name: "Milanuncios", count: 10 },
+  { name: "Habitaclia", count: 5 }, { name: "ThinkSPAIN", count: 3 },
+];
+const cities = [
+  { city: "Oviedo", avg: 2820, n: 8 }, { city: "Gijón", avg: 2640, n: 6 },
+  { city: "Avilés", avg: 1980, n: 4 }, { city: "Llanes", avg: 3240, n: 3 },
+  { city: "Cangas de Onís", avg: 1240, n: 2 },
+];
+const attention = [
+  { icon: Activity, label: "Listings sin re-check >7 días (auto)", count: 4, hint: "Ejecuta npm run check-listings" },
+  { icon: Activity, label: "Listings sin re-check >7 días (manual)", count: 2, hint: "Idealista / Milanuncios — usa el userscript" },
+  { icon: Sparkles, label: "Duplicados pendientes de revisar", count: 3 },
+  { icon: Maximize2, label: "Fotos sin foto-hash", count: 7, hint: "Ejecuta npm run hash-photos" },
+];
+
+function DashboardContent() {
+  return (
+    <>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 600, letterSpacing: "-0.015em" }}>Dashboard</h1>
+        <p style={{ margin: "4px 0 0", fontSize: 13, color: T.textMuted }}>Visión general de inmuebles, portales y matching</p>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+        <SStat label="En venta" value="24"/>
+        <SStat label="Vendidos" value="7"/>
+        <SStat label="Retirados" value="3"/>
+        <SStat label="Listings" value="82" hint="en 6 portales"/>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 16, marginTop: 16 }}>
+        <SCard title="Por portal">
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {portals.map(p => (
+              <div key={p.name}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
+                  <span style={{ color: T.text }}>{p.name}</span>
+                  <span style={{ color: T.textMuted, ...TAB }}>{p.count}</span>
+                </div>
+                <div style={{ height: 6, background: T.surfaceMuted, borderRadius: 999, overflow: "hidden" }}>
+                  <div style={{ height: "100%", background: T.primary, width: `${(p.count/28)*100}%` }}/>
+                </div>
+              </div>
+            ))}
+          </div>
+        </SCard>
+        <SCard title="€/m² medio por ciudad" right={<span style={{ fontSize: 12, color: T.textMuted }}>Top 5 con ≥ 2 fichas</span>}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
+            {cities.map(c => (
+              <div key={c.city} style={{ background: T.surfaceMuted, border: `1px solid ${T.border}`, borderRadius: 6, padding: 10 }}>
+                <div style={{ fontSize: 12, color: T.textMuted, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{c.city}</div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: T.text, marginTop: 2, ...TAB }}>{c.avg.toLocaleString("es-ES")} €/m²</div>
+                <div style={{ fontSize: 10, color: T.textSubtle, marginTop: 1, ...TAB }}>{c.n} fichas</div>
+              </div>
+            ))}
+          </div>
+        </SCard>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 }}>
+        <SCard title="Necesita atención">
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {attention.map((a, i) => (
+              <div key={i} style={{
+                display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12,
+                border: `1px solid ${T.border}`, borderRadius: 6, padding: "8px 10px",
+              }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 8, minWidth: 0 }}>
+                  <a.icon size={13} color={T.textSubtle} style={{ marginTop: 1 }}/>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, color: T.text, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{a.label}</div>
+                    {a.hint && <div style={{ fontSize: 11, color: T.textSubtle }}>{a.hint}</div>}
+                  </div>
+                </div>
+                <span style={{
+                  padding: "1px 6px", borderRadius: 4, fontSize: 11, fontWeight: 500, ...TAB,
+                  background: a.count > 0 ? T.warningBg : T.surfaceMuted,
+                  color: a.count > 0 ? T.warningFg : T.textMuted,
+                }}>{a.count}</span>
+              </div>
+            ))}
+          </div>
+        </SCard>
+        <SCard title="Actividad reciente (30 d)">
+          <div style={{ fontSize: 32, fontWeight: 600, color: T.text, ...TAB, letterSpacing: "-0.02em" }}>42</div>
+          <div style={{ fontSize: 12, color: T.textMuted, marginTop: 4 }}>snapshots de precio registrados en los últimos 30 días</div>
+          <div style={{ marginTop: 12 }}>
+            <a href="#" style={{ fontSize: 12, color: T.primary, textDecoration: "none" }}>Ver actividad detallada →</a>
+          </div>
+        </SCard>
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <WebShell active="dashboard"><DashboardContent/></WebShell>
+);
+</script></body></html>

@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>BuySell · iOS · Ficha detalle</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html, body { margin: 0; padding: 0; background: #1a1a1a; }
+  body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  #root { width: 393px; height: 852px; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" src="lucide-shim.jsx"></script>
+<script type="text/babel" data-presets="env,react">
+const { useState } = React;
+
+const T = {
+  bg: "#FAFAF7", surface: "#FFFFFF", surfaceMuted: "#F4F3EE", surfaceSunken: "#EFEEE8",
+  border: "#E8E6E1", borderStrong: "#D4D1CA",
+  text: "#1A1A18", textMuted: "#6B6862", textSubtle: "#9A9690",
+  primary: "#3A5F8A", primaryHover: "#2E4D70", primarySoft: "#EAEFF6", primaryFg: "#FAFAF7",
+  accent: "#C49A4D",
+  successFg: "#2D6A4F", successBg: "#E8F1EC",
+  warningFg: "#A86A17", warningBg: "#F7EFDE",
+  dangerFg: "#A23E3E", dangerBg: "#F6E5E5",
+  infoFg: "#2C7A8A", infoBg: "#E1EEF1",
+  priceDownBg: "#F0F7F2", priceDownFg: "#2D6A4F",
+  priceUpBg: "#FDF2F2", priceUpFg: "#A23E3E",
+};
+const FONT = "Inter, -apple-system, 'SF Pro Text', system-ui, sans-serif";
+const TAB = { fontVariantNumeric: "tabular-nums" };
+const fmtEur = (n) => `${n.toLocaleString("es-ES")} €`;
+
+function BrandKey({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="6.5" cy="12" r="3.3"/>
+      <circle cx="6.5" cy="8" r="0.85" fill="#C49A4D" stroke="none"/>
+      <path d="M9.8 12 H17"/>
+      <path d="M17 12 H21 V17 H20 V15.5 H18.5 V17 H17 Z" fill="#C49A4D"/>
+    </svg>
+  );
+}
+
+const P = {
+  title: "Piso luminoso en La Manjoya con vistas",
+  type: "Piso", status: "En venta",
+  city: "Oviedo", neighborhood: "La Manjoya", province: "Asturias",
+  address: "Calle Los Robles, 8, 3ºA", postalCode: "33193",
+  currentPrice: 195000, rooms: 3, bathrooms: 2, builtArea: 95, usableArea: 84,
+  floor: "3ºA", yearBuilt: 1998, energyRating: "D",
+  hasGarage: false, hasTerrace: true, hasFireplace: false, hasElevator: true, hasStorage: true,
+  description: "Vivienda completamente reformada en 2022, orientación sur-este, con vistas despejadas al monte Naranco. Cocina abierta al salón, suelos de tarima de roble.",
+  photos: [
+    "linear-gradient(135deg, #8aa9d0 0%, #3A5F8A 100%)",
+    "linear-gradient(135deg, #a3b8d0 0%, #4a6f9a 100%)",
+    "linear-gradient(135deg, #7090b0 0%, #2e4d70 100%)",
+  ],
+  priceHistory: [
+    { date: "2025-07-15", price: 210000 }, { date: "2025-09-18", price: 205000 },
+    { date: "2025-10-22", price: 200000 }, { date: "2025-12-10", price: 197000 },
+    { date: "2026-01-08", price: 195000 },
+  ],
+  listings: [
+    { portal: "Idealista", lastPrice: 195000, status: "Bajada", checkedAt: "Hoy" },
+    { portal: "Fotocasa",  lastPrice: 195000, status: "Activo", checkedAt: "Hace 2 días" },
+    { portal: "Pisos.com", lastPrice: 198000, status: "Activo", checkedAt: "Hace 5 días" },
+  ],
+};
+
+const statusColor = { "En venta": { bg: T.infoBg, fg: T.infoFg }, "Reservado": { bg: T.warningBg, fg: T.warningFg }, "Vendido": { bg: T.successBg, fg: T.successFg } };
+const listingColor = { "Bajada": { bg: T.priceDownBg, fg: T.priceDownFg }, "Activo": { bg: T.infoBg, fg: T.infoFg }, "Subida": { bg: T.priceUpBg, fg: T.priceUpFg } };
+
+// ---- iOS Rail (same as inmuebles — with labels) ----
+const railItems = [
+  { label: "Inmuebles", icon: Building2, active: true },
+  { label: "Duplic.",   icon: Sparkles, badge: 3 },
+  { sep: true },
+  { label: "Dashboard", icon: LayoutDashboard },
+  { label: "Actividad", icon: Activity },
+  { sep: true },
+  { label: "Importar",  icon: Download },
+];
+const railFooter = [
+  { label: "Perfil",  icon: User },
+  { label: "Ajustes", icon: Settings },
+];
+
+function Rail() {
+  return (
+    <div style={{
+      width: 64, flexShrink: 0, display: "flex", flexDirection: "column",
+      borderRight: `1px solid ${T.border}`, background: T.surface,
+    }}>
+      <div style={{
+        height: 56, display: "flex", alignItems: "center", justifyContent: "center",
+        borderBottom: `1px solid ${T.border}`,
+      }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 8, display: "flex",
+          alignItems: "center", justifyContent: "center",
+          background: T.primarySoft, color: T.primary,
+        }}><BrandKey size={18}/></div>
+      </div>
+      <nav style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, paddingTop: 8, width: "100%" }}>
+        {railItems.map((it, i) => {
+          if (it.sep) return <div key={i} style={{ width: 32, height: 1, background: T.border, margin: "6px 0" }}/>;
+          const Icon = it.icon;
+          return (
+            <a key={it.label} href="#" style={{
+              width: 52, padding: "8px 0 6px", borderRadius: 10, textDecoration: "none", textAlign: "center",
+              background: it.active ? T.primarySoft : "transparent", position: "relative",
+            }}>
+              <Icon size={20} color={it.active ? T.primary : T.textMuted}/>
+              <div style={{ fontSize: 9, marginTop: 3, color: it.active ? T.primary : T.textSubtle, fontWeight: it.active ? 600 : 400, fontFamily: FONT }}>{it.label}</div>
+              {it.badge > 0 && (
+                <span style={{
+                  position: "absolute", top: 4, right: 6, minWidth: 14, height: 14,
+                  padding: "0 4px", borderRadius: 999, background: T.dangerFg, color: "#fff",
+                  fontSize: 9, fontWeight: 700, lineHeight: "14px", textAlign: "center", ...TAB,
+                }}>{it.badge}</span>
+              )}
+            </a>
+          );
+        })}
+      </nav>
+      <div style={{ borderTop: `1px solid ${T.border}`, padding: "8px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+        {railFooter.map((it) => {
+          const Icon = it.icon;
+          return (
+            <a key={it.label} href="#" style={{
+              width: 52, padding: "8px 0 6px", borderRadius: 10, textDecoration: "none", textAlign: "center",
+            }}>
+              <Icon size={18} color={T.textSubtle}/>
+              <div style={{ fontSize: 9, marginTop: 3, color: T.textSubtle, fontFamily: FONT }}>{it.label}</div>
+            </a>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ---- iOS system chrome ----
+function IOSBar() {
+  return (
+    <div style={{ position: "relative", height: 47, background: T.surface }}>
+      <div style={{ position: "absolute", left: 28, top: "50%", transform: "translateY(-50%)", fontSize: 15, fontWeight: 600, color: T.text, fontFamily: FONT, ...TAB }}>9:41</div>
+      <div style={{ position: "absolute", left: "50%", top: 11, width: 110, height: 31, borderRadius: 999, background: T.text, transform: "translateX(-50%)" }}/>
+      <div style={{ position: "absolute", right: 24, top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center", gap: 5 }}>
+        <Signal size={14} color={T.text}/>
+        <Wifi size={14} color={T.text}/>
+        <Battery size={16} color={T.text}/>
+      </div>
+    </div>
+  );
+}
+
+function MiniChart({ data }) {
+  const w = 300, h = 100;
+  const pad = { l: 36, r: 8, t: 6, b: 18 };
+  const prices = data.map(d => d.price);
+  const min = Math.min(...prices), max = Math.max(...prices);
+  const range = max - min || 1, padY = range * 0.2;
+  const yMin = min - padY, yMax = max + padY;
+  const x = (i) => pad.l + (i * (w - pad.l - pad.r)) / (data.length - 1 || 1);
+  const y = (v) => pad.t + (1 - (v - yMin) / (yMax - yMin)) * (h - pad.t - pad.b);
+  const line = data.map((d, i) => `${i === 0 ? "M" : "L"} ${x(i).toFixed(1)} ${y(d.price).toFixed(1)}`).join(" ");
+  const area = `${line} L ${x(data.length-1).toFixed(1)} ${h - pad.b} L ${x(0).toFixed(1)} ${h - pad.b} Z`;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: "100%", height: h, fontFamily: FONT }}>
+      <defs><linearGradient id="mf2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={T.primary} stopOpacity="0.18"/><stop offset="100%" stopColor={T.primary} stopOpacity="0"/></linearGradient></defs>
+      {[0, 0.5, 1].map((t, i) => {
+        const v = yMin + t * (yMax - yMin);
+        return <g key={i}><line x1={pad.l} x2={w-pad.r} y1={y(v)} y2={y(v)} stroke={T.border} strokeDasharray="3 3"/><text x={pad.l-4} y={y(v)+4} fill={T.textSubtle} fontSize="9" textAnchor="end">{(v/1000).toFixed(0)}k</text></g>;
+      })}
+      <path d={area} fill="url(#mf2)"/>
+      <path d={line} fill="none" stroke={T.primary} strokeWidth="2"/>
+      {data.map((d, i) => <circle key={i} cx={x(i)} cy={y(d.price)} r="2.5" fill={T.surface} stroke={T.primary} strokeWidth="1.5"/>)}
+    </svg>
+  );
+}
+
+function Card({ title, children, right }) {
+  return (
+    <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 8, boxShadow: "0 1px 2px rgba(20,20,18,0.04)", overflow: "hidden" }}>
+      {title && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderBottom: `1px solid ${T.border}` }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: T.text, fontFamily: FONT }}>{title}</span>
+          {right}
+        </div>
+      )}
+      <div style={{ padding: 14 }}>{children}</div>
+    </div>
+  );
+}
+
+function Badge({ label, bg, fg }) {
+  return <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 6px", borderRadius: 6, fontSize: 11, fontWeight: 500, background: bg, color: fg, border: `1px solid ${fg}22` }}>{label}</span>;
+}
+
+function Feature({ label }) {
+  return <span style={{ padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 500, background: T.primarySoft, color: T.primary, border: "1px solid rgba(58,95,138,0.15)" }}>{label}</span>;
+}
+
+function MobileIOSDetail() {
+  const [photoIdx, setPhotoIdx] = useState(0);
+  const sc = statusColor[P.status] || { bg: T.surfaceMuted, fg: T.textMuted };
+  const firstPrice = P.priceHistory[0].price;
+  const totalDelta = ((P.currentPrice - firstPrice) / firstPrice * 100);
+
+  return (
+    <div style={{ width: 393, height: 852, display: "flex", flexDirection: "column", overflow: "hidden", background: T.bg, fontFamily: FONT, color: T.text, borderRadius: 40, boxShadow: "0 0 0 1px rgba(0,0,0,0.08)", position: "relative" }}>
+      <IOSBar/>
+      {/* iOS HIG: nav header full-width sobre el rail */}
+      <div style={{ background: T.surface, borderBottom: `1px solid ${T.border}`, padding: "8px 14px", display: "flex", alignItems: "center", gap: 8 }}>
+        <button style={{ border: "none", background: "transparent", display: "flex", alignItems: "center", gap: 2, cursor: "pointer", padding: 0, color: T.primary, fontSize: 13, fontFamily: FONT }}>
+          <ChevronLeft size={18} color={T.primary}/> Inmuebles
+        </button>
+        <div style={{ flex: 1 }}/>
+        <button style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0, color: T.primary, fontSize: 13, fontWeight: 500, fontFamily: FONT }}>Editar</button>
+      </div>
+      <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
+        <Rail/>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+          {/* Scroll */}
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            {/* Gallery */}
+            <div style={{ position: "relative", aspectRatio: "16/10", background: P.photos[photoIdx] }}>
+              <div style={{ position: "absolute", top: 10, left: 10 }}>
+                <Badge label={P.status} bg={sc.bg} fg={sc.fg}/>
+              </div>
+              <div style={{ position: "absolute", bottom: 10, right: 10, padding: "3px 8px", borderRadius: 6, background: "rgba(0,0,0,0.5)", color: "#fff", fontSize: 10, fontWeight: 500, ...TAB }}>{photoIdx+1}/{P.photos.length}</div>
+              <div style={{ position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 5 }}>
+                {P.photos.map((_, i) => (
+                  <div key={i} onClick={() => setPhotoIdx(i)} style={{ width: i === photoIdx ? 14 : 5, height: 5, borderRadius: 999, background: i === photoIdx ? "#fff" : "rgba(255,255,255,0.5)", cursor: "pointer", transition: "width 200ms" }}/>
+                ))}
+              </div>
+            </div>
+
+            {/* Title + price */}
+            <div style={{ padding: "14px 14px 10px", background: T.surface, borderBottom: `1px solid ${T.border}` }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: 1.2 }}>{P.title}</h2>
+              <div style={{ fontSize: 12, color: T.textMuted, marginTop: 4 }}>{P.type} · {P.neighborhood}, {P.city}</div>
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: 10 }}>
+                <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em", ...TAB }}>{fmtEur(P.currentPrice)}</div>
+                <span style={{ fontSize: 11, color: T.priceDownFg, fontWeight: 500, ...TAB }}>
+                  <ArrowDown size={10} color={T.priceDownFg} style={{ verticalAlign: "middle" }}/> {Math.abs(totalDelta).toFixed(1)}%
+                </span>
+              </div>
+              <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2, ...TAB }}>{Math.round(P.currentPrice/P.builtArea).toLocaleString("es-ES")} €/m²</div>
+            </div>
+
+            {/* Quick specs */}
+            <div style={{ display: "flex", gap: 0, background: T.surface, borderBottom: `1px solid ${T.border}` }}>
+              {[
+                { Icon: BedDouble, val: P.rooms, label: "hab" },
+                { Icon: Bath, val: P.bathrooms, label: "baños" },
+                { Icon: Maximize2, val: `${P.builtArea}`, label: "m²" },
+                { Icon: Home, val: P.floor, label: "planta" },
+                { Icon: Calendar, val: P.yearBuilt, label: "año" },
+              ].map((s, i, arr) => (
+                <div key={i} style={{
+                  flex: 1, padding: "10px 0", textAlign: "center",
+                  borderRight: i < arr.length-1 ? `1px solid ${T.border}` : "none",
+                }}>
+                  <s.Icon size={14} color={T.textSubtle}/>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: T.text, marginTop: 2, ...TAB }}>{s.val}</div>
+                  <div style={{ fontSize: 10, color: T.textSubtle }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {P.hasElevator && <Feature label="Ascensor"/>}
+                {P.hasTerrace && <Feature label="Terraza"/>}
+                {P.hasStorage && <Feature label="Trastero"/>}
+              </div>
+
+              <Card title="Descripción">
+                <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: T.text }}>{P.description}</p>
+              </Card>
+
+              <Card title="Histórico de precio" right={<span style={{ fontSize: 11, fontWeight: 500, color: T.priceDownFg, ...TAB }}>{Math.abs(totalDelta).toFixed(1)}%</span>}>
+                <MiniChart data={P.priceHistory}/>
+              </Card>
+
+              <Card title="Anuncios vinculados">
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {P.listings.map((l, i) => {
+                    const lc = listingColor[l.status] || { bg: T.surfaceMuted, fg: T.textMuted };
+                    return (
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                        <div>
+                          <a href="#" style={{ fontSize: 12, fontWeight: 500, color: T.primary, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                            {l.portal} <ExternalLink size={10}/>
+                          </a>
+                          <div style={{ fontSize: 11, color: T.textMuted, marginTop: 1, ...TAB }}>{fmtEur(l.lastPrice)} · {l.checkedAt}</div>
+                        </div>
+                        <Badge label={l.status} bg={lc.bg} fg={lc.fg}/>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+
+              <Card title="Ubicación">
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12 }}>
+                  <MapPin size={13} color={T.textSubtle} style={{ marginTop: 1, flexShrink: 0 }}/>
+                  <div>
+                    <div style={{ color: T.text }}>{P.address}</div>
+                    <div style={{ color: T.textMuted, marginTop: 2 }}>{P.neighborhood}, {P.postalCode} {P.city}</div>
+                    <div style={{ color: T.textMuted }}>{P.province}, España</div>
+                  </div>
+                </div>
+              </Card>
+
+              <div style={{ height: 16 }}/>
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* Home indicator */}
+      <div style={{ height: 34, display: "flex", alignItems: "end", justifyContent: "center", paddingBottom: 8, background: T.surface }}>
+        <div style={{ width: 134, height: 5, borderRadius: 999, background: T.text }}/>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<MobileIOSDetail/>);
+</script>
+</body>
+</html>

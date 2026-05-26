@@ -1,0 +1,58 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>BuySell · iOS · Login</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>html,body{margin:0;padding:0;background:#1a1a1a}body{display:flex;align-items:center;justify-content:center;min-height:100vh}#root{width:393px;height:852px}</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head><body><div id="root"></div>
+<script type="text/babel" src="lucide-shim.jsx"></script>
+<script type="text/babel" src="shell.jsx"></script>
+<script type="text/babel" data-presets="env,react">
+
+function MobileLoginContent() {
+  const [sent, setSent] = React.useState(false);
+  const [email, setEmail] = React.useState("");
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 28 }}>
+      <div style={{ width: 56, height: 56, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: T.primarySoft, color: T.primary, boxShadow: "inset 0 0 0 1px rgba(58,95,138,0.15)", marginBottom: 16 }}>
+        <BrandKey size={32}/>
+      </div>
+      <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: T.text, textAlign: "center" }}>BuySell Asturias</h1>
+      <p style={{ margin: "8px 0 0", fontSize: 13, color: T.textMuted, textAlign: "center", lineHeight: 1.5 }}>
+        {sent ? "Revisa tu bandeja. Pulsa el enlace que te hemos mandado para entrar." : "Te enviaremos un enlace por email para entrar sin contraseña."}
+      </p>
+      {sent ? (
+        <div style={{ marginTop: 20, padding: "10px 14px", borderRadius: 8, background: T.successBg, border: "1px solid rgba(45,106,79,0.15)", display: "flex", alignItems: "center", gap: 10, width: "100%", boxSizing: "border-box" }}>
+          <div style={{ width: 22, height: 22, borderRadius: 999, background: T.successFg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: T.successFg }}>Email enviado</div>
+            <div style={{ fontSize: 11, color: T.textMuted }}>{email}</div>
+          </div>
+        </div>
+      ) : (
+        <div style={{ marginTop: 20, width: "100%" }}>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tu@email.com"
+            style={{ height: 40, width: "100%", boxSizing: "border-box", paddingLeft: 14, paddingRight: 14, border: "1px solid "+T.border, borderRadius: 8, background: T.surface, color: T.text, fontSize: 14, fontFamily: FONT, outline: "none" }}/>
+          <button onClick={() => email && setSent(true)}
+            style={{ width: "100%", height: 40, marginTop: 10, borderRadius: 8, border: "none", background: T.primary, color: T.primaryFg, fontSize: 14, fontWeight: 500, cursor: "pointer", fontFamily: FONT }}>
+            Enviar enlace de acceso
+          </button>
+        </div>
+      )}
+      <p style={{ margin: "16px 0 0", fontSize: 10, color: T.textSubtle }}>Solo usuarios autorizados · uso personal</p>
+    </div>
+  );
+}
+
+function Page() {
+  return (
+    <MobileShell platform="ios" active={null}
+      header={null}>
+      <MobileLoginContent/>
+    </MobileShell>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<Page/>);
+</script></body></html>

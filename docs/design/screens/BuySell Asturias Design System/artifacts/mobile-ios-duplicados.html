@@ -1,0 +1,68 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>BuySell · iOS · Posibles duplicados</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>html,body{margin:0;padding:0;background:#1a1a1a}body{display:flex;align-items:center;justify-content:center;min-height:100vh}#root{width:393px;height:852px}</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head><body><div id="root"></div>
+<script type="text/babel" src="lucide-shim.jsx"></script>
+<script type="text/babel" src="shell.jsx"></script>
+<script type="text/babel" data-presets="env,react">
+
+function MobileDuplicadosContent() {
+  const pairs = [
+    { score: 91, reasons: ["Foto-hash", "Dirección", "Precio ±2%"],
+      a: { title: "Piso luminoso en La Manjoya", city: "Oviedo", price: 195000, portal: "Idealista", photo: "linear-gradient(135deg, #8aa9d0, #3A5F8A)" },
+      b: { title: "Luminoso piso reformado La Manjoya", city: "Oviedo", price: 197000, portal: "Fotocasa", photo: "linear-gradient(135deg, #a3b8d0, #4a6f9a)" },
+    },
+    { score: 73, reasons: ["Mismas hab y m²", "Mismo barrio"],
+      a: { title: "Chalet pareado Cabueñes", city: "Gijón", price: 385000, portal: "Idealista", photo: "linear-gradient(135deg, #b0c485, #5c7544)" },
+      b: { title: "Casa pareada playa Cabueñes", city: "Gijón", price: 395000, portal: "Pisos.com", photo: "linear-gradient(135deg, #92c2cc, #2C7A8A)" },
+    },
+  ];
+  return (
+    <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+      {pairs.map((m, i) => (
+        <SCard key={i} title={"Coincidencia " + m.score + "%"}
+          right={<div style={{ display: "flex", gap: 6 }}>
+            <button style={{ height: 24, padding: "0 8px", borderRadius: 6, border: "1px solid "+T.border, background: T.surface, color: T.text, fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: FONT }}>Descartar</button>
+            <button style={{ height: 24, padding: "0 8px", borderRadius: 6, border: "none", background: T.primary, color: T.primaryFg, fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: FONT }}>Fusionar</button>
+          </div>}>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 10 }}>
+            {m.reasons.map((r, j) => (
+              <span key={j} style={{ padding: "2px 6px", borderRadius: 6, fontSize: 10, fontWeight: 500, background: T.primarySoft, color: T.primary }}>{r}</span>
+            ))}
+          </div>
+          {[m.a, m.b].map((p, j) => (
+            <div key={j} style={{ display: "flex", gap: 10, padding: 10, borderRadius: 6, border: "1px solid "+T.border, background: T.surfaceMuted, marginTop: j > 0 ? 8 : 0 }}>
+              <div style={{ width: 56, height: 42, borderRadius: 6, flexShrink: 0, background: p.photo }}/>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 500, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
+                <div style={{ fontSize: 11, color: T.textMuted, marginTop: 1 }}>{p.city}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: T.text, ...TAB }}>{fmtEur(p.price)}</span>
+                  <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 4, background: T.primarySoft, color: T.primary }}>{p.portal}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </SCard>
+      ))}
+    </div>
+  );
+}
+
+function Page() {
+  return (
+    <MobileShell platform="ios" active="duplicados"
+      header={<React.Fragment>
+          <div style={{ background: T.surface, borderBottom: "1px solid "+T.border, padding: "10px 14px" }}>
+            <div style={{ fontSize: 22, fontWeight: 700, color: T.text, letterSpacing: -0.4 }}>Posibles duplicados</div>
+            <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>3 pares pendientes de revisión</div>
+          </div></React.Fragment>}>
+      <MobileDuplicadosContent/>
+    </MobileShell>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<Page/>);
+</script></body></html>

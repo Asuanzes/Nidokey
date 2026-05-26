@@ -1,0 +1,92 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>BuySell · Web · Actividad</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>html,body{margin:0;padding:0;background:#1a1a1a}body{display:flex;align-items:center;justify-content:center;min-height:100vh}#root{width:1440px;height:900px}</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head><body><div id="root"></div>
+<script type="text/babel" src="lucide-shim.jsx"></script>
+<script type="text/babel" src="shell.jsx"></script>
+<script type="text/babel" data-presets="env,react">
+
+const dirCfg = {
+  down: { bg: T.priceDownBg, fg: T.priceDownFg, Icon: ArrowDown, label: "Bajada de precio" },
+  up:   { bg: T.priceUpBg,   fg: T.priceUpFg,   Icon: ArrowUp,   label: "Subida de precio" },
+  flat: { bg: T.surfaceMuted, fg: T.textMuted,   Icon: Minus,     label: "Sin cambio" },
+  sold: { bg: T.successBg,   fg: T.successFg,   Icon: Sparkles,  label: "Marcado como vendido" },
+};
+const timeline = [
+  { day: "Hoy", events: [
+    { dir: "down", title: "Piso luminoso en La Manjoya con vistas", city: "Oviedo", prev: 197000, cur: 195000, portal: "Idealista", when: "Hace 2 h" },
+    { dir: "down", title: "Estudio reformado cerca de la playa", city: "Gijón", prev: 92000, cur: 89000, portal: "Habitaclia", when: "Hace 5 h" },
+  ]},
+  { day: "22 enero 2026", events: [
+    { dir: "sold", title: "Ático con vistas a la playa", city: "Gijón", prev: 295000, cur: 295000, portal: "Fotocasa", when: "Ayer" },
+  ]},
+  { day: "15 enero 2026", events: [
+    { dir: "up", title: "Casa de pueblo con hórreo", city: "Cangas de Onís", prev: 175000, cur: 178000, portal: "Milanuncios", when: "Hace 8 días" },
+    { dir: "flat", title: "Dúplex con dos terrazas y garaje", city: "Avilés", prev: 215000, cur: 215000, portal: "Pisos.com", when: "Hace 8 días" },
+  ]},
+];
+
+function ActividadContent() {
+  return (
+    <>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 600, letterSpacing: "-0.015em" }}>Actividad</h1>
+        <p style={{ margin: "4px 0 0", fontSize: 13, color: T.textMuted }}>Cambios de precio, transiciones de estado y eventos de scraping</p>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+        <SStat label="Bajadas (30d)" value="5" hint="Inmuebles con precio reducido"/>
+        <SStat label="Subidas (30d)" value="1" hint="Inmuebles con precio aumentado"/>
+        <SStat label="Vendidos (30d)" value="1" hint="Anuncios marcados vendidos"/>
+      </div>
+
+      <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 28 }}>
+        {timeline.map(section => (
+          <section key={section.day}>
+            <h2 style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: T.textSubtle }}>{section.day}</h2>
+            <SCard noPad>
+              {section.events.map((ev, i) => {
+                const c = dirCfg[ev.dir];
+                return (
+                  <div key={i} style={{
+                    display: "flex", alignItems: "center", gap: 16, padding: "14px 20px",
+                    borderBottom: i < section.events.length-1 ? `1px solid ${T.border}` : "none",
+                    cursor: "pointer",
+                  }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 999, flexShrink: 0,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      background: c.bg, color: c.fg }}>
+                      <c.Icon size={13}/>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13 }}>
+                        <span style={{ fontWeight: 500, color: T.text }}>{ev.title}</span>
+                        <span style={{ color: T.textSubtle, marginLeft: 8 }}>· {ev.city}</span>
+                      </div>
+                      <div style={{ marginTop: 2, fontSize: 12, color: T.textMuted }}>
+                        {c.label}
+                        {ev.prev != null && ev.dir !== "flat" && (
+                          <> — <span style={TAB}>{fmtEur(ev.prev)}</span> → <span style={{ fontWeight: 500, color: T.text, ...TAB }}>{fmtEur(ev.cur)}</span></>
+                        )}
+                      </div>
+                    </div>
+                    <span style={{ padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 500, background: T.surfaceMuted, color: T.textMuted }}>{ev.portal}</span>
+                    <span style={{ width: 80, textAlign: "right", fontSize: 11, color: T.textSubtle, ...TAB }}>{ev.when}</span>
+                  </div>
+                );
+              })}
+            </SCard>
+          </section>
+        ))}
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <WebShell active="actividad"><ActividadContent/></WebShell>
+);
+</script></body></html>

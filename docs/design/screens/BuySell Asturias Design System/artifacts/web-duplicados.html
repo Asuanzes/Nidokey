@@ -1,0 +1,88 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>BuySell · Web · Duplicados</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>html,body{margin:0;padding:0;background:#1a1a1a}body{display:flex;align-items:center;justify-content:center;min-height:100vh}#root{width:1440px;height:900px}</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head><body><div id="root"></div>
+<script type="text/babel" src="lucide-shim.jsx"></script>
+<script type="text/babel" src="shell.jsx"></script>
+<script type="text/babel" data-presets="env,react">
+
+const matches = [
+  {
+    score: 91,
+    reasons: ["Foto-hash idéntico", "Dirección coincide", "Precio ±2%"],
+    a: { title: "Piso luminoso en La Manjoya con vistas", city: "Oviedo", area: "La Manjoya", price: 195000, sqm: 95, rooms: 3, portal: "Idealista", photo: "linear-gradient(135deg, #8aa9d0 0%, #3A5F8A 100%)" },
+    b: { title: "Luminoso piso reformado en La Manjoya", city: "Oviedo", area: "La Manjoya", price: 197000, sqm: 95, rooms: 3, portal: "Fotocasa", photo: "linear-gradient(135deg, #a3b8d0 0%, #4a6f9a 100%)" },
+  },
+  {
+    score: 73,
+    reasons: ["Mismas habitaciones y m²", "Misma ciudad y barrio"],
+    a: { title: "Chalet pareado con jardín y garaje", city: "Gijón", area: "Cabueñes", price: 385000, sqm: 180, rooms: 4, portal: "Idealista", photo: "linear-gradient(135deg, #b0c485 0%, #5c7544 100%)" },
+    b: { title: "Casa pareada cerca de la playa de Cabueñes", city: "Gijón", area: "Cabueñes", price: 395000, sqm: 185, rooms: 4, portal: "Pisos.com", photo: "linear-gradient(135deg, #92c2cc 0%, #2C7A8A 100%)" },
+  },
+  {
+    score: 65,
+    reasons: ["Mismo barrio", "Precio similar", "Mismo tipo"],
+    a: { title: "Ático con terraza en el centro", city: "Avilés", area: "Centro", price: 165000, sqm: 72, rooms: 2, portal: "Fotocasa", photo: "linear-gradient(135deg, #d6b07a 0%, #C49A4D 100%)" },
+    b: { title: "Ático reformado con vistas", city: "Avilés", area: "Centro", price: 172000, sqm: 68, rooms: 2, portal: "Habitaclia", photo: "linear-gradient(135deg, #c4a870 0%, #a88a3a 100%)" },
+  },
+];
+
+function MatchSide({ p }) {
+  return (
+    <div style={{
+      display: "flex", gap: 12, padding: 12, borderRadius: 6,
+      border: `1px solid ${T.border}`, background: T.surfaceMuted, flex: 1,
+    }}>
+      <div style={{ width: 88, height: 64, borderRadius: 6, overflow: "hidden", flexShrink: 0, background: p.photo }}/>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
+        <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>{p.area}, {p.city} · {p.rooms} hab · {p.sqm} m²</div>
+        <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: T.text, ...TAB }}>{fmtEur(p.price)}</span>
+          <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: T.primarySoft, color: T.primary, fontWeight: 500 }}>{p.portal}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DuplicadosContent() {
+  return (
+    <>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 600, letterSpacing: "-0.015em" }}>Posibles duplicados</h1>
+        <p style={{ margin: "4px 0 0", fontSize: 13, color: T.textMuted }}>{matches.length} pares pendientes de revisión</p>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {matches.map((m, i) => (
+          <SCard key={i} title={`Coincidencia ${m.score}%`}
+            right={
+              <div style={{ display: "flex", gap: 8 }}>
+                <button style={{ height: 28, padding: "0 10px", borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.text, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: FONT }}>Descartar</button>
+                <button style={{ height: 28, padding: "0 10px", borderRadius: 6, border: "none", background: T.primary, color: T.primaryFg, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: FONT }}>Fusionar</button>
+              </div>
+            }>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+              {m.reasons.map((r, j) => (
+                <span key={j} style={{ padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 500, background: T.primarySoft, color: T.primary, border: "1px solid rgba(58,95,138,0.15)" }}>{r}</span>
+              ))}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <MatchSide p={m.a}/>
+              <MatchSide p={m.b}/>
+            </div>
+          </SCard>
+        ))}
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <WebShell active="duplicados"><DuplicadosContent/></WebShell>
+);
+</script></body></html>

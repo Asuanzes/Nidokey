@@ -1,0 +1,76 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>BuySell · iOS · Dashboard</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>html,body{margin:0;padding:0;background:#1a1a1a}body{display:flex;align-items:center;justify-content:center;min-height:100vh}#root{width:393px;height:852px}</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head><body><div id="root"></div>
+<script type="text/babel" src="lucide-shim.jsx"></script>
+<script type="text/babel" src="shell.jsx"></script>
+<script type="text/babel" data-presets="env,react">
+
+function MobileDashboardContent() {
+  const portals = [
+    { name: "Idealista", count: 28 }, { name: "Fotocasa", count: 22 },
+    { name: "Pisos.com", count: 14 }, { name: "Milanuncios", count: 10 },
+  ];
+  const attention = [
+    { label: "Listings sin re-check >7d", count: 4 },
+    { label: "Duplicados pendientes", count: 3 },
+    { label: "Fotos sin foto-hash", count: 7 },
+  ];
+  return (
+    <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <SStat label="En venta" value="24"/>
+        <SStat label="Vendidos" value="7"/>
+        <SStat label="Retirados" value="3"/>
+        <SStat label="Listings" value="82" hint="en 6 portales"/>
+      </div>
+      <SCard title="Por portal">
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {portals.map(p => (
+            <div key={p.name}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 3 }}>
+                <span style={{ color: T.text }}>{p.name}</span>
+                <span style={{ color: T.textMuted, ...TAB }}>{p.count}</span>
+              </div>
+              <div style={{ height: 5, background: T.surfaceMuted, borderRadius: 999, overflow: "hidden" }}>
+                <div style={{ height: "100%", background: T.primary, width: (p.count/28*100)+"%" }}/>
+              </div>
+            </div>
+          ))}
+        </div>
+      </SCard>
+      <SCard title="Necesita atención">
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {attention.map((a, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 8px", border: "1px solid "+T.border, borderRadius: 6 }}>
+              <span style={{ fontSize: 12, color: T.text }}>{a.label}</span>
+              <span style={{ padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 600, background: a.count > 0 ? T.warningBg : T.surfaceMuted, color: a.count > 0 ? T.warningFg : T.textMuted, ...TAB }}>{a.count}</span>
+            </div>
+          ))}
+        </div>
+      </SCard>
+      <SCard title="Actividad (30 d)">
+        <div style={{ fontSize: 28, fontWeight: 700, color: T.text, ...TAB }}>42</div>
+        <div style={{ fontSize: 11, color: T.textMuted, marginTop: 4 }}>snapshots de precio registrados</div>
+      </SCard>
+    </div>
+  );
+}
+
+function Page() {
+  return (
+    <MobileShell platform="ios" active="dashboard"
+      header={<React.Fragment>
+          <div style={{ background: T.surface, borderBottom: "1px solid "+T.border, padding: "10px 14px" }}>
+            <div style={{ fontSize: 22, fontWeight: 700, color: T.text, letterSpacing: -0.4 }}>Dashboard</div>
+            <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>Visión general de inmuebles, portales y matching</div>
+          </div></React.Fragment>}>
+      <MobileDashboardContent/>
+    </MobileShell>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<Page/>);
+</script></body></html>

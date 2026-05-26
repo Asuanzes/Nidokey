@@ -1,0 +1,79 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>BuySell · Android · Actividad</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>html,body{margin:0;padding:0;background:#1a1a1a}body{display:flex;align-items:center;justify-content:center;min-height:100vh}#root{width:393px;height:852px}</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head><body><div id="root"></div>
+<script type="text/babel" src="lucide-shim.jsx"></script>
+<script type="text/babel" src="shell.jsx"></script>
+<script type="text/babel" data-presets="env,react">
+
+function MobileActividadContent() {
+  const dirCfg = {
+    down: { bg: T.priceDownBg, fg: T.priceDownFg, Icon: ArrowDown, label: "Bajada" },
+    up:   { bg: T.priceUpBg,   fg: T.priceUpFg,   Icon: ArrowUp,   label: "Subida" },
+    sold: { bg: T.successBg,   fg: T.successFg,   Icon: Sparkles,  label: "Vendido" },
+    flat: { bg: T.surfaceMuted, fg: T.textMuted,   Icon: Minus,     label: "Sin cambio" },
+  };
+  const timeline = [
+    { day: "Hoy", events: [
+      { dir: "down", title: "Piso luminoso La Manjoya", city: "Oviedo", prev: 197000, cur: 195000, portal: "Idealista" },
+      { dir: "down", title: "Estudio San Lorenzo", city: "Gijón", prev: 92000, cur: 89000, portal: "Habitaclia" },
+    ]},
+    { day: "22 enero", events: [
+      { dir: "sold", title: "Ático playa Gijón", city: "Gijón", prev: null, cur: 295000, portal: "Fotocasa" },
+    ]},
+    { day: "15 enero", events: [
+      { dir: "up", title: "Casa con hórreo", city: "Cangas de Onís", prev: 175000, cur: 178000, portal: "Milanuncios" },
+    ]},
+  ];
+  return (
+    <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+        <SStat label="Bajadas" value="5"/>
+        <SStat label="Subidas" value="1"/>
+        <SStat label="Vendidos" value="1"/>
+      </div>
+      {timeline.map(section => (
+        <div key={section.day}>
+          <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: T.textSubtle, marginBottom: 6, marginLeft: 2 }}>{section.day}</div>
+          <SCard noPad>
+            {section.events.map((ev, i) => {
+              const c = dirCfg[ev.dir];
+              return (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: i < section.events.length-1 ? "1px solid "+T.border : "none" }}>
+                  <div style={{ width: 24, height: 24, borderRadius: 999, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: c.bg, color: c.fg }}>
+                    <c.Icon size={11}/>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 500, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.title}</div>
+                    <div style={{ fontSize: 11, color: T.textMuted, marginTop: 1 }}>
+                      {c.label}{ev.prev != null && ev.dir !== "flat" && <> — <span style={TAB}>{fmtEur(ev.prev)}</span> → <span style={{ fontWeight: 500, color: T.text, ...TAB }}>{fmtEur(ev.cur)}</span></>}
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 4, background: T.surfaceMuted, color: T.textMuted }}>{ev.portal}</span>
+                </div>
+              );
+            })}
+          </SCard>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Page() {
+  return (
+    <MobileShell platform="android" active="actividad"
+      header={<React.Fragment>
+          <div style={{ background: T.surface, borderBottom: "1px solid "+T.border, padding: "12px 14px" }}>
+            <div style={{ fontSize: 20, fontWeight: 600, color: T.text, letterSpacing: -0.2 }}>Actividad</div>
+            <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>Cambios de precio y estado</div>
+          </div></React.Fragment>}>
+      <MobileActividadContent/>
+    </MobileShell>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<Page/>);
+</script></body></html>
