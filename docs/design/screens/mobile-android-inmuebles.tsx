@@ -1,0 +1,325 @@
+/**
+ * Mockup: Mobile Android — Inmuebles (lista)
+ * Viewport: 393 × 852 (Pixel 7 equivalent)
+ * Standalone React + lucide-react. Inline styles + tokens hex.
+ *
+ * Decisión: rail vertical fijo de 64px a la izquierda (paridad mental con web),
+ * solo iconos, label opcional muy sutil. Bottom tabs descartados por
+ * contradecir la preferencia explícita del usuario.
+ * Status bar estilo Android: simétrica, sin notch, iconos a la derecha.
+ */
+import React from "react";
+import {
+  Building2, Search, Sparkles, LayoutDashboard, Activity,
+  Download, User, Settings, BedDouble, Bath, Maximize2, Layers,
+  Wifi, Signal, Battery, Plus, Bell,
+} from "lucide-react";
+
+// ---- Tokens ------------------------------------------------------------------
+const T = {
+  bg: "#FAFAF7", surface: "#FFFFFF", surfaceMuted: "#F4F3EE", surfaceSunken: "#EFEEE8",
+  border: "#E8E6E1", borderStrong: "#D4D1CA",
+  text: "#1A1A18", textMuted: "#6B6862", textSubtle: "#9A9690", textInverse: "#FAFAF7",
+  primary: "#3A5F8A", primaryHover: "#2E4D70", primarySoft: "#EAEFF6", primaryFg: "#FAFAF7",
+  accent: "#C49A4D",
+  successFg: "#2D6A4F", successBg: "#E8F1EC",
+  warningFg: "#A86A17", warningBg: "#F7EFDE",
+  dangerFg: "#A23E3E", dangerBg: "#F6E5E5",
+};
+
+const FONT = "Inter, system-ui, -apple-system, Roboto, 'Segoe UI', sans-serif";
+const TABULAR: React.CSSProperties = { fontVariantNumeric: "tabular-nums" };
+
+// ---- Mock data ---------------------------------------------------------------
+type Status = "En venta" | "Reservado" | "Vendido" | "Retirado";
+type Prop = {
+  id: number; title: string; type: string; area: string;
+  price: number; rooms: number; baths: number; sqm: number;
+  status: Status; dup: number; photo: string;
+};
+const properties: Prop[] = [
+  { id: 1, title: "Piso luminoso en La Manjoya con vistas", type: "Piso",
+    area: "La Manjoya · Oviedo", price: 195000, rooms: 3, baths: 2, sqm: 95,
+    status: "En venta", dup: 1,
+    photo: "linear-gradient(135deg, #8aa9d0 0%, #3A5F8A 100%)" },
+  { id: 2, title: "Chalet pareado con jardín y garaje", type: "Chalet",
+    area: "Cabueñes · Gijón", price: 385000, rooms: 4, baths: 3, sqm: 180,
+    status: "En venta", dup: 0,
+    photo: "linear-gradient(135deg, #b0c485 0%, #5c7544 100%)" },
+  { id: 3, title: "Ático con terraza en el centro", type: "Ático",
+    area: "Centro · Avilés", price: 165000, rooms: 2, baths: 1, sqm: 72,
+    status: "Reservado", dup: 0,
+    photo: "linear-gradient(135deg, #d6b07a 0%, #C49A4D 100%)" },
+  { id: 4, title: "Estudio reformado cerca de la playa", type: "Estudio",
+    area: "San Lorenzo · Gijón", price: 89000, rooms: 0, baths: 1, sqm: 35,
+    status: "En venta", dup: 3,
+    photo: "linear-gradient(135deg, #92c2cc 0%, #2C7A8A 100%)" },
+];
+const fmtEur = (n: number) => `${n.toLocaleString("es-ES")} €`;
+const statusStyle = (s: Status): React.CSSProperties => {
+  switch (s) {
+    case "En venta": return { color: T.primary, background: T.primarySoft };
+    case "Reservado": return { color: T.warningFg, background: T.warningBg };
+    case "Vendido":   return { color: T.textSubtle, background: T.surfaceSunken };
+    case "Retirado":  return { color: T.dangerFg, background: T.dangerBg };
+  }
+};
+
+// ---- Rail navigation ---------------------------------------------------------
+type RailItem = { label: string; icon: React.ComponentType<{ size?: number; color?: string }>; active?: boolean; badge?: number };
+const railItems: RailItem[] = [
+  { label: "Inmuebles", icon: Building2, active: true },
+  { label: "Buscar",    icon: Search },
+  { label: "Duplic.",   icon: Sparkles, badge: 4 },
+  { label: "Panel",     icon: LayoutDashboard },
+  { label: "Activ.",    icon: Activity },
+  { label: "Importar",  icon: Download },
+];
+
+// ---- Brand mark --------------------------------------------------------------
+function BrandKey({ size = 18, color = T.primary }: { size?: number; color?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke={color}
+         strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="8" cy="12" r="3.5" />
+      <path d="M11.5 12 H21" />
+      <path d="M17 12 V15" />
+      <path d="M20 12 V14" />
+    </svg>
+  );
+}
+
+// =============================================================================
+export default function MobileAndroidInmuebles() {
+  return (
+    <div style={{
+      width: 393, height: 852, fontFamily: FONT, fontSize: 13, lineHeight: 1.5,
+      color: T.text, background: T.bg, position: "relative",
+      overflow: "hidden", borderRadius: 28,
+      boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+      display: "flex", flexDirection: "column",
+    }}>
+      {/* ===== Android status bar ===== */}
+      <div style={{
+        height: 28, background: T.bg, padding: "0 16px",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        fontSize: 12, fontWeight: 500, color: T.text, flexShrink: 0,
+      }}>
+        <span style={TABULAR}>9:41</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Signal size={12} color={T.text} />
+          <Wifi size={12} color={T.text} />
+          <Battery size={14} color={T.text} />
+        </span>
+      </div>
+
+      {/* ===== Body row: rail + content ===== */}
+      <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
+        {/* ----- Vertical rail (64px) ----- */}
+        <aside style={{
+          width: 64, flexShrink: 0, background: T.surface,
+          borderRight: `1px solid ${T.border}`,
+          display: "flex", flexDirection: "column", alignItems: "center",
+          padding: "8px 0",
+        }}>
+          {/* Brand chip */}
+          <div style={{
+            width: 40, height: 40, borderRadius: 10, background: T.primarySoft,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            marginBottom: 12,
+            boxShadow: `inset 0 0 0 1px ${T.primary}25`,
+          }}>
+            <BrandKey size={18} color={T.primary} />
+          </div>
+
+          {/* Items — solo iconos, sin label */}
+          <nav style={{ flex: 1, display: "flex", flexDirection: "column",
+            alignItems: "center", gap: 6, width: "100%" }}>
+            {railItems.map((it) => {
+              const Icon = it.icon;
+              return (
+                <a key={it.label} href="#"
+                   aria-label={it.label}
+                   title={it.label}
+                   style={{
+                  width: 44, height: 44, borderRadius: 12,
+                  textDecoration: "none",
+                  background: it.active ? T.primarySoft : "transparent",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  position: "relative",
+                }}>
+                  <Icon size={22} color={it.active ? T.primary : T.textMuted} />
+                  {it.badge !== undefined && it.badge > 0 && (
+                    <span style={{
+                      position: "absolute", top: 4, right: 4, minWidth: 14, height: 14,
+                      padding: "0 4px", borderRadius: 999,
+                      background: T.accent, color: "#fff",
+                      fontSize: 9, fontWeight: 700, lineHeight: "14px",
+                      boxShadow: `0 0 0 2px ${it.active ? T.primarySoft : T.surface}`,
+                      ...TABULAR,
+                    }}>{it.badge}</span>
+                  )}
+                </a>
+              );
+            })}
+          </nav>
+
+          {/* Account at bottom of rail */}
+          <a href="#"
+             aria-label="Cuenta"
+             title="Cuenta"
+             style={{
+            width: 44, height: 44, borderRadius: 999,
+            textDecoration: "none",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: T.primarySoft,
+          }}>
+            <span style={{
+              color: T.primary, fontSize: 12, fontWeight: 600,
+            }}>BE</span>
+          </a>
+        </aside>
+
+        {/* ----- Content ----- */}
+        <div style={{ flex: 1, minWidth: 0, display: "flex",
+          flexDirection: "column", overflow: "hidden" }}>
+          {/* App header */}
+          <header style={{
+            padding: "16px 16px 12px", background: T.bg,
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            gap: 12, flexShrink: 0,
+          }}>
+            <div style={{ minWidth: 0 }}>
+              <h1 style={{
+                margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: -0.2,
+              }}>Inmuebles</h1>
+              <div style={{
+                marginTop: 2, fontSize: 11, color: T.textMuted, ...TABULAR,
+              }}>23 fichas · 4 duplicados</div>
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button style={iconBtn()}>
+                <Bell size={16} color={T.textMuted} />
+              </button>
+              <button style={iconBtn()}>
+                <Plus size={16} color={T.textMuted} />
+              </button>
+            </div>
+          </header>
+
+          {/* Search row */}
+          <div style={{ padding: "0 16px 12px", flexShrink: 0 }}>
+            <div style={{
+              height: 36, display: "flex", alignItems: "center", gap: 8,
+              padding: "0 12px", borderRadius: 10, background: T.surfaceMuted,
+              border: `1px solid ${T.border}`, color: T.textSubtle, fontSize: 12,
+            }}>
+              <Search size={13} />
+              Título, ciudad, ref. catastral…
+            </div>
+          </div>
+
+          {/* Cards list (scroll) */}
+          <div style={{
+            flex: 1, padding: "0 16px 16px", overflowY: "auto",
+            display: "flex", flexDirection: "column", gap: 12,
+          }}>
+            {properties.map((p) => <PropertyCardMobile key={p.id} p={p} />)}
+            <div style={{ textAlign: "center", padding: "8px 0",
+              color: T.textSubtle, fontSize: 11 }}>
+              4 de 23 fichas
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Android nav gesture bar */}
+      <div style={{ height: 18, background: T.bg, flexShrink: 0,
+        display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: 120, height: 3, borderRadius: 2,
+          background: T.borderStrong }} />
+      </div>
+    </div>
+  );
+}
+
+// ---- Pieces ------------------------------------------------------------------
+function iconBtn(): React.CSSProperties {
+  return {
+    width: 34, height: 34, borderRadius: 999, border: `1px solid ${T.border}`,
+    background: T.surface, display: "flex", alignItems: "center",
+    justifyContent: "center", cursor: "pointer",
+  };
+}
+
+function PropertyCardMobile({ p }: { p: Prop }) {
+  const pricePerSqm = p.sqm > 0 ? Math.round(p.price / p.sqm) : null;
+  return (
+    <article style={{
+      background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12,
+      overflow: "hidden", boxShadow: "0 1px 2px rgba(20, 20, 18, 0.04)",
+    }}>
+      {/* Photo with 16:10 */}
+      <div style={{
+        aspectRatio: "16 / 10", background: p.photo, position: "relative",
+      }}>
+        <span style={{
+          position: "absolute", top: 8, left: 8, padding: "3px 7px",
+          borderRadius: 999, fontSize: 10, fontWeight: 500,
+          ...statusStyle(p.status),
+        }}>{p.status}</span>
+        {p.dup > 0 && (
+          <span style={{
+            position: "absolute", top: 8, right: 8, padding: "3px 7px",
+            borderRadius: 999, fontSize: 10, fontWeight: 500,
+            color: T.primary, background: T.primaryFg,
+            display: "flex", alignItems: "center", gap: 4,
+            boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+          }}>
+            <Layers size={10} /> {p.dup}
+          </span>
+        )}
+        <span style={{
+          position: "absolute", bottom: 8, left: 8, padding: "2px 7px",
+          borderRadius: 4, fontSize: 10, fontWeight: 500,
+          color: "#fff", background: "rgba(0,0,0,0.55)",
+        }}>{p.type}</span>
+      </div>
+
+      {/* Body */}
+      <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+        <h3 style={{
+          margin: 0, fontSize: 13, fontWeight: 500, lineHeight: 1.35,
+          display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+        }}>{p.title}</h3>
+        <div style={{ fontSize: 11, color: T.textMuted }}>{p.area}</div>
+
+        <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 2 }}>
+          <span style={{ ...TABULAR, fontSize: 18, fontWeight: 600,
+            letterSpacing: -0.3 }}>{fmtEur(p.price)}</span>
+          {pricePerSqm && (
+            <span style={{ ...TABULAR, fontSize: 10, color: T.textSubtle }}>
+              · {pricePerSqm.toLocaleString("es-ES")} €/m²
+            </span>
+          )}
+        </div>
+
+        <div style={{
+          display: "flex", gap: 12, marginTop: 4, paddingTop: 8,
+          borderTop: `1px solid ${T.border}`, fontSize: 11, color: T.textMuted,
+        }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 3, ...TABULAR }}>
+            <BedDouble size={12} color={T.textSubtle} /> {p.rooms}
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 3, ...TABULAR }}>
+            <Bath size={12} color={T.textSubtle} /> {p.baths}
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 3, ...TABULAR }}>
+            <Maximize2 size={12} color={T.textSubtle} /> {p.sqm} m²
+          </span>
+        </div>
+      </div>
+    </article>
+  );
+}

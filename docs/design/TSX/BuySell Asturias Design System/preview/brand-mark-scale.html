@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 20px; margin: 0; background: var(--bg); display: flex; gap: 18px; align-items: flex-end; }
+  .col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .frame { width: 64px; height: 64px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; color: var(--primary); }
+  .lbl { font-size: 10px; color: var(--text-subtle); font-family: var(--font-mono); }
+  .lbl b { color: var(--text); font-family: var(--font-sans); font-weight: 500; font-size: 11px; display: block; margin-bottom: 2px; }
+  svg { width: 14px; height: 14px; }
+  .frame.sz24 svg { width: 24px; height: 24px; }
+  .frame.sz36 svg { width: 36px; height: 36px; }
+  .frame.sz48 svg { width: 48px; height: 48px; }
+</style>
+</head>
+<body>
+  <div class="col">
+    <div class="frame">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="12" r="3.3"/><circle cx="6.5" cy="8" r="0.85" fill="#C49A4D" stroke="none"/><path d="M9.8 12 H17"/><path d="M17 12 H21 V17 H20 V15.5 H18.5 V17 H17 Z" fill="#C49A4D"/></svg>
+    </div>
+    <div class="lbl"><b>16</b>favicon</div>
+  </div>
+  <div class="col">
+    <div class="frame sz24">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="12" r="3.3"/><circle cx="6.5" cy="8" r="0.85" fill="#C49A4D" stroke="none"/><path d="M9.8 12 H17"/><path d="M17 12 H21 V17 H20 V15.5 H18.5 V17 H17 Z" fill="#C49A4D"/></svg>
+    </div>
+    <div class="lbl"><b>24</b>sidebar</div>
+  </div>
+  <div class="col">
+    <div class="frame sz36" style="width:84px;height:84px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="12" r="3.3"/><circle cx="6.5" cy="8" r="0.85" fill="#C49A4D" stroke="none"/><path d="M9.8 12 H17"/><path d="M17 12 H21 V17 H20 V15.5 H18.5 V17 H17 Z" fill="#C49A4D"/></svg>
+    </div>
+    <div class="lbl"><b>36</b>login</div>
+  </div>
+  <div class="col">
+    <div class="frame sz48" style="width:108px;height:108px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="12" r="3.3"/><circle cx="6.5" cy="8" r="0.85" fill="#C49A4D" stroke="none"/><path d="M9.8 12 H17"/><path d="M17 12 H21 V17 H20 V15.5 H18.5 V17 H17 Z" fill="#C49A4D"/></svg>
+    </div>
+    <div class="lbl"><b>48</b>brand page</div>
+  </div>
+</body>
+</html>

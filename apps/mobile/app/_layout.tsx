@@ -1,29 +1,45 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import "react-native-reanimated";
+import * as SecureStore from "expo-secure-store";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { ThemeContext, T, TD } from "@/lib/theme";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    SecureStore.getItemAsync("buysell.theme")
+      .then((v) => { if (v === "dark") setDark(true); })
+      .catch(() => {});
+  }, []);
+
+  const toggleTheme = () => {
+    const next = !dark;
+    setDark(next);
+    SecureStore.setItemAsync("buysell.theme", next ? "dark" : "light").catch(() => {});
+  };
+
+  const th = dark ? TD : T;
+
   return (
     <AuthProvider>
-      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        <AuthGate />
-        <StatusBar style="auto" />
-      </ThemeProvider>
+      <ThemeContext.Provider value={{ dark, th, toggleTheme }}>
+        <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+          <AuthGate />
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </ThemeContext.Provider>
     </AuthProvider>
   );
 }
 
-/**
- * Lee el estado de auth y enruta entre /login y /(tabs).
- * Si la sesión está cargando, renderiza splash.
- */
 function AuthGate() {
   const { state } = useAuth();
   const segments = useSegments();

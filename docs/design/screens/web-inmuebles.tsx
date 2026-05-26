@@ -1,0 +1,445 @@
+/**
+ * Mockup: Web — Inmuebles (lista)
+ * Viewport: 1440 × 900
+ * Standalone React + lucide-react. Sin Tailwind: usa inline styles + tokens hex
+ * directos para que renderice en Artifacts de claude.ai o cualquier preview.
+ *
+ * Identidad: "latón envejecido sobre acero" — primary #3A5F8A, accent #C49A4D.
+ * Sidebar de 240px con grupos colapsables (Catálogo / Análisis / Captura / Cuenta).
+ * Contenido: header (título + contador + search + CTA) + grid de 3 columnas.
+ */
+import React, { useState } from "react";
+import {
+  Building2, Search, Sparkles, LayoutDashboard, Activity,
+  Download, User, Settings, LogOut, ChevronDown, ChevronRight,
+  Plus, BedDouble, Bath, Maximize2, Layers, Filter, ArrowUpDown,
+} from "lucide-react";
+
+// ---- Design tokens (from docs/design/tokens.json) ----------------------------
+const T = {
+  bg: "#FAFAF7",
+  surface: "#FFFFFF",
+  surfaceMuted: "#F4F3EE",
+  surfaceSunken: "#EFEEE8",
+  border: "#E8E6E1",
+  borderStrong: "#D4D1CA",
+  text: "#1A1A18",
+  textMuted: "#6B6862",
+  textSubtle: "#9A9690",
+  textInverse: "#FAFAF7",
+  primary: "#3A5F8A",
+  primaryHover: "#2E4D70",
+  primarySoft: "#EAEFF6",
+  primaryFg: "#FAFAF7",
+  accent: "#C49A4D",
+  successFg: "#2D6A4F",
+  successBg: "#E8F1EC",
+  warningFg: "#A86A17",
+  warningBg: "#F7EFDE",
+  dangerFg: "#A23E3E",
+  dangerBg: "#F6E5E5",
+  infoFg: "#2C7A8A",
+  infoBg: "#E1EEF1",
+};
+
+const FONT = "Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+const TABULAR: React.CSSProperties = { fontVariantNumeric: "tabular-nums" };
+
+// ---- Mock data ---------------------------------------------------------------
+type Status = "En venta" | "Reservado" | "Vendido" | "Retirado";
+type Prop = {
+  id: number; title: string; type: string; area: string;
+  price: number; rooms: number; baths: number; sqm: number;
+  status: Status; dup: number; photo: string;
+};
+
+const properties: Prop[] = [
+  { id: 1, title: "Piso luminoso en La Manjoya con vistas", type: "Piso",
+    area: "La Manjoya · Oviedo", price: 195000, rooms: 3, baths: 2, sqm: 95,
+    status: "En venta", dup: 1,
+    photo: "linear-gradient(135deg, #8aa9d0 0%, #3A5F8A 100%)" },
+  { id: 2, title: "Chalet pareado con jardín y garaje", type: "Chalet",
+    area: "Cabueñes · Gijón", price: 385000, rooms: 4, baths: 3, sqm: 180,
+    status: "En venta", dup: 0,
+    photo: "linear-gradient(135deg, #b0c485 0%, #5c7544 100%)" },
+  { id: 3, title: "Ático con terraza en el centro", type: "Ático",
+    area: "Centro · Avilés", price: 165000, rooms: 2, baths: 1, sqm: 72,
+    status: "Reservado", dup: 0,
+    photo: "linear-gradient(135deg, #d6b07a 0%, #C49A4D 100%)" },
+  { id: 4, title: "Estudio reformado cerca de la playa", type: "Estudio",
+    area: "San Lorenzo · Gijón", price: 89000, rooms: 0, baths: 1, sqm: 35,
+    status: "En venta", dup: 3,
+    photo: "linear-gradient(135deg, #92c2cc 0%, #2C7A8A 100%)" },
+];
+
+const fmtEur = (n: number) => `${n.toLocaleString("es-ES")} €`;
+
+// ---- Status badge palette ----------------------------------------------------
+const statusStyle = (s: Status): React.CSSProperties => {
+  switch (s) {
+    case "En venta": return { color: T.primary, background: T.primarySoft };
+    case "Reservado": return { color: T.warningFg, background: T.warningBg };
+    case "Vendido":   return { color: T.textSubtle, background: T.surfaceSunken };
+    case "Retirado":  return { color: T.dangerFg, background: T.dangerBg };
+  }
+};
+
+// ---- Navigation model --------------------------------------------------------
+type NavItem = { label: string; icon: React.ComponentType<{ size?: number; color?: string }>; active?: boolean; badge?: number };
+type NavGroup = { label: string; items: NavItem[] };
+
+const navGroups: NavGroup[] = [
+  { label: "Catálogo", items: [
+    { label: "Inmuebles",  icon: Building2, active: true, badge: 23 },
+    { label: "Buscar",     icon: Search },
+    { label: "Duplicados", icon: Sparkles,  badge: 4 },
+  ]},
+  { label: "Análisis", items: [
+    { label: "Dashboard",  icon: LayoutDashboard },
+    { label: "Actividad",  icon: Activity },
+  ]},
+  { label: "Captura", items: [
+    { label: "Importar",   icon: Download },
+  ]},
+  { label: "Cuenta", items: [
+    { label: "Perfil",     icon: User },
+    { label: "Ajustes",    icon: Settings },
+  ]},
+];
+
+// ---- Brand mark (medieval key, simplified inline SVG) ------------------------
+function BrandKey({ size = 20, color = T.primary }: { size?: number; color?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke={color}
+         strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="8" cy="12" r="3.5" />
+      <path d="M11.5 12 H21" />
+      <path d="M17 12 V15" />
+      <path d="M20 12 V14" />
+    </svg>
+  );
+}
+
+// =============================================================================
+export default function WebInmuebles() {
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    Catálogo: true, Análisis: true, Captura: true, Cuenta: true,
+  });
+  const toggle = (g: string) => setOpenGroups((s) => ({ ...s, [g]: !s[g] }));
+
+  return (
+    <div style={{
+      width: 1440, height: 900, fontFamily: FONT, fontSize: 13,
+      lineHeight: 1.5, color: T.text, background: T.bg, display: "flex",
+      overflow: "hidden",
+    }}>
+      {/* ===== Sidebar ===== */}
+      <aside style={{
+        width: 240, flexShrink: 0, background: T.surface,
+        borderRight: `1px solid ${T.border}`, display: "flex", flexDirection: "column",
+      }}>
+        {/* Brand block */}
+        <div style={{
+          height: 56, padding: "0 16px", display: "flex", alignItems: "center", gap: 10,
+          borderBottom: `1px solid ${T.border}`,
+        }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: 6, background: T.primarySoft,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: `inset 0 0 0 1px ${T.primary}25`,
+          }}>
+            <BrandKey size={18} color={T.primary} />
+          </div>
+          <div style={{ lineHeight: 1.15 }}>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>BuySell</div>
+            <div style={{ fontSize: 11, color: T.textSubtle }}>Asturias</div>
+          </div>
+        </div>
+
+        {/* Groups */}
+        <nav style={{ flex: 1, padding: "10px 8px", overflowY: "auto" }}>
+          {navGroups.map((g) => (
+            <div key={g.label} style={{ marginBottom: 14 }}>
+              <button
+                onClick={() => toggle(g.label)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 4, width: "100%",
+                  padding: "4px 8px", border: "none", background: "transparent",
+                  color: T.textMuted, fontFamily: FONT, fontSize: 11,
+                  fontWeight: 600, letterSpacing: 0.4, textTransform: "uppercase",
+                  cursor: "pointer",
+                }}
+              >
+                {openGroups[g.label]
+                  ? <ChevronDown size={12} color={T.textSubtle} />
+                  : <ChevronRight size={12} color={T.textSubtle} />}
+                {g.label}
+              </button>
+              {openGroups[g.label] && (
+                <div style={{ marginTop: 2 }}>
+                  {g.items.map((it) => {
+                    const Icon = it.icon;
+                    return (
+                      <a key={it.label} href="#"
+                         style={{
+                           display: "flex", alignItems: "center", gap: 10,
+                           padding: "6px 10px", borderRadius: 6, marginBottom: 1,
+                           textDecoration: "none", fontSize: 13,
+                           color: it.active ? T.primary : T.textMuted,
+                           background: it.active ? T.primarySoft : "transparent",
+                           fontWeight: it.active ? 500 : 400,
+                         }}>
+                        <Icon size={15} color={it.active ? T.primary : T.textSubtle} />
+                        <span style={{ flex: 1 }}>{it.label}</span>
+                        {it.badge !== undefined && it.badge > 0 && (
+                          <span style={{
+                            ...TABULAR,
+                            fontSize: 11, padding: "1px 6px", borderRadius: 999,
+                            background: it.active ? T.primary : T.surfaceMuted,
+                            color: it.active ? T.primaryFg : T.textMuted,
+                          }}>{it.badge}</span>
+                        )}
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
+        </nav>
+
+        {/* Footer / user */}
+        <div style={{ borderTop: `1px solid ${T.border}`, padding: 10 }}>
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8, padding: "6px 8px",
+            borderRadius: 6,
+          }}>
+            <div style={{
+              width: 28, height: 28, borderRadius: 999, background: T.primarySoft,
+              color: T.primary, fontSize: 11, fontWeight: 600,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>BE</div>
+            <div style={{ flex: 1, minWidth: 0, lineHeight: 1.2 }}>
+              <div style={{ fontSize: 12, fontWeight: 500, overflow: "hidden",
+                textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                Belquivir@proton.me
+              </div>
+              <div style={{ fontSize: 11, color: T.textSubtle }}>Cuenta personal</div>
+            </div>
+            <LogOut size={14} color={T.textSubtle} />
+          </div>
+        </div>
+      </aside>
+
+      {/* ===== Main area ===== */}
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+        {/* Top header */}
+        <header style={{
+          height: 56, display: "flex", alignItems: "center", gap: 16,
+          padding: "0 24px", borderBottom: `1px solid ${T.border}`,
+          background: T.surface,
+        }}>
+          <div style={{
+            flex: 1, maxWidth: 480, height: 34, display: "flex", alignItems: "center",
+            gap: 8, padding: "0 12px", border: `1px solid ${T.border}`,
+            background: T.surfaceMuted, borderRadius: 8, color: T.textSubtle,
+            fontSize: 13,
+          }}>
+            <Search size={14} />
+            Buscar por título, ciudad, barrio, ref. catastral…
+            <span style={{ marginLeft: "auto", fontSize: 11, color: T.textSubtle,
+              padding: "1px 5px", border: `1px solid ${T.border}`,
+              borderRadius: 4, background: T.surface }}>⌘ K</span>
+          </div>
+          <button style={{
+            height: 36, padding: "0 14px", borderRadius: 8, border: "none",
+            background: T.primary, color: T.primaryFg, fontFamily: FONT, fontSize: 13,
+            fontWeight: 500, display: "flex", alignItems: "center", gap: 6,
+            cursor: "pointer", boxShadow: `0 1px 2px ${T.primary}25`,
+          }}>
+            <Plus size={14} /> Nuevo inmueble
+          </button>
+        </header>
+
+        {/* Page body */}
+        <main style={{ flex: 1, padding: "24px 32px", overflowY: "auto" }}>
+          {/* Page header */}
+          <div style={{ display: "flex", alignItems: "flex-end",
+            justifyContent: "space-between", marginBottom: 20 }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <h1 style={{ margin: 0, fontSize: 22, fontWeight: 600,
+                  letterSpacing: -0.2 }}>Inmuebles</h1>
+                <a href="#" style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  padding: "3px 9px 3px 7px", borderRadius: 999,
+                  background: T.accent + "1F",
+                  color: T.warningFg,
+                  border: `1px solid ${T.accent}55`,
+                  fontSize: 12, fontWeight: 500, textDecoration: "none",
+                  ...TABULAR,
+                }}>
+                  <Sparkles size={12} color={T.warningFg} />
+                  4 duplicados pendientes →
+                </a>
+              </div>
+              <div style={{ marginTop: 4, fontSize: 13, color: T.textMuted,
+                ...TABULAR }}>
+                23 fichas · 47 anuncios vinculados
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={toolbarBtn()}>
+                <Filter size={13} color={T.textMuted} /> Filtros
+                <span style={{ marginLeft: 4, padding: "1px 5px", borderRadius: 999,
+                  fontSize: 10, background: T.primarySoft, color: T.primary,
+                  fontWeight: 500 }}>3</span>
+              </button>
+              <button style={toolbarBtn()}>
+                <ArrowUpDown size={13} color={T.textMuted} /> Recientes
+                <ChevronDown size={12} color={T.textSubtle} />
+              </button>
+              <div style={{ display: "flex", border: `1px solid ${T.border}`,
+                borderRadius: 8, overflow: "hidden", background: T.surface }}>
+                <button style={viewBtn(true)}>Cuadrícula</button>
+                <button style={viewBtn(false)}>Tabla</button>
+              </div>
+            </div>
+          </div>
+
+          {/* Cards grid (3 cols) */}
+          <div style={{
+            display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20,
+          }}>
+            {properties.map((p) => <PropertyCard key={p.id} p={p} />)}
+            <AddCard />
+          </div>
+
+          <div style={{ marginTop: 24, textAlign: "center", color: T.textSubtle,
+            fontSize: 12 }}>
+            Mostrando 4 de 23 ·
+            <a href="#" style={{ color: T.primary, marginLeft: 4 }}>Ver todas →</a>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+// ---- Bits --------------------------------------------------------------------
+function toolbarBtn(): React.CSSProperties {
+  return {
+    height: 32, padding: "0 10px", borderRadius: 8,
+    border: `1px solid ${T.border}`, background: T.surface, color: T.text,
+    fontFamily: FONT, fontSize: 12, display: "flex", alignItems: "center",
+    gap: 6, cursor: "pointer",
+  };
+}
+function viewBtn(active: boolean): React.CSSProperties {
+  return {
+    height: 32, padding: "0 12px", border: "none",
+    background: active ? T.primarySoft : T.surface,
+    color: active ? T.primary : T.textMuted,
+    fontFamily: FONT, fontSize: 12, fontWeight: active ? 500 : 400,
+    cursor: "pointer",
+  };
+}
+
+function PropertyCard({ p }: { p: Prop }) {
+  const pricePerSqm = p.sqm > 0 ? Math.round(p.price / p.sqm) : null;
+  return (
+    <article style={{
+      background: T.surface, border: `1px solid ${T.border}`,
+      borderRadius: 12, overflow: "hidden",
+      boxShadow: "0 1px 2px rgba(20, 20, 18, 0.04)",
+      display: "flex", flexDirection: "column",
+    }}>
+      {/* Photo */}
+      <div style={{
+        height: 168, background: p.photo, position: "relative",
+      }}>
+        <span style={{
+          position: "absolute", top: 10, left: 10, padding: "3px 8px",
+          borderRadius: 999, fontSize: 11, fontWeight: 500,
+          ...statusStyle(p.status),
+        }}>{p.status}</span>
+        {p.dup > 0 && (
+          <span style={{
+            position: "absolute", top: 10, right: 10, padding: "3px 8px",
+            borderRadius: 999, fontSize: 11, fontWeight: 500,
+            color: T.primary, background: T.primaryFg,
+            display: "flex", alignItems: "center", gap: 4,
+            boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+          }}>
+            <Layers size={11} /> {p.dup} duplicado{p.dup > 1 ? "s" : ""}
+          </span>
+        )}
+        <span style={{
+          position: "absolute", bottom: 10, left: 10, padding: "2px 8px",
+          borderRadius: 4, fontSize: 11, fontWeight: 500,
+          color: "#fff", background: "rgba(0,0,0,0.55)",
+        }}>{p.type}</span>
+      </div>
+
+      {/* Body */}
+      <div style={{ padding: "14px 14px 12px", display: "flex",
+        flexDirection: "column", gap: 8, flex: 1 }}>
+        <h3 style={{
+          margin: 0, fontSize: 14, fontWeight: 500, lineHeight: 1.35,
+          color: T.text,
+          display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+        }}>{p.title}</h3>
+        <div style={{ fontSize: 12, color: T.textMuted }}>{p.area}</div>
+
+        <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 2 }}>
+          <span style={{ ...TABULAR, fontSize: 20, fontWeight: 600, color: T.text,
+            letterSpacing: -0.3 }}>{fmtEur(p.price)}</span>
+          {pricePerSqm && (
+            <span style={{ ...TABULAR, fontSize: 11, color: T.textSubtle }}>
+              · {pricePerSqm.toLocaleString("es-ES")} €/m²
+            </span>
+          )}
+        </div>
+
+        <div style={{
+          display: "flex", gap: 14, marginTop: 4, paddingTop: 10,
+          borderTop: `1px solid ${T.border}`, fontSize: 12, color: T.textMuted,
+        }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 4, ...TABULAR }}>
+            <BedDouble size={13} color={T.textSubtle} /> {p.rooms}
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 4, ...TABULAR }}>
+            <Bath size={13} color={T.textSubtle} /> {p.baths}
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 4, ...TABULAR }}>
+            <Maximize2 size={13} color={T.textSubtle} /> {p.sqm} m²
+          </span>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function AddCard() {
+  return (
+    <button style={{
+      background: "transparent", border: `1px dashed ${T.borderStrong}`,
+      borderRadius: 12, padding: 20, color: T.textMuted, fontFamily: FONT,
+      fontSize: 13, display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center", gap: 8,
+      minHeight: 320, cursor: "pointer",
+    }}>
+      <div style={{
+        width: 40, height: 40, borderRadius: 999, background: T.surfaceMuted,
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        <Plus size={20} color={T.textMuted} />
+      </div>
+      Añadir inmueble
+      <span style={{ fontSize: 11, color: T.textSubtle }}>
+        o usa el bookmarklet desde un portal
+      </span>
+    </button>
+  );
+}

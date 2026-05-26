@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>BuySell · Web · Inmuebles</title>
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../colors_and_type.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  // Mirrors the real repo's tailwind.config.ts so JSX class names match.
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          bg: "#FAFAF7", surface: "#FFFFFF",
+          "surface-muted": "#F4F3EE", "surface-sunken": "#EFEEE8",
+          border: "#E8E6E1", "border-strong": "#D4D1CA",
+          text: "#1A1A18", "text-muted": "#6B6862",
+          "text-subtle": "#9A9690", "text-inverse": "#FAFAF7",
+          primary: { DEFAULT: "#3A5F8A", hover: "#2E4D70", soft: "#EAEFF6", fg: "#FAFAF7" },
+          success: { DEFAULT: "#2D6A4F", soft: "#E8F1EC" },
+          warning: { DEFAULT: "#A86A17", soft: "#F7EFDE" },
+          danger:  { DEFAULT: "#A23E3E", soft: "#F6E5E5" },
+          info:    { DEFAULT: "#2C7A8A", soft: "#E1EEF1" },
+          brass: "#C49A4D",
+        },
+        borderRadius: { sm: "4px", md: "6px", lg: "8px", xl: "12px" },
+        boxShadow: {
+          xs: "0 1px 2px rgba(20,20,18,0.04)",
+          sm: "0 1px 3px rgba(20,20,18,0.06), 0 1px 2px rgba(20,20,18,0.04)",
+          md: "0 4px 12px rgba(20,20,18,0.06), 0 1px 3px rgba(20,20,18,0.04)",
+        },
+        fontFamily: { sans: ['"Inter"', "system-ui", "sans-serif"] },
+      },
+    },
+  };
+</script>
+<style>
+  html, body { margin: 0; padding: 0; background: #FAFAF7; }
+  body { font-family: "Inter", system-ui, sans-serif; }
+  .tabular { font-variant-numeric: tabular-nums; }
+  .scroll-fade::-webkit-scrollbar { width: 8px; }
+  .scroll-fade::-webkit-scrollbar-thumb { background: #D4D1CA; border-radius: 999px; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="env,react">
+// ============================================================
+// Icons — inline lucide SVG paths so the artifact is fully self-contained
+// ============================================================
+const Icon = ({ d, size = 16, sw = 2, className }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth={sw}
+    strokeLinecap="round" strokeLinejoin="round"
+    className={className} aria-hidden="true"
+    dangerouslySetInnerHTML={{ __html: d }}/>
+);
+const I = {
+  buildings: '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4M10 10h4M10 14h4M10 18h4"/>',
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  sparkles: '<path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6Z"/><path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8Z"/>',
+  dashboard: '<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
+  activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+  user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+  logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
+  pin: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  bed: '<path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20M6 8v9"/>',
+  bath: '<path d="M9 6 6 3M19 13v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-3"/><path d="M3 13h18"/>',
+  area: '<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>',
+  plus: '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  chevDown: '<polyline points="6 9 12 15 18 9"/>',
+  image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.83 0L6 21"/>',
+  arrowDown: '<line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/>',
+  arrowUp:   '<line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>',
+  filter: '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>',
+};
+
+// ============================================================
+// Brand mark
+// ============================================================
+const IconKey = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="1.5"
+    strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="6.5" cy="12" r="3.3"/>
+    <circle cx="6.5" cy="8" r="0.85" fill="#C49A4D" stroke="none"/>
+    <path d="M9.8 12 H17"/>
+    <path d="M17 12 H21 V17 H20 V15.5 H18.5 V17 H17 Z" fill="#C49A4D"/>
+  </svg>
+);
+
+// ============================================================
+// Navigation model
+// ============================================================
+const NAV_GROUPS = [
+  {
+    id: "catalogo", label: "Catálogo", accent: "#3A5F8A",
+    items: [
+      { id: "inmuebles", label: "Inmuebles", icon: I.buildings },
+      { id: "duplicados",label: "Duplicados", icon: I.sparkles, count: 3 },
+    ],
+  },
+  {
+    id: "analisis", label: "Análisis", accent: "#2C7A8A",
+    items: [
+      { id: "dashboard", label: "Dashboard", icon: I.dashboard },
+      { id: "actividad", label: "Actividad", icon: I.activity },
+    ],
+  },
+  {
+    id: "captura", label: "Captura", accent: "#A86A17",
+    items: [
+      { id: "importar", label: "Importar", icon: I.download },
+    ],
+  },
+];
+
+const FOOTER_ITEMS = [
+  { id: "perfil",   label: "Perfil",         icon: I.user },
+  { id: "ajustes",  label: "Ajustes",        icon: I.settings },
+];
+
+// ============================================================
+// Sidebar — Chrome-vertical-tabs inspired, but in BuySell vocabulary:
+// hairline borders, no saturated chips, accent only on a 2px left border
+// of the group header.
+// ============================================================
+function Sidebar({ current, onChange }) {
+  const [open, setOpen] = React.useState({ catalogo: true, analisis: true, captura: true });
+  return (
+    <aside className="flex h-screen w-[240px] shrink-0 flex-col border-r border-border bg-surface">
+      {/* Brand */}
+      <div className="flex h-14 items-center gap-2 border-b border-border px-4">
+        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary-soft text-primary ring-1 ring-inset ring-primary/15">
+          <IconKey size={20}/>
+        </div>
+        <div className="leading-tight">
+          <div className="text-[13px] font-semibold text-text">BuySell</div>
+          <div className="text-[11px] text-text-subtle">Asturias</div>
+        </div>
+      </div>
+
+      {/* Groups */}
+      <nav className="flex-1 overflow-y-auto px-2 py-3 scroll-fade">
+        {NAV_GROUPS.map((g) => (
+          <div key={g.id} className="mb-1">
+            {/* Group header — subtle 2px left border in group accent */}
+            <button
+              onClick={() => setOpen((o) => ({ ...o, [g.id]: !o[g.id] }))}
+              className="flex w-full items-center justify-between px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-text-subtle hover:text-text-muted"
+              style={{ borderLeft: `2px solid ${g.accent}`, marginLeft: "-2px", paddingLeft: "10px" }}>
+              <span>{g.label}</span>
+              <span className={`transition-transform ${open[g.id] ? "" : "-rotate-90"}`}>
+                <Icon d={I.chevDown} size={11}/>
+              </span>
+            </button>
+
+            {open[g.id] && (
+              <div className="mt-0.5 space-y-px">
+                {g.items.map((it) => {
+                  const active = current === it.id;
+                  return (
+                    <button key={it.id}
+                      onClick={() => onChange(it.id)}
+                      className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-colors ${
+                        active
+                          ? "bg-primary-soft font-medium text-primary"
+                          : "text-text-muted hover:bg-surface-muted hover:text-text"
+                      }`}>
+                      <span className={active ? "text-primary" : "text-text-subtle"}>
+                        <Icon d={it.icon} size={15}/>
+                      </span>
+                      <span className="flex-1 text-left">{it.label}</span>
+                      {it.count != null && (
+                        <span className={`tabular rounded px-1.5 text-[11px] font-medium ${
+                          active ? "bg-primary/10 text-primary" : "bg-surface-muted text-text-muted"
+                        }`}>{it.count}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ))}
+      </nav>
+
+      {/* Footer (Cuenta) */}
+      <div className="space-y-px border-t border-border p-2">
+        {FOOTER_ITEMS.map((it) => (
+          <button key={it.id}
+            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] text-text-muted hover:bg-surface-muted hover:text-text">
+            <span className="text-text-subtle"><Icon d={it.icon} size={15}/></span>
+            {it.label}
+          </button>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+// ============================================================
+// Mock data
+// ============================================================
+const PROPS = [
+  { id: 1, title: "Piso luminoso en La Manjoya con vistas", type: "Piso",
+    neighborhood: "La Manjoya", city: "Oviedo", status: "FOR_SALE",
+    price: 195000, rooms: 3, baths: 2, area: 95, duplicates: 2,
+    delta: -3.7, prev: 202500 },
+  { id: 2, title: "Chalet pareado con jardín y garaje", type: "Chalet",
+    neighborhood: "Cabueñes", city: "Gijón", status: "RESERVED",
+    price: 385000, rooms: 4, baths: 3, area: 180, duplicates: 0,
+    delta: 0, prev: 385000 },
+  { id: 3, title: "Ático con terraza en el centro", type: "Ático",
+    neighborhood: "Centro", city: "Avilés", status: "FOR_SALE",
+    price: 165000, rooms: 2, baths: 1, area: 72, duplicates: 1,
+    delta: -2.4, prev: 169000 },
+  { id: 4, title: "Estudio reformado cerca de la playa", type: "Estudio",
+    neighborhood: "San Lorenzo", city: "Gijón", status: "SOLD",
+    price: 89000, rooms: 0, baths: 1, area: 35, duplicates: 0,
+    delta: 0, prev: 89000 },
+  { id: 5, title: "Casa de pueblo con hórreo en parcela", type: "Casa",
+    neighborhood: null, city: "Cangas de Onís", status: "FOR_SALE",
+    price: 178000, rooms: 4, baths: 2, area: 145, duplicates: 0,
+    delta: -3.8, prev: 185000 },
+  { id: 6, title: "Dúplex con dos terrazas y garaje incluido", type: "Dúplex",
+    neighborhood: "La Magdalena", city: "Avilés", status: "FOR_SALE",
+    price: 215000, rooms: 3, baths: 2, area: 105, duplicates: 0,
+    delta: -2.3, prev: 220000 },
+];
+
+const STATUS = {
+  FOR_SALE: { label: "En venta",  cls: "bg-info-soft text-info border-info/15" },
+  RESERVED: { label: "Reservado", cls: "bg-warning-soft text-warning border-warning/20" },
+  SOLD:     { label: "Vendido",   cls: "bg-success-soft text-success border-success/15" },
+  WITHDRAWN:{ label: "Retirado",  cls: "bg-surface-muted text-text-muted border-border" },
+};
+
+const fmtEUR = (n) => new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
+
+function StatusBadge({ s }) {
+  const c = STATUS[s];
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-[11px] font-medium ${c.cls}`}>
+      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70"/>
+      {c.label}
+    </span>
+  );
+}
+
+function PriceDelta({ pct }) {
+  if (pct === 0) return null;
+  const down = pct < 0;
+  return (
+    <span className={`tabular inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${down ? "bg-price-down-bg text-price-down-fg" : "bg-price-up-bg text-price-up-fg"}`}
+      style={{ background: down ? "#F0F7F2" : "#FDF2F2", color: down ? "#2D6A4F" : "#A23E3E" }}>
+      <Icon d={down ? I.arrowDown : I.arrowUp} size={10}/>
+      {Math.abs(pct).toFixed(1)}%
+    </span>
+  );
+}
+
+// ============================================================
+// Property card (web — 3-col grid)
+// ============================================================
+function PropertyCard({ p }) {
+  return (
+    <div className="group overflow-hidden rounded-lg border border-border bg-surface shadow-xs transition-shadow hover:shadow-sm">
+      {/* Photo */}
+      <div className="relative aspect-[16/10] bg-surface-muted">
+        <div className="absolute inset-0 flex items-center justify-center text-text-subtle">
+          <Icon d={I.image} size={28} sw={1.5}/>
+        </div>
+        <div className="absolute left-3 top-3"><StatusBadge s={p.status}/></div>
+        {p.duplicates > 0 && (
+          <div className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-md bg-surface/95 px-1.5 py-0.5 text-[10px] font-medium text-primary shadow-xs backdrop-blur">
+            <Icon d={I.sparkles} size={9}/> {p.duplicates} {p.duplicates === 1 ? "duplicado" : "duplicados"}
+          </div>
+        )}
+      </div>
+      {/* Body */}
+      <div className="space-y-2 p-4">
+        <h3 className="line-clamp-2 text-[13px] font-semibold leading-snug text-text">{p.title}</h3>
+        <div className="flex items-center gap-1 text-[12px] text-text-muted">
+          <Icon d={I.pin} size={11}/>
+          <span>{p.type} · {p.neighborhood ? `${p.neighborhood}, ` : ""}{p.city}</span>
+        </div>
+        <div className="flex items-baseline justify-between">
+          <div className="tabular text-[18px] font-semibold tracking-tight text-text">{fmtEUR(p.price)}</div>
+          <PriceDelta pct={p.delta}/>
+        </div>
+        <div className="flex items-center gap-3 border-t border-border pt-2.5 text-[12px] text-text-muted">
+          <span className="inline-flex items-center gap-1"><Icon d={I.bed} size={11}/> {p.rooms} hab</span>
+          <span className="inline-flex items-center gap-1"><Icon d={I.bath} size={11}/> {p.baths}</span>
+          <span className="inline-flex items-center gap-1 tabular"><Icon d={I.area} size={11}/> {p.area} m²</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Page
+// ============================================================
+function InmueblesPage() {
+  const [current, setCurrent] = React.useState("inmuebles");
+  return (
+    <div className="flex h-screen w-[1440px] overflow-hidden bg-bg text-text">
+      <Sidebar current={current} onChange={setCurrent}/>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Topbar */}
+        <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border bg-surface px-6">
+          <div className="relative w-full max-w-md">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtle">
+              <Icon d={I.search} size={14}/>
+            </span>
+            <input
+              type="search"
+              placeholder="Buscar inmuebles, direcciones, refs…"
+              className="h-9 w-full rounded-md border border-border bg-bg pl-9 pr-12 text-[13px] text-text placeholder:text-text-subtle outline-none hover:border-border-strong focus:border-primary"/>
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm border border-border bg-surface px-1 py-px text-[10px] font-mono text-text-subtle">⌘K</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-surface px-3 text-[13px] text-text hover:bg-surface-muted">
+              <Icon d={I.filter} size={13}/> Filtros
+            </button>
+            <button className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-[13px] font-medium text-primary-fg hover:bg-primary-hover">
+              <Icon d={I.plus} size={14}/> Nuevo inmueble
+            </button>
+          </div>
+        </header>
+
+        {/* Content */}
+        <main className="min-w-0 flex-1 overflow-y-auto px-6 py-8 scroll-fade">
+          <div className="mb-6 flex items-end justify-between gap-4">
+            <div>
+              <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.015em] text-text">Inmuebles</h1>
+              <p className="mt-1 text-[13px] text-text-muted">23 fichas · sincronizado hace 12 min · 3 cambios nuevos</p>
+            </div>
+            <div className="flex items-center gap-2 text-[12px] text-text-muted">
+              <span>Ordenar por</span>
+              <select className="h-8 rounded-md border border-border bg-surface px-2 pr-7 text-[12px] text-text">
+                <option>Más recientes</option>
+                <option>Precio: menor</option>
+                <option>Precio: mayor</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            {PROPS.map((p) => <PropertyCard key={p.id} p={p}/>)}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<InmueblesPage/>);
+</script>
+</body>
+</html>

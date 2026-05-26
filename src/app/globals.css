@@ -72,6 +72,47 @@ body {
   line-height: 1.5;
 }
 
+/* ---- Dark mode (paleta "latón sobre acero oscuro") ---- */
+[data-theme="dark"] {
+  --bg: #141413;
+  --surface: #1E1E1C;
+  --surface-muted: #252523;
+  --surface-sunken: #2A2A28;
+
+  --border: #333331;
+  --border-strong: #444442;
+
+  --text: #F0EFEA;
+  --text-muted: #A8A5A0;
+  --text-subtle: #6B6862;
+  --text-inverse: #141413;
+
+  --primary: #6A9FD0;
+  --primary-hover: #7AAFDE;
+  --primary-soft: #1A2A3A;
+  --primary-fg: #F0EFEA;
+
+  --brand-accent: #D4AA5D;
+
+  --success: #5CB88A;
+  --success-soft: #1A2E23;
+  --warning: #D4992A;
+  --warning-soft: #2D2015;
+  --danger: #D06868;
+  --danger-soft: #2E1818;
+  --info: #5AAABB;
+  --info-soft: #152528;
+
+  --price-up-bg: #2E1818;
+  --price-up-fg: #D06868;
+  --price-down-bg: #1A2E23;
+  --price-down-fg: #5CB88A;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
 /* Numbers monospace-aligned para precios y tablas */
 .tabular { font-variant-numeric: tabular-nums; }
 

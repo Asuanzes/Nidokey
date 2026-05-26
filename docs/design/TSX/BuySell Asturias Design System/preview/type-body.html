@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 24px; margin: 0; }
+  .row { display: grid; grid-template-columns: 80px 1fr 70px; align-items: baseline; gap: 16px; padding: 8px 0; border-top: 1px solid var(--border); }
+  .row:first-child { border-top: 0; padding-top: 0; }
+  .label { font-size: 10px; color: var(--text-subtle); font-family: var(--font-mono); }
+  .meta { font-size: 10px; color: var(--text-subtle); font-family: var(--font-mono); text-align: right; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="label">md</div>
+    <div style="font-size:15px;line-height:22px;color:var(--text)">Histórico de precio</div>
+    <div class="meta">15 / 22</div>
+  </div>
+  <div class="row">
+    <div class="label">base</div>
+    <div style="font-size:14px;line-height:20px;color:var(--text)">No hay duplicados pendientes</div>
+    <div class="meta">14 / 20</div>
+  </div>
+  <div class="row">
+    <div class="label">sm · body</div>
+    <div style="font-size:13px;line-height:18px;color:var(--text)">Visión general de inmuebles, portales y matching.</div>
+    <div class="meta">13 / 18</div>
+  </div>
+  <div class="row">
+    <div class="label">sm · muted</div>
+    <div style="font-size:13px;line-height:18px;color:var(--text-muted)">Visión general de inmuebles, portales y matching.</div>
+    <div class="meta">muted</div>
+  </div>
+  <div class="row">
+    <div class="label">xs</div>
+    <div style="font-size:12px;line-height:16px;color:var(--text-muted)">Top 8 con ≥ 2 fichas</div>
+    <div class="meta">12 / 16</div>
+  </div>
+  <div class="row">
+    <div class="label">xs · eyebrow</div>
+    <div style="font-size:12px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:var(--text-subtle)">21 enero 2026</div>
+    <div class="meta">uppercase</div>
+  </div>
+</body>
+</html>

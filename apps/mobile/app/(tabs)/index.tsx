@@ -11,10 +11,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
+import { useTheme } from "@/lib/theme";
 import { PropertyCard, type PropertyCardData } from "@/components/PropertyCard";
 
 export default function PropertiesScreen() {
   const { state } = useAuth();
+  const { th } = useTheme();
   const [properties, setProperties] = useState<PropertyCardData[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -42,28 +44,21 @@ export default function PropertiesScreen() {
   if (state.kind !== "authed") return null;
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Inmuebles</Text>
-        <Text style={styles.count}>
-          {properties ? `${properties.length} ficha${properties.length !== 1 ? "s" : ""}` : "…"}
-        </Text>
-      </View>
-
+    <SafeAreaView style={[styles.container, { backgroundColor: th.bg }]} edges={["top"]}>
       {!properties && !error && (
         <View style={styles.center}>
-          <ActivityIndicator color="#3A5F8A" />
+          <ActivityIndicator color={th.primary} />
         </View>
       )}
       {error && (
         <View style={styles.center}>
-          <Text style={styles.error}>{error}</Text>
+          <Text style={[styles.error, { color: th.dangerFg }]}>{error}</Text>
         </View>
       )}
       {properties && properties.length === 0 && (
         <View style={styles.center}>
-          <Text style={styles.empty}>Aún no tienes inmuebles importados.</Text>
-          <Text style={styles.emptySub}>
+          <Text style={[styles.empty, { color: th.text }]}>Aún no tienes casas importadas.</Text>
+          <Text style={[styles.emptySub, { color: th.textMuted }]}>
             Desde la web entra a /bookmarklet e instala los userscripts para empezar.
           </Text>
         </View>
@@ -75,7 +70,7 @@ export default function PropertiesScreen() {
           renderItem={({ item }) => <PropertyCard p={item} />}
           contentContainerStyle={styles.list}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3A5F8A" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={th.primary} />
           }
         />
       )}
@@ -84,16 +79,16 @@ export default function PropertiesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FAFAF7" },
+  container: { flex: 1 },
   header: {
     paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12,
     flexDirection: "row", justifyContent: "space-between", alignItems: "baseline",
   },
-  title: { fontSize: 22, fontWeight: "700", color: "#1a1a1a" },
-  count: { fontSize: 12, color: "#666" },
+  title: { fontSize: 22, fontWeight: "700" },
+  count: { fontSize: 12 },
   list: { padding: 16, paddingTop: 0 },
   center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24, gap: 8 },
-  error: { color: "#B91C1C", fontSize: 13 },
-  empty: { color: "#1a1a1a", fontSize: 15, fontWeight: "500" },
-  emptySub: { color: "#666", fontSize: 12, textAlign: "center" },
+  error: { fontSize: 13 },
+  empty: { fontSize: 15, fontWeight: "500" },
+  emptySub: { fontSize: 12, textAlign: "center" },
 });

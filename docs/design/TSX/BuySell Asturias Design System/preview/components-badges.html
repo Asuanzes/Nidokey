@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 24px; margin: 0; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    border-radius: var(--radius-md); padding: 2px 6px;
+    font-size: 12px; font-weight: 500; border: 1px solid;
+  }
+  .dot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; opacity: 0.7; }
+  .label { font-size: 10px; color: var(--text-subtle); font-family: var(--font-mono); width: 90px; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <span class="label">status</span>
+    <span class="badge" style="background:#E1EEF1;color:#2C7A8A;border-color:rgba(44,122,138,0.15)"><span class="dot"></span>En venta</span>
+    <span class="badge" style="background:#F7EFDE;color:#A86A17;border-color:rgba(168,106,23,0.20)"><span class="dot"></span>Reservado</span>
+    <span class="badge" style="background:#E8F1EC;color:#2D6A4F;border-color:rgba(45,106,79,0.15)"><span class="dot"></span>Vendido</span>
+    <span class="badge" style="background:#F4F3EE;color:#6B6862;border-color:#E8E6E1"><span class="dot"></span>Retirado</span>
+  </div>
+  <div class="row">
+    <span class="label">tones</span>
+    <span class="badge" style="background:#EAEFF6;color:#3A5F8A;border-color:rgba(58,95,138,0.15)">primary</span>
+    <span class="badge" style="background:#F6E5E5;color:#A23E3E;border-color:rgba(162,62,62,0.15)">danger</span>
+    <span class="badge" style="background:#F4F3EE;color:#6B6862;border-color:#E8E6E1">neutral</span>
+  </div>
+  <div class="row">
+    <span class="label">with icon</span>
+    <span class="badge" style="background:#EAEFF6;color:#3A5F8A;border-color:rgba(58,95,138,0.15)">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 11.5V19h6v-3h2v3h6v-7.5L12 4z"/></svg>
+      Garaje
+    </span>
+    <span class="badge" style="background:#EAEFF6;color:#3A5F8A;border-color:rgba(58,95,138,0.15)">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2c2 3 4 5 4 8a4 4 0 1 1-8 0c0-3 2-5 4-8z"/></svg>
+      Chimenea
+    </span>
+    <span class="badge" style="background:#EAEFF6;color:#3A5F8A;border-color:rgba(58,95,138,0.15)">Terraza</span>
+  </div>
+</body>
+</html>

@@ -10,12 +10,13 @@ import {
   View,
 } from "react-native";
 import { Image } from "expo-image";
-import { useLocalSearchParams, Stack, useRouter } from "expo-router";
+import { useLocalSearchParams, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { formatPrice } from "@buysell/shared";
 import { api } from "@/lib/api";
+import { useTheme } from "@/lib/theme";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
@@ -65,7 +66,7 @@ const TYPE_LABEL: Record<string, string> = {
 
 export default function PropertyDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
+  const { th } = useTheme();
   const [p, setP] = useState<PropertyDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,18 +79,18 @@ export default function PropertyDetailScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={styles.container}>
-        <Stack.Screen options={{ title: "Error" }} />
+      <SafeAreaView style={[styles.container, { backgroundColor: th.bg }]}>
+        <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.center}>
-          <Text style={styles.error}>{error}</Text>
+          <Text style={{ color: th.dangerFg, fontSize: 13 }}>{error}</Text>
         </View>
       </SafeAreaView>
     );
   }
   if (!p) {
     return (
-      <View style={[styles.container, styles.center]}>
-        <ActivityIndicator color="#3A5F8A" />
+      <View style={[styles.container, styles.center, { backgroundColor: th.bg }]}>
+        <ActivityIndicator color={th.primary} />
       </View>
     );
   }
@@ -97,19 +98,9 @@ export default function PropertyDetailScreen() {
   const photos = p.media.filter((m) => m.kind === "PHOTO");
 
   return (
-    <View style={styles.container}>
-      <Stack.Screen
-        options={{
-          title: p.title.slice(0, 30),
-          headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} style={{ paddingRight: 12 }}>
-              <Ionicons name="chevron-back" size={24} color="#3A5F8A" />
-            </TouchableOpacity>
-          ),
-        }}
-      />
+    <View style={[styles.container, { backgroundColor: th.bg }]}>
+      <Stack.Screen options={{ headerShown: false }} />
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Gallery swipeable */}
         {photos.length > 0 && (
           <ScrollView
             horizontal
@@ -128,23 +119,23 @@ export default function PropertyDetailScreen() {
             ))}
           </ScrollView>
         )}
-        <Text style={styles.photoCount}>📸 {photos.length} fotos</Text>
+        <Text style={[styles.photoCount, { color: th.textMuted }]}>📸 {photos.length} fotos</Text>
 
-        <View style={styles.section}>
-          <Text style={styles.title}>{p.title}</Text>
-          <Text style={styles.location}>
+        <View style={[styles.section, { backgroundColor: th.surface, borderColor: th.border }]}>
+          <Text style={[styles.title, { color: th.accent }]}>{p.title}</Text>
+          <Text style={[styles.location, { color: th.textMuted }]}>
             {[TYPE_LABEL[p.type], p.neighborhood, p.city, p.province].filter(Boolean).join(" · ")}
           </Text>
-          <Text style={styles.price}>{formatPrice(p.currentPrice)}</Text>
+          <Text style={[styles.price, { color: th.text }]}>{formatPrice(p.currentPrice)}</Text>
           {p.builtArea && p.currentPrice && (
-            <Text style={styles.pricePerSqm}>
+            <Text style={[styles.pricePerSqm, { color: th.textMuted }]}>
               {Math.round(p.currentPrice / 100 / p.builtArea).toLocaleString("es-ES")} €/m²
             </Text>
           )}
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Características</Text>
+        <View style={[styles.section, { backgroundColor: th.surface, borderColor: th.border }]}>
+          <Text style={[styles.sectionTitle, { color: th.textMuted }]}>Características</Text>
           <View style={styles.grid}>
             <Spec label="Habitaciones" value={p.rooms ?? "—"} />
             <Spec label="Baños" value={p.bathrooms ?? "—"} />
@@ -155,7 +146,7 @@ export default function PropertyDetailScreen() {
             <Spec label="Año" value={p.yearBuilt ?? "—"} />
             <Spec label="Energía" value={p.energyRating !== "UNKNOWN" ? p.energyRating : "—"} />
           </View>
-          <View style={styles.tags}>
+          <View style={[styles.tags, { borderTopColor: th.border }]}>
             {[
               { v: p.hasElevator, label: "Ascensor" },
               { v: p.hasGarage, label: "Garaje" },
@@ -167,43 +158,43 @@ export default function PropertyDetailScreen() {
             ]
               .filter((x) => x.v)
               .map((x) => (
-                <View key={x.label} style={styles.tag}>
-                  <Text style={styles.tagText}>{x.label}</Text>
+                <View key={x.label} style={[styles.tag, { backgroundColor: th.primarySoft }]}>
+                  <Text style={[styles.tagText, { color: th.primary }]}>{x.label}</Text>
                 </View>
               ))}
           </View>
         </View>
 
         {p.description && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Descripción</Text>
-            <Text style={styles.description}>{p.description}</Text>
+          <View style={[styles.section, { backgroundColor: th.surface, borderColor: th.border }]}>
+            <Text style={[styles.sectionTitle, { color: th.textMuted }]}>Descripción</Text>
+            <Text style={[styles.description, { color: th.text }]}>{p.description}</Text>
           </View>
         )}
 
         {p.listings.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Anuncios vinculados</Text>
+          <View style={[styles.section, { backgroundColor: th.surface, borderColor: th.border }]}>
+            <Text style={[styles.sectionTitle, { color: th.textMuted }]}>Anuncios vinculados</Text>
             {p.listings.map((l) => (
               <TouchableOpacity
                 key={l.id}
-                style={styles.listingRow}
+                style={[styles.listingRow, { borderBottomColor: th.border }]}
                 onPress={() => Linking.openURL(l.url)}
               >
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.listingPortal}>{PORTAL_LABEL[l.portal] ?? l.portal}</Text>
-                  <Text style={styles.listingMeta}>{formatPrice(l.lastPrice)}</Text>
+                  <Text style={[styles.listingPortal, { color: th.text }]}>{PORTAL_LABEL[l.portal] ?? l.portal}</Text>
+                  <Text style={[styles.listingMeta, { color: th.textMuted }]}>{formatPrice(l.lastPrice)}</Text>
                 </View>
-                <Ionicons name="open-outline" size={18} color="#3A5F8A" />
+                <Ionicons name="open-outline" size={18} color={th.primary} />
               </TouchableOpacity>
             ))}
           </View>
         )}
 
         {p.cadastralRef && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Catastro</Text>
-            <Text style={styles.cadastral}>{p.cadastralRef}</Text>
+          <View style={[styles.section, { backgroundColor: th.surface, borderColor: th.border }]}>
+            <Text style={[styles.sectionTitle, { color: th.textMuted }]}>Catastro</Text>
+            <Text style={[styles.cadastral, { color: th.text }]}>{p.cadastralRef}</Text>
           </View>
         )}
       </ScrollView>
@@ -212,60 +203,55 @@ export default function PropertyDetailScreen() {
 }
 
 function Spec({ label, value }: { label: string; value: React.ReactNode }) {
+  const { th } = useTheme();
   return (
     <View style={styles.spec}>
-      <Text style={styles.specLabel}>{label}</Text>
-      <Text style={styles.specValue}>{value}</Text>
+      <Text style={[styles.specLabel, { color: th.textMuted }]}>{label}</Text>
+      <Text style={[styles.specValue, { color: th.text }]}>{value}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FAFAF7" },
+  container: { flex: 1 },
   content: { paddingBottom: 32 },
   center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
-  error: { color: "#B91C1C", fontSize: 13 },
   gallery: { height: SCREEN_WIDTH * 0.66, backgroundColor: "#000" },
   photoCount: {
-    fontSize: 11, color: "#666", textAlign: "right",
+    fontSize: 11, textAlign: "right",
     paddingHorizontal: 16, paddingTop: 6,
   },
   section: {
-    backgroundColor: "#fff",
     marginHorizontal: 12, marginTop: 12,
     padding: 16, borderRadius: 10,
-    borderWidth: 1, borderColor: "#e5e5e5",
+    borderWidth: 1,
   },
-  title: { fontSize: 18, fontWeight: "700", color: "#1a1a1a" },
-  location: { fontSize: 13, color: "#666", marginTop: 4 },
-  price: { fontSize: 26, fontWeight: "700", color: "#1a1a1a", marginTop: 12 },
-  pricePerSqm: { fontSize: 12, color: "#666", marginTop: 2 },
+  title: { fontSize: 18, fontWeight: "700" },
+  location: { fontSize: 13, marginTop: 4 },
+  price: { fontSize: 26, fontWeight: "700", marginTop: 12 },
+  pricePerSqm: { fontSize: 12, marginTop: 2 },
   sectionTitle: {
-    fontSize: 11, fontWeight: "600", color: "#666",
+    fontSize: 11, fontWeight: "600",
     textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12,
   },
-  grid: {
-    flexDirection: "row", flexWrap: "wrap", gap: 12,
-  },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   spec: { width: "47%" },
-  specLabel: { fontSize: 11, color: "#666" },
-  specValue: { fontSize: 14, fontWeight: "500", color: "#1a1a1a", marginTop: 2 },
+  specLabel: { fontSize: 11 },
+  specValue: { fontSize: 14, fontWeight: "500", marginTop: 2 },
   tags: {
     flexDirection: "row", flexWrap: "wrap", gap: 6,
-    marginTop: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#f0f0f0",
+    marginTop: 16, paddingTop: 12, borderTopWidth: 1,
   },
   tag: {
-    paddingHorizontal: 10, paddingVertical: 4,
-    backgroundColor: "#EAEFF6", borderRadius: 4,
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4,
   },
-  tagText: { fontSize: 11, color: "#3A5F8A", fontWeight: "500" },
-  description: { fontSize: 13, color: "#1a1a1a", lineHeight: 20 },
+  tagText: { fontSize: 11, fontWeight: "500" },
+  description: { fontSize: 13, lineHeight: 20 },
   listingRow: {
     flexDirection: "row", alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: "#f0f0f0",
+    paddingVertical: 12, borderBottomWidth: 1,
   },
-  listingPortal: { fontSize: 14, fontWeight: "500", color: "#1a1a1a" },
-  listingMeta: { fontSize: 12, color: "#666", marginTop: 2 },
-  cadastral: { fontSize: 12, fontFamily: "monospace", color: "#1a1a1a" },
+  listingPortal: { fontSize: 14, fontWeight: "500" },
+  listingMeta: { fontSize: 12, marginTop: 2 },
+  cadastral: { fontSize: 12, fontFamily: "monospace" },
 });

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 20px; margin: 0; display: flex; gap: 20px; align-items: stretch; }
+  .col { flex: 1; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 8px; border-radius: var(--radius-md);
+    font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums;
+  }
+  .pill svg { width: 11px; height: 11px; }
+  .label { font-size: 11px; color: var(--text-subtle); margin-top: 8px; font-family: var(--font-mono); }
+  .label b { color: var(--text); font-family: var(--font-sans); font-weight: 500; }
+  .group { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+  <div class="col">
+    <div class="group">
+      <span class="pill" style="background:#FDF2F2;color:#A23E3E">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+        3.2% <span style="opacity:0.7">· 12.500 €</span>
+      </span>
+      <span class="pill" style="background:#F0F7F2;color:#2D6A4F">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        1.8% <span style="opacity:0.7">· 6.000 €</span>
+      </span>
+      <span class="pill" style="background:#F4F3EE;color:#6B6862">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/></svg>
+        —
+      </span>
+    </div>
+    <div class="label"><b>price-up</b> · <b>price-down</b> · sin cambio — usado en celdas de tabla y ficha</div>
+    <div class="label" style="margin-top:14px"><b>#FDF2F2 / #A23E3E</b> &nbsp; <b>#F0F7F2 / #2D6A4F</b></div>
+  </div>
+</body>
+</html>

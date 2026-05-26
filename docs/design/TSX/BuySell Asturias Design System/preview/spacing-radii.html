@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 24px; margin: 0; display: flex; gap: 24px; align-items: flex-end; }
+  .item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .box { background: var(--surface); border: 1px solid var(--border); }
+  .meta { font-size: 10px; color: var(--text-subtle); font-family: var(--font-mono); }
+  .meta b { color: var(--text); font-family: var(--font-sans); font-weight: 500; font-size: 11px; }
+</style>
+</head>
+<body>
+  <div class="item"><div class="box" style="width:72px;height:48px;border-radius:4px"></div><div class="meta"><b>sm</b> · 4px</div></div>
+  <div class="item"><div class="box" style="width:72px;height:48px;border-radius:6px"></div><div class="meta"><b>md</b> · 6px</div></div>
+  <div class="item"><div class="box" style="width:72px;height:48px;border-radius:8px"></div><div class="meta"><b>lg</b> · 8px</div></div>
+  <div class="item"><div class="box" style="width:72px;height:48px;border-radius:12px"></div><div class="meta"><b>xl</b> · 12px</div></div>
+  <div class="item"><div class="box" style="width:48px;height:48px;border-radius:999px"></div><div class="meta"><b>full</b> · chips, gallery</div></div>
+</body>
+</html>

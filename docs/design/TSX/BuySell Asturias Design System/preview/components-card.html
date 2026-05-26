@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 20px; margin: 0; background: var(--bg); }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xs);
+    overflow: hidden;
+  }
+  .card-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--border); }
+  .card-title { font-size: 13px; font-weight: 600; color: var(--text); margin: 0; }
+  .card-meta { font-size: 12px; color: var(--text-muted); }
+  .card-body { padding: 20px; font-size: 13px; color: var(--text); }
+  .bullet { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-md); }
+  .bullet + .bullet { margin-top: 6px; }
+  .bullet .name { color: var(--text); }
+  .pill { font-size: 12px; padding: 2px 6px; background: var(--surface-muted); color: var(--text-muted); border-radius: var(--radius-md); border: 1px solid var(--border); }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Anuncios vinculados</h3>
+      <span class="card-meta">3 portales</span>
+    </div>
+    <div class="card-body">
+      <div class="bullet">
+        <span class="name">Idealista</span>
+        <span class="pill tabular">385.000 €</span>
+      </div>
+      <div class="bullet">
+        <span class="name">Fotocasa</span>
+        <span class="pill tabular">387.000 €</span>
+      </div>
+      <div class="bullet">
+        <span class="name">Pisos.com</span>
+        <span class="pill tabular">385.000 €</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

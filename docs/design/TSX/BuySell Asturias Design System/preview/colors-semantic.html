@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 20px; margin: 0; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .pair { border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; background: var(--surface); }
+  .pair-bars { display: flex; }
+  .pair-bars > div { flex: 1; height: 56px; }
+  .meta { padding: 8px 10px; font-size: 11px; }
+  .meta .name { color: var(--text); font-weight: 500; }
+  .meta .hex { color: var(--text-subtle); font-family: var(--font-mono); margin-top: 2px; font-size: 10px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 2px 6px; border-radius: var(--radius-md);
+    font-size: 11px; font-weight: 500; border: 1px solid;
+    margin-top: 4px;
+  }
+  .dot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; opacity: 0.7; }
+</style>
+</head>
+<body>
+  <div class="grid">
+    <div class="pair">
+      <div class="pair-bars"><div style="background:#E8F1EC"></div><div style="background:#2D6A4F"></div></div>
+      <div class="meta"><div class="name">success</div><div class="hex">#2D6A4F / #E8F1EC</div>
+        <span class="badge" style="background:#E8F1EC;color:#2D6A4F;border-color:rgba(45,106,79,0.15)"><span class="dot"></span>Vendido</span>
+      </div>
+    </div>
+    <div class="pair">
+      <div class="pair-bars"><div style="background:#F7EFDE"></div><div style="background:#A86A17"></div></div>
+      <div class="meta"><div class="name">warning</div><div class="hex">#A86A17 / #F7EFDE</div>
+        <span class="badge" style="background:#F7EFDE;color:#A86A17;border-color:rgba(168,106,23,0.20)"><span class="dot"></span>Reservado</span>
+      </div>
+    </div>
+    <div class="pair">
+      <div class="pair-bars"><div style="background:#F6E5E5"></div><div style="background:#A23E3E"></div></div>
+      <div class="meta"><div class="name">danger</div><div class="hex">#A23E3E / #F6E5E5</div>
+        <span class="badge" style="background:#F6E5E5;color:#A23E3E;border-color:rgba(162,62,62,0.15)"><span class="dot"></span>Error</span>
+      </div>
+    </div>
+    <div class="pair">
+      <div class="pair-bars"><div style="background:#E1EEF1"></div><div style="background:#2C7A8A"></div></div>
+      <div class="meta"><div class="name">info</div><div class="hex">#2C7A8A / #E1EEF1</div>
+        <span class="badge" style="background:#E1EEF1;color:#2C7A8A;border-color:rgba(44,122,138,0.15)"><span class="dot"></span>En venta</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

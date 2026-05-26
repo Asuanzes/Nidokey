@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 20px; margin: 0; background: var(--bg); }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-xs); padding: 14px; }
+  .label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-subtle); }
+  .value { margin-top: 6px; font-size: 24px; font-weight: 600; letter-spacing: -0.015em; color: var(--text); font-variant-numeric: tabular-nums; }
+  .hint { margin-top: 4px; font-size: 11px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+  <div class="grid">
+    <div class="stat">
+      <div class="label">En venta</div>
+      <div class="value">24</div>
+    </div>
+    <div class="stat">
+      <div class="label">Vendidos</div>
+      <div class="value">7</div>
+    </div>
+    <div class="stat">
+      <div class="label">Retirados</div>
+      <div class="value">3</div>
+    </div>
+    <div class="stat">
+      <div class="label">Listings</div>
+      <div class="value">82</div>
+      <div class="hint">en 6 portales</div>
+    </div>
+  </div>
+</body>
+</html>

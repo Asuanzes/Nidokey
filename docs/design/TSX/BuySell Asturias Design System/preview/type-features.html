@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 24px; margin: 0; }
+  .specimen { font-size: 18px; line-height: 1.45; color: var(--text); letter-spacing: -0.005em; }
+  .feat { display: flex; gap: 24px; margin-top: 16px; font-size: 11px; color: var(--text-subtle); font-family: var(--font-mono); }
+  .feat span b { color: var(--text); font-family: var(--font-sans); font-weight: 500; }
+  .nums { font-variant-numeric: tabular-nums; font-feature-settings: "cv11","ss01","ss03"; font-size: 24px; letter-spacing: -0.01em; color: var(--text); margin-top: 12px; }
+</style>
+</head>
+<body>
+  <div class="specimen">
+    Inter regular — el sabor del producto: alt-1, alt-4, ss03 activadas.
+  </div>
+  <div class="nums">
+    1234567890 &nbsp; · &nbsp; 1.234.567 € &nbsp; · &nbsp; 1.850 €/m²
+  </div>
+  <div class="feat">
+    <span><b>cv11</b> alt-1</span>
+    <span><b>ss01</b> alt-4 &amp; 7</span>
+    <span><b>ss03</b> straight a/g</span>
+    <span><b>tabular-nums</b> on prices</span>
+  </div>
+</body>
+</html>

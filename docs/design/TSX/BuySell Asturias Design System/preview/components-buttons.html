@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 24px; margin: 0; }
+  .row { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 36px; padding: 0 14px; font-size: 13px; font-weight: 500;
+    border-radius: var(--radius-md); border: 1px solid transparent;
+    cursor: pointer; user-select: none;
+    transition: background-color 100ms, color 100ms, opacity 100ms;
+    font-family: inherit;
+  }
+  .btn.sm { height: 28px; padding: 0 10px; font-size: 12px; }
+  .btn.primary { background: var(--primary); color: var(--primary-fg); }
+  .btn.primary:hover { background: var(--primary-hover); }
+  .btn.secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
+  .btn.secondary:hover { background: var(--surface-muted); }
+  .btn.ghost { background: transparent; color: var(--text); }
+  .btn.ghost:hover { background: var(--surface-muted); }
+  .btn.danger { background: var(--danger); color: var(--primary-fg); }
+  .btn.danger:hover { opacity: 0.9; }
+  .lbl { font-size: 10px; color: var(--text-subtle); font-family: var(--font-mono); width: 70px; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <span class="lbl">md</span>
+    <button class="btn primary">+ Nuevo inmueble</button>
+    <button class="btn secondary">Editar</button>
+    <button class="btn ghost">← Volver</button>
+    <button class="btn danger">Borrar</button>
+  </div>
+  <div class="row">
+    <span class="lbl">sm</span>
+    <button class="btn sm primary">+ Nuevo</button>
+    <button class="btn sm secondary">Editar</button>
+    <button class="btn sm ghost">← Volver</button>
+    <button class="btn sm secondary" disabled style="opacity:0.5;cursor:not-allowed">Disabled</button>
+  </div>
+</body>
+</html>

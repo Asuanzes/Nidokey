@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 20px; margin: 0; background: var(--bg); display: flex; gap: 20px; align-items: stretch; }
+  .panel { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; display: flex; align-items: center; gap: 12px; }
+  .panel.dark { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+  .badge-icon {
+    display: flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px;
+    border-radius: var(--radius-md);
+    background: var(--primary-soft); color: var(--primary);
+    box-shadow: inset 0 0 0 1px rgba(58,95,138,0.15);
+  }
+  .panel.dark .badge-icon { background: transparent; color: var(--primary-fg); box-shadow: none; }
+  .wordmark { line-height: 1.1; }
+  .wordmark .name { font-size: 16px; font-weight: 600; color: var(--text); }
+  .panel.dark .wordmark .name { color: var(--primary-fg); }
+  .wordmark .tag { font-size: 11px; color: var(--text-subtle); margin-top: 2px; letter-spacing: 0.01em; }
+  .panel.dark .wordmark .tag { color: var(--primary-fg); opacity: 0.7; }
+  svg { width: 24px; height: 24px; }
+</style>
+</head>
+<body>
+  <div class="panel">
+    <div class="badge-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="6.5" cy="12" r="3.3"/>
+        <circle cx="6.5" cy="8" r="0.85" fill="#C49A4D" stroke="none"/>
+        <path d="M9.8 12 H17"/>
+        <path d="M17 12 H21 V17 H20 V15.5 H18.5 V17 H17 Z" fill="#C49A4D"/>
+      </svg>
+    </div>
+    <div class="wordmark">
+      <div class="name">BuySell</div>
+      <div class="tag">Asturias</div>
+    </div>
+  </div>
+
+  <div class="panel dark">
+    <div class="badge-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="6.5" cy="12" r="3.3"/>
+        <circle cx="6.5" cy="8" r="0.85" fill="#C49A4D" stroke="none"/>
+        <path d="M9.8 12 H17"/>
+        <path d="M17 12 H21 V17 H20 V15.5 H18.5 V17 H17 Z" fill="#C49A4D"/>
+      </svg>
+    </div>
+    <div class="wordmark">
+      <div class="name">BuySell</div>
+      <div class="tag">Asturias</div>
+    </div>
+  </div>
+</body>
+</html>
