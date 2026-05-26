@@ -176,7 +176,7 @@ export default async function PropertyDetail({ params }: { params: Promise<{ id:
                 <StatusBadge status={p.status} />
                 {p.priceHistory.length >= 2 && <PriceDelta from={prevPrice} to={p.currentPrice} />}
               </div>
-              <div className="mt-3 text-3xl font-semibold text-text tabular">{formatPrice(p.currentPrice)}</div>
+              <div className="mt-3 text-3xl font-semibold text-accent tabular">{formatPrice(p.currentPrice)}</div>
               {p.builtArea && p.currentPrice && (
                 <div className="mt-1 text-xs text-text-muted">
                   {Math.round((p.currentPrice / 100) / p.builtArea).toLocaleString("es-ES")} €/m²

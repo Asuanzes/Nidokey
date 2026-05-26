@@ -121,7 +121,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <IconKey size={20} />
           </div>
           <div className="leading-tight">
-            <div className="text-sm font-semibold text-text">BuySell</div>
+            <div className="text-sm font-semibold text-accent">BuySell</div>
             <div className="text-[11px] text-text-subtle">Asturias</div>
           </div>
         </Link>
@@ -157,19 +157,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           className={cn(
                             "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
                             active
-                              ? "bg-primary-soft text-primary font-medium"
+                              ? "bg-accent/10 text-accent font-medium"
                               : "text-text-muted hover:bg-surface-muted hover:text-text",
                             it.disabled && "cursor-not-allowed opacity-50"
                           )}
                         >
-                          <Icon size={15} className={cn(active ? "text-primary" : "text-text-subtle")} />
+                          <Icon size={15} className={cn(active ? "text-accent" : "text-text-subtle")} />
                           <span className="flex-1">{it.label}</span>
                           {isDuplicados && dupCount > 0 && (
                             <span
                               className={cn(
                                 "rounded px-1.5 text-[11px] font-medium tabular",
                                 active
-                                  ? "bg-primary-soft text-primary"
+                                  ? "bg-accent/10 text-accent"
                                   : "bg-surface-muted text-text-muted"
                               )}
                             >
@@ -230,7 +230,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             )}
             <Link
               href="/properties/new"
-              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-fg hover:bg-primary-hover"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-accent px-3 text-sm font-medium text-primary-fg hover:opacity-90"
             >
               <Plus size={14} />
               Nuevo inmueble

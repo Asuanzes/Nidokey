@@ -56,7 +56,7 @@ export function PropertyTable({ rows }: { rows: Row[] }) {
                     </div>
                   )}
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-medium text-text group-hover:text-primary">{r.title}</div>
+                    <div className="truncate text-sm font-medium text-accent group-hover:opacity-80">{r.title}</div>
                     <div className="mt-0.5 flex items-center gap-1 text-xs text-text-muted">
                       <MapPin size={11} />
                       {r.neighborhood ? `${r.neighborhood}, ${r.city}` : r.city}
@@ -66,7 +66,7 @@ export function PropertyTable({ rows }: { rows: Row[] }) {
               </TD>
               <TD className="text-text-muted">{TYPE_LABEL[r.type] ?? r.type}</TD>
               <TD><StatusBadge status={r.status} /></TD>
-              <TD className="text-right text-sm font-semibold tabular">{formatPrice(r.currentPrice)}</TD>
+              <TD className="text-right text-sm font-semibold text-accent tabular">{formatPrice(r.currentPrice)}</TD>
               <TD className="text-right"><PriceDelta from={prev} to={last} /></TD>
               <TD className="text-right tabular text-text-muted">
                 <span className="inline-flex items-center gap-1"><Bed size={11} />{r.rooms ?? "—"}</span>

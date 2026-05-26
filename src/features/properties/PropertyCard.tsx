@@ -38,13 +38,13 @@ export function PropertyCard({ p }: { p: Row }) {
           </div>
         </div>
         <div className="space-y-2 p-4">
-          <h3 className="line-clamp-1 text-sm font-semibold text-text">{p.title}</h3>
+          <h3 className="line-clamp-1 text-sm font-semibold text-accent">{p.title}</h3>
           <div className="flex items-center gap-1 text-xs text-text-muted">
             <MapPin size={11} />
             {p.neighborhood ? `${p.neighborhood}, ${p.city}` : p.city}
           </div>
           <div className="flex items-baseline justify-between">
-            <div className="text-lg font-semibold text-text tabular">{formatPrice(p.currentPrice)}</div>
+            <div className="text-lg font-semibold text-accent tabular">{formatPrice(p.currentPrice)}</div>
             <PriceDelta from={prev} to={last} />
           </div>
           <div className="flex items-center gap-3 border-t border-border pt-2.5 text-xs text-text-muted">

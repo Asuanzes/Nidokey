@@ -62,7 +62,7 @@ export function PropertyCard({ p }: { p: PropertyCardData }) {
             {TYPE_LABEL[p.type] ?? p.type} · {p.neighborhood ? `${p.neighborhood}, ` : ""}{p.city}
           </Text>
           <View style={[styles.footer, { borderTopColor: th.border }]}>
-            <Text style={[styles.price, { color: th.text }]}>{formatPrice(p.currentPrice)}</Text>
+            <Text style={[styles.price, { color: th.accent }]}>{formatPrice(p.currentPrice)}</Text>
             <Text style={[styles.features, { color: th.textMuted }]}>
               {p.rooms != null ? `${p.rooms} hab` : "—"}
               {p.bathrooms != null ? ` · ${p.bathrooms} baño${p.bathrooms !== 1 ? "s" : ""}` : ""}

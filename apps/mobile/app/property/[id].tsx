@@ -126,7 +126,7 @@ export default function PropertyDetailScreen() {
           <Text style={[styles.location, { color: th.textMuted }]}>
             {[TYPE_LABEL[p.type], p.neighborhood, p.city, p.province].filter(Boolean).join(" · ")}
           </Text>
-          <Text style={[styles.price, { color: th.text }]}>{formatPrice(p.currentPrice)}</Text>
+          <Text style={[styles.price, { color: th.accent }]}>{formatPrice(p.currentPrice)}</Text>
           {p.builtArea && p.currentPrice && (
             <Text style={[styles.pricePerSqm, { color: th.textMuted }]}>
               {Math.round(p.currentPrice / 100 / p.builtArea).toLocaleString("es-ES")} €/m²

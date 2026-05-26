@@ -15,6 +15,7 @@ export default {
         "text-muted": "var(--text-muted)",
         "text-subtle": "var(--text-subtle)",
         "text-inverse": "var(--text-inverse)",
+        accent: "var(--brand-accent)",
         primary: {
           DEFAULT: "var(--primary)",
           hover: "var(--primary-hover)",

@@ -25,8 +25,8 @@
   --primary-soft: #EAEFF6;
   --primary-fg: #FAFAF7;
 
-  /* Acento de marca (llave: latón envejecido sobre acero) */
-  --brand-accent: #C49A4D;
+  /* Acento de marca (llave: cobre envejecido sobre acero) */
+  --brand-accent: #B87333;
 
   /* Semantic */
   --success: #2D6A4F;
@@ -92,7 +92,7 @@ body {
   --primary-soft: #1A2A3A;
   --primary-fg: #F0EFEA;
 
-  --brand-accent: #D4AA5D;
+  --brand-accent: #CC8844;
 
   --success: #5CB88A;
   --success-soft: #1A2E23;
