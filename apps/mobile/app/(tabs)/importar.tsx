@@ -9,10 +9,10 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
 
 import { useTheme } from "@/lib/theme";
 import { api, ApiError } from "@/lib/api";
+import { WebViewImporter, type ExtractedPayload } from "@/components/WebViewImporter";
 
 const PORTAL_HOSTS = [
   "fotocasa.", "pisos.com", "habitaclia.", "thinkspain.", "indomio.",
@@ -28,7 +28,7 @@ function isPortalUrl(u: string): boolean {
   }
 }
 
-type ScrapeResult = {
+type ImportResult = {
   created: boolean;
   priceChanged: boolean;
   propertyId: string;
@@ -36,63 +36,77 @@ type ScrapeResult = {
   newPrice: number | null;
 };
 
-type ApiErr = {
-  error: string;
-  portal?: string;
-  message?: string;
-};
-
-type Status = "idle" | "loading" | "ok" | "error";
+type Status =
+  | "idle"
+  | "extracting"   // WebView cargando y extrayendo datos
+  | "sending"      // enviando a la API
+  | "ok"
+  | "error";
 
 export default function ImportarScreen() {
   const { th } = useTheme();
   const [url, setUrl] = useState("");
   const [status, setStatus] = useState<Status>("idle");
-  const [result, setResult] = useState<ScrapeResult | null>(null);
-  const [apiError, setApiError] = useState<ApiErr | null>(null);
+  const [result, setResult] = useState<ImportResult | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleIncomingUrl = useCallback((u: string) => {
     if (isPortalUrl(u)) {
       setUrl(u);
       setStatus("idle");
       setResult(null);
-      setApiError(null);
+      setErrorMsg(null);
     }
   }, []);
 
   useEffect(() => {
-    // Cold start: app abierta via share intent de Android
     Linking.getInitialURL().then((u) => { if (u) handleIncomingUrl(u); });
-    // Warm start: app ya abierta, llega URL via evento
     const sub = Linking.addEventListener("url", ({ url: u }) => handleIncomingUrl(u));
     return () => sub.remove();
   }, [handleIncomingUrl]);
 
-  async function doImport() {
-    const trimmedUrl = url.trim();
-    if (!trimmedUrl) return;
-    setStatus("loading");
+  function startImport() {
+    const trimmed = url.trim();
+    if (!trimmed || status === "extracting" || status === "sending") return;
+    setStatus("extracting");
     setResult(null);
-    setApiError(null);
+    setErrorMsg(null);
+  }
+
+  async function handleExtracted(data: ExtractedPayload) {
+    setStatus("sending");
     try {
-      const data = await api<ScrapeResult>("/api/listings/scrape-url", {
+      const res = await api<ImportResult>("/api/listings/import", {
         method: "POST",
-        body: JSON.stringify({ url: trimmedUrl }),
+        body: JSON.stringify(data),
       });
-      setResult(data);
+      setResult(res);
       setStatus("ok");
     } catch (e) {
-      const err: ApiErr =
+      const msg =
         e instanceof ApiError && e.body && typeof e.body === "object"
-          ? (e.body as ApiErr)
-          : { error: "network", message: e instanceof Error ? e.message : "Error de red" };
-      setApiError(err);
+          ? ((e.body as { message?: string }).message ?? e.message)
+          : e instanceof Error
+          ? e.message
+          : "Error al guardar el inmueble";
+      setErrorMsg(msg);
       setStatus("error");
     }
   }
 
-  const isManualOnly = apiError?.error === "manual_only";
-  const canImport = url.trim().length > 10 && status !== "loading";
+  function handleWebViewError(reason: string) {
+    setErrorMsg(reason || "No se pudo extraer datos del anuncio");
+    setStatus("error");
+  }
+
+  function handleCancel() {
+    setStatus("idle");
+  }
+
+  const isExtracting = status === "extracting";
+  const isSending = status === "sending";
+  const isBusy = isExtracting || isSending;
+  const canImport = url.trim().length > 10 && !isBusy;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: th.bg }]} edges={["top"]}>
@@ -103,27 +117,51 @@ export default function ImportarScreen() {
       <View style={styles.content}>
         <TextInput
           value={url}
-          onChangeText={(t) => { setUrl(t); setStatus("idle"); setResult(null); setApiError(null); }}
-          placeholder="https://www.fotocasa.es/…"
+          onChangeText={(t) => {
+            setUrl(t);
+            setStatus("idle");
+            setResult(null);
+            setErrorMsg(null);
+          }}
+          placeholder="https://www.idealista.com/…"
           placeholderTextColor={th.textSubtle}
           keyboardType="url"
           autoCapitalize="none"
           autoCorrect={false}
           style={[styles.input, { backgroundColor: th.surface, borderColor: th.border, color: th.text }]}
-          editable={status !== "loading"}
+          editable={!isBusy}
         />
 
         <Pressable
           style={[styles.btn, { backgroundColor: canImport ? th.accent : th.border }]}
-          onPress={doImport}
+          onPress={startImport}
           disabled={!canImport}
         >
-          {status === "loading" ? (
+          {isBusy ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
             <Text style={styles.btnText}>Importar</Text>
           )}
         </Pressable>
+
+        {isExtracting && (
+          <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
+            <Text style={[styles.infoText, { color: th.textMuted }]}>
+              🌐 Cargando el anuncio en segundo plano…
+            </Text>
+            <Text style={[styles.infoSub, { color: th.textSubtle }]}>
+              Si aparece una verificación la verás automáticamente.
+            </Text>
+          </View>
+        )}
+
+        {isSending && (
+          <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
+            <Text style={[styles.infoText, { color: th.textMuted }]}>
+              ☁️ Guardando en tu catálogo…
+            </Text>
+          </View>
+        )}
 
         {status === "ok" && result && (
           <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
@@ -137,33 +175,29 @@ export default function ImportarScreen() {
           </View>
         )}
 
-        {status === "error" && apiError && (
-          isManualOnly ? (
-            <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
-              <View style={styles.warningRow}>
-                <Ionicons name="warning-outline" size={18} color={th.dangerFg} />
-                <Text style={[styles.warningTitle, { color: th.text }]}>Portal no compatible</Text>
-              </View>
-              <Text style={[styles.body, { color: th.textMuted }]}>
-                {apiError.portal} usa anti-bot que bloquea el scraping automático. Puedes abrir el anuncio en el navegador y añadirlo manualmente en la web.
-              </Text>
-              <Pressable onPress={() => Linking.openURL(url)}>
-                <Text style={[styles.link, { color: th.primary }]}>Abrir en el navegador →</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
-              <Text style={[styles.errorText, { color: th.dangerFg }]}>
-                {apiError.message ?? "Ha ocurrido un error. Inténtalo de nuevo."}
-              </Text>
-            </View>
-          )
+        {status === "error" && errorMsg && (
+          <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
+            <Text style={[styles.errorText, { color: th.dangerFg }]}>{errorMsg}</Text>
+            <Pressable onPress={() => setStatus("idle")}>
+              <Text style={[styles.link, { color: th.primary }]}>Intentar de nuevo</Text>
+            </Pressable>
+          </View>
         )}
 
         <Text style={[styles.hint, { color: th.textSubtle }]}>
-          {"Compatible: Fotocasa · Pisos.com · Habitaclia · ThinkSPAIN · Indomio\nNo compatible: Idealista · Milanuncios · Yaencontre"}
+          {"Compatible con todos los portales: Idealista, Fotocasa, Pisos.com, Habitaclia, Milanuncios, Yaencontre, ThinkSPAIN, Indomio"}
         </Text>
       </View>
+
+      {/* WebView montado en background cuando está extrayendo */}
+      {isExtracting && (
+        <WebViewImporter
+          url={url.trim()}
+          onExtracted={handleExtracted}
+          onError={handleWebViewError}
+          onCancel={handleCancel}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -183,12 +217,11 @@ const styles = StyleSheet.create({
   },
   btnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
   card: { borderRadius: 10, borderWidth: 1, padding: 14, gap: 6 },
+  infoText: { fontSize: 14, fontWeight: "500" },
+  infoSub: { fontSize: 12, lineHeight: 16 },
   resultText: { fontSize: 14, fontWeight: "500" },
-  warningRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  warningTitle: { fontSize: 14, fontWeight: "600" },
-  body: { fontSize: 13, lineHeight: 18 },
-  link: { fontSize: 13, fontWeight: "500", marginTop: 4 },
   errorText: { fontSize: 13 },
+  link: { fontSize: 13, fontWeight: "500", marginTop: 4 },
   hint: {
     fontSize: 12, lineHeight: 18,
     marginTop: "auto", textAlign: "center", paddingBottom: 8,

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import QRCode from "react-qr-code";
 
 type Status = "idle" | "loading" | "ok" | "error";
 
@@ -24,11 +25,13 @@ export function ImportForm() {
   const [status, setStatus] = useState<Status>("idle");
   const [result, setResult] = useState<ImportResult | null>(null);
   const [apiError, setApiError] = useState<ApiErr | null>(null);
+  const [copied, setCopied] = useState(false);
 
   function reset() {
     setStatus("idle");
     setResult(null);
     setApiError(null);
+    setCopied(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -38,6 +41,7 @@ export function ImportForm() {
     setStatus("loading");
     setResult(null);
     setApiError(null);
+    setCopied(false);
     try {
       const res = await fetch("/api/listings/scrape-url", {
         method: "POST",
@@ -55,6 +59,16 @@ export function ImportForm() {
     } catch {
       setApiError({ error: "network", message: "Error de red. Comprueba tu conexión." });
       setStatus("error");
+    }
+  }
+
+  async function copyUrl() {
+    try {
+      await navigator.clipboard.writeText(url.trim());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback: select the input
     }
   }
 
@@ -101,15 +115,46 @@ export function ImportForm() {
 
       {status === "error" && apiError && (
         isManualOnly ? (
-          <div className="rounded-md border border-warning bg-warning-soft px-4 py-3 text-sm">
-            <p className="font-medium text-warning">Portal no compatible con importación automática</p>
-            <p className="mt-1 text-text-muted">
-              <strong>{apiError.portal}</strong> usa protección anti-bot que bloquea el scraping desde el servidor.
-              Puedes añadirlo manualmente rellenando el formulario.
-            </p>
-            <Link href="/properties/new" className="mt-2 block text-primary hover:underline">
-              Crear ficha manualmente →
-            </Link>
+          /* Portal bloqueado server-side → redirigir al móvil via QR */
+          <div className="rounded-md border border-border bg-surface-muted p-5 text-sm space-y-4">
+            <div>
+              <p className="font-semibold text-text">
+                📱 Importa este portal desde la app móvil
+              </p>
+              <p className="mt-1 text-text-muted">
+                <strong>{apiError.portal}</strong> bloquea el scraping desde el servidor (DataDome).
+                Escanea el QR con tu móvil o copia la URL y pégala en la pantalla <em>Importar</em> de la app Nidokey.
+              </p>
+            </div>
+
+            <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
+              <div className="rounded-lg border border-border bg-white p-3 shadow-xs">
+                <QRCode value={url.trim()} size={140} />
+              </div>
+              <div className="flex flex-col gap-2 text-xs text-text-muted">
+                <p className="font-medium text-text">Pasos:</p>
+                <ol className="list-decimal list-inside space-y-1">
+                  <li>Escanea el código con la cámara del móvil</li>
+                  <li>Abre el enlace en el navegador del móvil</li>
+                  <li>Comparte la página con la app Nidokey (Android)</li>
+                  <li className="text-text-subtle">— o copia la URL y pégala en la app —</li>
+                </ol>
+                <button
+                  type="button"
+                  onClick={copyUrl}
+                  className="mt-1 h-8 rounded-md border border-border bg-surface px-3 text-xs font-medium text-text hover:bg-surface-muted"
+                >
+                  {copied ? "✓ Copiado" : "Copiar URL"}
+                </button>
+              </div>
+            </div>
+
+            <div className="border-t border-border pt-3 text-xs text-text-subtle">
+              ¿Prefieres añadirlo manualmente?{" "}
+              <Link href="/properties/new" className="text-primary hover:underline">
+                Crear ficha →
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="rounded-md border border-danger bg-danger-soft px-4 py-3 text-sm text-danger">
