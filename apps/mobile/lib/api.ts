@@ -1,5 +1,5 @@
 /**
- * Cliente HTTP para hablar con el backend de BuySell.
+ * Cliente HTTP para hablar con el backend de Nidokey.
  *
  * Lee la URL de EXPO_PUBLIC_API_URL (env de Expo, expuesta al cliente).
  * Si hay token de sesión, lo añade como `Authorization: Bearer`.
@@ -7,7 +7,7 @@
 import { getItem } from "./secure-store";
 
 export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.1.77:4200";
-export const TOKEN_KEY = "buysell.mobile.token";
+export const TOKEN_KEY = "nidokey.mobile.token";
 
 export class ApiError extends Error {
   status: number;

@@ -15,7 +15,7 @@ export default function RootLayout() {
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
-    SecureStore.getItemAsync("buysell.theme")
+    SecureStore.getItemAsync("nidokey.theme")
       .then((v) => { if (v === "dark") setDark(true); })
       .catch(() => {});
   }, []);
@@ -23,7 +23,7 @@ export default function RootLayout() {
   const toggleTheme = () => {
     const next = !dark;
     setDark(next);
-    SecureStore.setItemAsync("buysell.theme", next ? "dark" : "light").catch(() => {});
+    SecureStore.setItemAsync("nidokey.theme", next ? "dark" : "light").catch(() => {});
   };
 
   const th = dark ? TD : T;

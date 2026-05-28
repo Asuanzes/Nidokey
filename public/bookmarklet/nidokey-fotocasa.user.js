@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         BuySell Asturias - Importador Fotocasa
-// @namespace    https://buysell.local/
+// @name         Nidokey - Importador Fotocasa
+// @namespace    https://nidokey.es/
 // @version      0.3.0
-// @description  Añade un botón "Importar a BuySell" en cada anuncio de Fotocasa y envía la ficha a la app local.
+// @description  Añade un botón "Importar a Nidokey" en cada anuncio de Fotocasa y envía la ficha a la app local.
 // @match        https://www.fotocasa.es/*
 // @match        https://fotocasa.es/*
 // @grant        GM_xmlhttpRequest
@@ -20,11 +20,11 @@
 
   // ---------- UI ----------
   function injectButton() {
-    if (document.getElementById("__buysell_btn__")) return;
+    if (document.getElementById("__nidokey_btn__")) return;
     const btn = document.createElement("button");
-    btn.id = "__buysell_btn__";
+    btn.id = "__nidokey_btn__";
     btn.type = "button";
-    btn.textContent = "📥 Importar a BuySell";
+    btn.textContent = "📥 Importar a Nidokey";
     btn.style.cssText =
       "position:fixed;bottom:24px;right:24px;z-index:2147483647;" +
       "background:#3A5F8A;color:#FAFAF7;border:none;cursor:pointer;" +
@@ -37,7 +37,7 @@
   }
 
   function notify(msg, color) {
-    const id = "__buysell_toast__";
+    const id = "__nidokey_toast__";
     document.getElementById(id)?.remove();
     const el = document.createElement("div");
     el.id = id;
@@ -344,7 +344,7 @@
     const nextData = readNextData();
     const propNode = nextData ? findPropertyNode(nextData) : null;
 
-    console.log("[BuySell] __NEXT_DATA__ encontrado:", !!nextData, "propNode:", !!propNode);
+    console.log("[Nidokey] __NEXT_DATA__ encontrado:", !!nextData, "propNode:", !!propNode);
 
     const titleFromNode = propNode && (propNode.title || propNode.headline);
     const title =
@@ -410,9 +410,9 @@
       features: featuresFromDom.all,
     };
 
-    notify("BuySell: enviando…\n" + (title || "").slice(0, 60), "#3A5F8A");
-    console.log("[BuySell] payload:", payload);
-    console.log("[BuySell] payload JSON:\n" + JSON.stringify(payload, null, 2));
+    notify("Nidokey: enviando…\n" + (title || "").slice(0, 60), "#3A5F8A");
+    console.log("[Nidokey] payload:", payload);
+    console.log("[Nidokey] payload JSON:\n" + JSON.stringify(payload, null, 2));
 
     GM_xmlhttpRequest({
       method: "POST",
@@ -424,7 +424,7 @@
         try { data = JSON.parse(resp.responseText); } catch (_) {}
         if (resp.status >= 400) {
           notify("Error " + resp.status + ":\n" + (data.error || resp.statusText), "#B91C1C");
-          console.error("[BuySell] error:", data);
+          console.error("[Nidokey] error:", data);
           return;
         }
         const photos = typeof data.photoCount === "number" ? data.photoCount : payload.images.length;
@@ -440,11 +440,11 @@
         } else {
           notify("👌 Ya existía, sin cambios", "#2C7A8A");
         }
-        console.log("[BuySell] result:", data);
+        console.log("[Nidokey] result:", data);
       },
       onerror: function (err) {
         notify("Error de red.\n¿Está la app en localhost:4200?", "#B91C1C");
-        console.error("[BuySell] fetch error:", err);
+        console.error("[Nidokey] fetch error:", err);
       },
     });
   }

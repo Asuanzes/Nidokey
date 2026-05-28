@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw, AlertCircle, ExternalLink, Check } from "lucide-react";
-import { formatPrice } from "@buysell/shared";
+import { formatPrice } from "@nidokey/shared";
 
 type Props = {
   listingId: string;

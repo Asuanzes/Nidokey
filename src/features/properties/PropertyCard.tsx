@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Bath, Bed, MapPin, Maximize2 } from "lucide-react";
 import { StatusBadge, PriceDelta } from "@/components/ui";
-import { formatPrice } from "@buysell/shared";
+import { formatPrice } from "@nidokey/shared";
 import { RowActionsMenu } from "./RowActionsMenu";
 
 type Row = {

@@ -11,7 +11,7 @@ export function BookmarkletLink({ href }: { href: string }) {
       }}
       className="inline-flex h-10 cursor-grab items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-fg shadow-sm hover:bg-primary-hover active:cursor-grabbing"
     >
-      📥 Importar a BuySell
+      📥 Importar a Nidokey
     </a>
   );
 }

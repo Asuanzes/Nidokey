@@ -50,5 +50,5 @@ export function extractTokenFromRequest(req: Request): string | null {
 
 function generateToken(): string {
   // 32 bytes → 64 chars hex. Prefijo legible para identificar en logs.
-  return `bs_${randomBytes(32).toString("hex")}`;
+  return `nk_${randomBytes(32).toString("hex")}`;
 }

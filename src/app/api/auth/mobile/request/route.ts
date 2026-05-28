@@ -18,7 +18,7 @@ const Body = z.object({
   email: z.string().email().max(200),
 });
 
-const RESEND_FROM = process.env.RESEND_FROM ?? "BuySell <onboarding@resend.dev>";
+const RESEND_FROM = process.env.RESEND_FROM ?? "Nidokey <onboarding@resend.dev>";
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 /**
@@ -54,17 +54,17 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  const subject = "Tu código de acceso a BuySell";
+  const subject = "Tu código de acceso a Nidokey";
   const html = `<!doctype html>
 <html><body style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a;">
-  <h2 style="margin:0 0 16px;color:#3A5F8A;">BuySell Asturias</h2>
+  <h2 style="margin:0 0 16px;color:#3A5F8A;">Nidokey Asturias</h2>
   <p>Tu código de acceso es:</p>
   <p style="margin:24px 0;font-size:32px;font-weight:600;letter-spacing:8px;color:#3A5F8A;font-family:monospace;text-align:center;">${code}</p>
   <p style="font-size:13px;color:#666;">Introdúcelo en la app. Caduca en 10 minutos.</p>
   <hr style="border:none;border-top:1px solid #eee;margin:32px 0;">
   <p style="font-size:12px;color:#999;">Si no solicitaste este código, ignora este email.</p>
 </body></html>`;
-  const text = `Tu código de acceso a BuySell: ${code}\n\nCaduca en 10 minutos.`;
+  const text = `Tu código de acceso a Nidokey: ${code}\n\nCaduca en 10 minutos.`;
 
   if (!resend) {
     console.log(`\n========================`);

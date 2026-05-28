@@ -13,7 +13,7 @@ export default function LoginPage() {
             <IconKey size={22} />
           </div>
           <div className="leading-tight">
-            <div className="text-base font-semibold text-text">BuySell</div>
+            <div className="text-base font-semibold text-text">Nidokey</div>
             <div className="text-xs text-text-subtle">Asturias</div>
           </div>
         </div>

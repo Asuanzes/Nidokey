@@ -1,5 +1,5 @@
 {
-  "name": "buysell-asturias",
+  "name": "nidokey",
   "version": "0.1.0",
   "private": true,
   "workspaces": [
@@ -22,7 +22,7 @@
     "fix-prices": "tsx scripts/fix-corrupt-prices.ts",
     "scraper": "node scripts/scraper-service.mjs",
     "claim-orphans": "tsx scripts/claim-orphan-properties.ts",
-    "mobile": "npm --workspace @buysell/mobile run start"
+    "mobile": "npm --workspace @nidokey/mobile run start"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

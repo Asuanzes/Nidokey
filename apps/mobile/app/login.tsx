@@ -60,7 +60,7 @@ export default function LoginScreen() {
           <View style={styles.iconBox}>
             <Text style={styles.iconText}>🔑</Text>
           </View>
-          <Text style={styles.title}>BuySell Asturias</Text>
+          <Text style={styles.title}>Nidokey</Text>
         </View>
 
         <View style={styles.card}>

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Search } from "lucide-react";
-import { formatPrice } from "@buysell/shared";
+import { formatPrice } from "@nidokey/shared";
 
 type Result = {
   id: string;

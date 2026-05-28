@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { GitMerge, X, ArrowRight, ExternalLink } from "lucide-react";
 import { Card, CardBody } from "@/components/ui";
-import { formatPrice } from "@buysell/shared";
+import { formatPrice } from "@nidokey/shared";
 
 type PropMin = {
   id: string;

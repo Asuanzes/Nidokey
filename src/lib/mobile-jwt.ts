@@ -5,11 +5,11 @@ import * as jose from "jose";
  * Firmado con el mismo AUTH_SECRET que NextAuth para mantener un único trust root.
  *
  * Independiente del JWT-de-cookie de NextAuth: usamos issuer distinto
- * ("buysell-mobile") para evitar confusiones.
+ * ("nidokey-mobile") para evitar confusiones.
  */
 
 const ALG = "HS256";
-const ISSUER = "buysell-mobile";
+const ISSUER = "nidokey-mobile";
 const EXPIRY = "90d"; // sesión móvil larga (usuario raras veces re-loguea en su propio dispositivo)
 
 function getSecret(): Uint8Array {

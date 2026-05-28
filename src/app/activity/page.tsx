@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Activity as ActivityIcon, ArrowDown, ArrowUp, CheckCircle2, Minus } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { Badge, Card, CardBody, EmptyState, PageHeader, Stat } from "@/components/ui";
-import { formatPrice } from "@buysell/shared";
+import { formatPrice } from "@nidokey/shared";
 import { cn } from "@/lib/cn";
 
 export const dynamic = "force-dynamic";

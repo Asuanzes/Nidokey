@@ -3,7 +3,7 @@ import type { Portal, PropertyType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { enrichProperty } from "@/features/cadastre/lookup";
 import { dhashFromUrl } from "@/lib/dhash";
-import { slugifyTitle } from "@buysell/shared";
+import { slugifyTitle } from "@nidokey/shared";
 import { findSimilar } from "@/features/matching/find-similar";
 import { mergeProperties } from "@/features/matching/merge";
 import { borrowFieldsFromSimilar } from "@/features/matching/borrow-fields";
@@ -15,7 +15,7 @@ import {
   isValidPlotArea,
   isValidYear,
   isReasonablePriceChange,
-} from "@buysell/shared";
+} from "@nidokey/shared";
 
 /**
  * Payload normalizado que el bookmarklet (o cualquier importador) envía

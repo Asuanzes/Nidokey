@@ -15,7 +15,7 @@ export default function BrandPage() {
     <>
       <PageHeader
         title="Iconos de marca"
-        description="Propuestas para la identidad de BuySell Asturias. Las llenas heredan el primario; los acentos llevan color propio."
+        description="Propuestas para la identidad de Nidokey. Las llenas heredan el primario; los acentos llevan color propio."
       />
 
       <section className="mb-10">
@@ -35,7 +35,7 @@ export default function BrandPage() {
                   <IconKey size={20} />
                 </div>
                 <div className="leading-tight">
-                  <div className="text-xs font-semibold text-text">BuySell</div>
+                  <div className="text-xs font-semibold text-text">Nidokey</div>
                   <div className="text-[10px] text-text-subtle">Asturias</div>
                 </div>
               </div>
@@ -104,7 +104,7 @@ export default function BrandPage() {
                         <Icon size={15} />
                       </div>
                       <div className="leading-tight">
-                        <div className="text-xs font-semibold text-text">BuySell</div>
+                        <div className="text-xs font-semibold text-text">Nidokey</div>
                         <div className="text-[10px] text-text-subtle">Asturias</div>
                       </div>
                     </div>
@@ -118,7 +118,7 @@ export default function BrandPage() {
                         <Icon size={15} />
                       </div>
                       <div className="leading-tight">
-                        <div className="text-xs font-semibold text-text">BuySell</div>
+                        <div className="text-xs font-semibold text-text">Nidokey</div>
                         <div className="text-[10px] text-text-subtle">Asturias</div>
                       </div>
                     </div>
@@ -130,7 +130,7 @@ export default function BrandPage() {
                     <div className="flex items-center gap-2">
                       <Icon size={20} />
                       <div className="leading-tight">
-                        <div className="text-xs font-semibold">BuySell</div>
+                        <div className="text-xs font-semibold">Nidokey</div>
                         <div className="text-[10px] opacity-70">Asturias</div>
                       </div>
                     </div>

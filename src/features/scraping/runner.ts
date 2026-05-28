@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { isReasonablePriceChange } from "@buysell/shared";
+import { isReasonablePriceChange } from "@nidokey/shared";
 import { logImportEvent } from "@/lib/import-log";
 import type { PortalAdapter, ScrapeOutcome } from "./types";
 import { idealistaAdapter } from "./adapters/idealista";

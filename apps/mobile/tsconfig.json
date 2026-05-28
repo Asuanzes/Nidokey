@@ -4,8 +4,8 @@
     "strict": true,
     "paths": {
       "@/*": ["./*"],
-      "@buysell/shared": ["../../packages/shared/src/index.ts"],
-      "@buysell/shared/*": ["../../packages/shared/src/*"]
+      "@nidokey/shared": ["../../packages/shared/src/index.ts"],
+      "@nidokey/shared/*": ["../../packages/shared/src/*"]
     }
   },
   "include": [

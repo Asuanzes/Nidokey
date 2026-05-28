@@ -1,7 +1,7 @@
 import type { Portal } from "@prisma/client";
 import type { PortalAdapter, ScrapeOutcome } from "../types";
 import { loadPage, parsePriceEur, readJsonLd, priceFromJsonLd } from "./_common";
-import { isValidPriceEur } from "@buysell/shared";
+import { isValidPriceEur } from "@nidokey/shared";
 
 /**
  * Adaptador genérico para re-check server-side de portales sin anti-bot fuerte.

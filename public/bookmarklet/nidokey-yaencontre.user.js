@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         BuySell Asturias - Importador Yaencontre
-// @namespace    https://buysell.local/
+// @name         Nidokey - Importador Yaencontre
+// @namespace    https://nidokey.es/
 // @version      0.6.0
-// @description  Importa anuncios de Yaencontre a BuySell.
+// @description  Importa anuncios de Yaencontre a Nidokey.
 // @match        https://www.yaencontre.com/*
 // @match        https://yaencontre.com/*
 // @grant        GM_xmlhttpRequest
@@ -18,15 +18,15 @@
   if (!/\/inmueble-\d+/.test(location.pathname)) return;
 
   function injectButton() {
-    if (document.getElementById("__buysell_btn__")) return;
+    if (document.getElementById("__nidokey_btn__")) return;
     const b = document.createElement("button");
-    b.id = "__buysell_btn__"; b.textContent = "📥 Importar a BuySell";
+    b.id = "__nidokey_btn__"; b.textContent = "📥 Importar a Nidokey";
     b.style.cssText = "position:fixed;bottom:24px;right:24px;z-index:2147483647;background:#3A5F8A;color:#FAFAF7;border:none;cursor:pointer;padding:12px 18px;border-radius:8px;font:14px system-ui,sans-serif;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.25);";
     b.onclick = run; document.body.appendChild(b);
   }
   function notify(msg, color) {
-    document.getElementById("__buysell_toast__")?.remove();
-    const el = document.createElement("div"); el.id = "__buysell_toast__"; el.textContent = msg;
+    document.getElementById("__nidokey_toast__")?.remove();
+    const el = document.createElement("div"); el.id = "__nidokey_toast__"; el.textContent = msg;
     el.style.cssText = "position:fixed;top:20px;right:20px;z-index:2147483647;background:" + (color || "#3A5F8A") + ";color:#fff;padding:12px 16px;border-radius:8px;font:14px system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.2);max-width:360px;white-space:pre-wrap;";
     document.body.appendChild(el); setTimeout(() => el.remove(), 6000);
   }
@@ -147,8 +147,8 @@
     }
     const final = Array.from(byFile.values()).map((x) => x.url).slice(0, 80);
     // DEBUG: imprime las 3 primeras raw vs final para diagnóstico
-    console.log("[BuySell yae] raw image URLs (muestra 5):", Array.from(raw).slice(0, 5));
-    console.log("[BuySell yae] final URLs (muestra 5):", final.slice(0, 5));
+    console.log("[Nidokey yae] raw image URLs (muestra 5):", Array.from(raw).slice(0, 5));
+    console.log("[Nidokey yae] final URLs (muestra 5):", final.slice(0, 5));
     return final;
   }
   function readFeatures() {
@@ -237,16 +237,16 @@
       hasPool: basics.hasPool ?? null,
       energyRating: "UNKNOWN", images, features,
     };
-    notify("BuySell: enviando…", "#3A5F8A");
-    console.log("[BuySell] payload:", payload);
-    console.log("[BuySell] payload JSON:\n" + JSON.stringify(payload, null, 2));
+    notify("Nidokey: enviando…", "#3A5F8A");
+    console.log("[Nidokey] payload:", payload);
+    console.log("[Nidokey] payload JSON:\n" + JSON.stringify(payload, null, 2));
     GM_xmlhttpRequest({
       method: "POST", url: API, headers: { "Content-Type": "application/json" },
       data: JSON.stringify(payload),
       onload: (r) => {
         let d = {}; try { d = JSON.parse(r.responseText); } catch (_) {}
         if (r.status >= 400) {
-          console.error("[BuySell] full server response:", d);
+          console.error("[Nidokey] full server response:", d);
           const detail = [d.error, d.code, d.name].filter(Boolean).join(" · ");
           return notify("Error " + r.status + ":\n" + (detail || r.statusText), "#B91C1C");
         }
@@ -256,7 +256,7 @@
         else if (d.priceChanged) notify("💶 Precio actualizado" + pt, "#C49A4D");
         else if (d.mediaRefreshed) notify("🔄 Ficha refrescada" + pt, "#2C7A8A");
         else notify("👌 Ya existía, sin cambios", "#2C7A8A");
-        console.log("[BuySell] result:", d);
+        console.log("[Nidokey] result:", d);
       },
       onerror: () => notify("Error de red.\n¿Está la app en localhost:4200?", "#B91C1C"),
     });

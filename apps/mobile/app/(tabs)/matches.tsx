@@ -13,7 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
-import { formatPrice } from "@buysell/shared";
+import { formatPrice } from "@nidokey/shared";
 
 type Match = {
   id: string;

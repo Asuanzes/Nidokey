@@ -26,7 +26,7 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const USER_KEY = "buysell.mobile.user";
+const USER_KEY = "nidokey.mobile.user";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ kind: "loading" });

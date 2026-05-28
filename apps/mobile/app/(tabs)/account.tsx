@@ -44,7 +44,7 @@ export default function AccountScreen() {
         <Text style={[styles.logoutText, { color: th.dangerFg }]}>Cerrar sesión</Text>
       </TouchableOpacity>
 
-      <Text style={[styles.footer, { color: th.textSubtle }]}>BuySell Asturias · v0.1.0</Text>
+      <Text style={[styles.footer, { color: th.textSubtle }]}>Nidokey · v0.1.0</Text>
     </SafeAreaView>
   );
 }

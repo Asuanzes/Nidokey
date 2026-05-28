@@ -17,7 +17,7 @@ const nextConfig: NextConfig = {
     ],
   },
   // Permite que Next compile el paquete del monorepo (TS sin build paso).
-  transpilePackages: ["@buysell/shared"],
+  transpilePackages: ["@nidokey/shared"],
   // sharp tiene binarios nativos. Lo dejamos external por seguridad.
   // (Playwright ya NO se importa desde Next; vive en el sidecar.)
   serverExternalPackages: ["sharp"],

@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         BuySell Asturias - Importador Pisos.com
-// @namespace    https://buysell.local/
+// @name         Nidokey - Importador Pisos.com
+// @namespace    https://nidokey.es/
 // @version      0.5.0
-// @description  Importa anuncios de Pisos.com a BuySell.
+// @description  Importa anuncios de Pisos.com a Nidokey.
 // @match        https://www.pisos.com/*
 // @match        https://pisos.com/*
 // @grant        GM_xmlhttpRequest
@@ -18,18 +18,18 @@
   if (!/\/comprar\/[^/]+\//.test(location.pathname)) return;
 
   function injectButton() {
-    if (document.getElementById("__buysell_btn__")) return;
+    if (document.getElementById("__nidokey_btn__")) return;
     const b = document.createElement("button");
-    b.id = "__buysell_btn__";
-    b.textContent = "📥 Importar a BuySell";
+    b.id = "__nidokey_btn__";
+    b.textContent = "📥 Importar a Nidokey";
     b.style.cssText = "position:fixed;bottom:24px;right:24px;z-index:2147483647;background:#3A5F8A;color:#FAFAF7;border:none;cursor:pointer;padding:12px 18px;border-radius:8px;font:14px system-ui,sans-serif;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.25);";
     b.onclick = run;
     document.body.appendChild(b);
   }
   function notify(msg, color) {
-    document.getElementById("__buysell_toast__")?.remove();
+    document.getElementById("__nidokey_toast__")?.remove();
     const el = document.createElement("div");
-    el.id = "__buysell_toast__";
+    el.id = "__nidokey_toast__";
     el.textContent = msg;
     el.style.cssText = "position:fixed;top:20px;right:20px;z-index:2147483647;background:" + (color || "#3A5F8A") + ";color:#fff;padding:12px 16px;border-radius:8px;font:14px system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.2);max-width:360px;white-space:pre-wrap;";
     document.body.appendChild(el);
@@ -243,9 +243,9 @@
       hasPool: basics.hasPool ?? null,
       energyRating: "UNKNOWN", images, features,
     };
-    notify("BuySell: enviando…", "#3A5F8A");
-    console.log("[BuySell] payload:", payload);
-    console.log("[BuySell] payload JSON:\n" + JSON.stringify(payload, null, 2));
+    notify("Nidokey: enviando…", "#3A5F8A");
+    console.log("[Nidokey] payload:", payload);
+    console.log("[Nidokey] payload JSON:\n" + JSON.stringify(payload, null, 2));
     GM_xmlhttpRequest({
       method: "POST", url: API, headers: { "Content-Type": "application/json" },
       data: JSON.stringify(payload),
@@ -258,7 +258,7 @@
         else if (d.priceChanged) notify("💶 Precio actualizado" + pt, "#C49A4D");
         else if (d.mediaRefreshed) notify("🔄 Ficha refrescada" + pt, "#2C7A8A");
         else notify("👌 Ya existía, sin cambios", "#2C7A8A");
-        console.log("[BuySell] result:", d);
+        console.log("[Nidokey] result:", d);
       },
       onerror: () => notify("Error de red.\n¿Está la app en localhost:4200?", "#B91C1C"),
     });

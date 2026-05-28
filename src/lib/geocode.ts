@@ -7,7 +7,7 @@
  */
 
 const BASE = "https://nominatim.openstreetmap.org/search";
-const UA = "BuySell-Asturias/1.0 (personal real estate app)";
+const UA = "Nidokey/1.0 (personal real estate app)";
 
 let lastCall = 0;
 async function throttle() {

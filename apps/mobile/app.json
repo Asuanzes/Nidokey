@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "BuySell Asturias",
-    "slug": "buysell-asturias",
+    "name": "Nidokey",
+    "slug": "nidokey",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "buysell",
+    "scheme": "nidokey",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {

@@ -10,7 +10,7 @@ import {
   PageHeader,
   Stat,
 } from "@/components/ui";
-import { formatPrice } from "@buysell/shared";
+import { formatPrice } from "@nidokey/shared";
 import { requireUserId } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";

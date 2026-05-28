@@ -25,7 +25,7 @@ const xmlParser = new XMLParser({
 
 async function fetchXml(url: string): Promise<unknown> {
   const res = await fetch(url, {
-    headers: { "User-Agent": "BuySell-Asturias/1.0 (cadastre lookup)" },
+    headers: { "User-Agent": "Nidokey/1.0 (cadastre lookup)" },
   });
   if (!res.ok) throw new Error(`Catastro ${res.status}: ${res.statusText}`);
   const text = await res.text();

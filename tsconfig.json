@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": false,
     "skipLibCheck": true,
     "strict": true,
@@ -13,13 +17,34 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "plugins": [{ "name": "next" }],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "paths": {
-      "@/*": ["./src/*"],
-      "@nidokey/shared": ["./packages/shared/src/index.ts"],
-      "@nidokey/shared/*": ["./packages/shared/src/*"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@nidokey/shared": [
+        "./packages/shared/src/index.ts"
+      ],
+      "@nidokey/shared/*": [
+        "./packages/shared/src/*"
+      ]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "apps/mobile", ".next", "docs"]
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "apps/mobile",
+    ".next",
+    "docs"
+  ],
+  "extends": "expo/tsconfig.base"
 }

@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { bigrams, haversineMeters, jaccard, slugifyTitle } from "@buysell/shared";
+import { bigrams, haversineMeters, jaccard, slugifyTitle } from "@nidokey/shared";
 import { hamming } from "@/lib/dhash";
 
 export type MatchSignals = {

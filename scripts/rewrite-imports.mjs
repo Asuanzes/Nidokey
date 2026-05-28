@@ -1,11 +1,11 @@
-// One-shot: rewrite imports from @/lib/{sanity,similarity,format} to @buysell/shared
+// One-shot: rewrite imports from @/lib/{sanity,similarity,format} to @nidokey/shared
 import { readFileSync, writeFileSync, readdirSync, statSync } from "node:fs";
 import { join, extname } from "node:path";
 
 const REPLACEMENTS = [
-  [/"@\/lib\/sanity"/g, '"@buysell/shared"'],
-  [/"@\/lib\/similarity"/g, '"@buysell/shared"'],
-  [/"@\/lib\/format"/g, '"@buysell/shared"'],
+  [/"@\/lib\/sanity"/g, '"@nidokey/shared"'],
+  [/"@\/lib\/similarity"/g, '"@nidokey/shared"'],
+  [/"@\/lib\/format"/g, '"@nidokey/shared"'],
 ];
 
 function walk(dir) {

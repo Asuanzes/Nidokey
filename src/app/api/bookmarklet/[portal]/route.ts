@@ -31,7 +31,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   const userId = await requireUserId();
   const token = await getOrCreateUserToken(userId);
 
-  const filePath = path.join(process.cwd(), "public", "bookmarklet", `buysell-${portal}.user.js`);
+  const filePath = path.join(process.cwd(), "public", "bookmarklet", `nidokey-${portal}.user.js`);
   let src: string;
   try {
     src = await readFile(filePath, "utf8");

@@ -1,5 +1,5 @@
 {
-  "name": "@buysell/mobile",
+  "name": "@nidokey/mobile",
   "main": "expo-router/entry",
   "version": "0.1.0",
   "private": true,
@@ -10,7 +10,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "@buysell/shared": "*",
+    "@nidokey/shared": "*",
     "@expo/vector-icons": "^15.0.3",
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/elements": "^2.6.3",

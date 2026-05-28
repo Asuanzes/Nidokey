@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth-helpers";
-import { formatPrice, formatDate } from "@buysell/shared";
+import { formatPrice, formatDate } from "@nidokey/shared";
 import {
   Badge, Button, Card, CardBody, CardHeader, CardTitle, PageHeader,
   PriceDelta, StatusBadge,

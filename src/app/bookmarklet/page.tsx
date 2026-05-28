@@ -8,7 +8,7 @@ export default function BookmarkletPage() {
     <div className="mx-auto max-w-3xl space-y-6">
       <PageHeader
         title="Importador de anuncios"
-        description="Instala el script una vez con Tampermonkey. A partir de ahí, en cada anuncio de Idealista verás un botón flotante para importar la ficha a BuySell."
+        description="Instala el script una vez con Tampermonkey. A partir de ahí, en cada anuncio de Idealista verás un botón flotante para importar la ficha a Nidokey."
       />
 
       <Card>
@@ -45,7 +45,7 @@ export default function BookmarkletPage() {
 
           <div>
             <div className="mb-2 text-sm font-medium text-text">
-              2. Instala el script de BuySell
+              2. Instala el script de Nidokey
             </div>
             <p className="text-sm text-text-muted">
               Con Tampermonkey ya activo, abre este enlace y pulsa <strong>“Instalar”</strong>:
@@ -92,7 +92,7 @@ export default function BookmarkletPage() {
               </a>
             </p>
             <p className="mt-2 text-sm text-text-muted">
-              Verás un botón flotante <strong>“📥 Importar a BuySell”</strong> abajo a la derecha. Púlsalo.
+              Verás un botón flotante <strong>“📥 Importar a Nidokey”</strong> abajo a la derecha. Púlsalo.
             </p>
             <ul className="mt-2 space-y-1 text-sm text-text-muted">
               <li>✅ <span className="text-text">Inmueble creado</span> — primera importación.</li>
@@ -109,7 +109,7 @@ export default function BookmarkletPage() {
           <ul className="list-inside list-disc space-y-1">
             <li>El script usa <code className="rounded bg-surface-muted px-1">GM_xmlhttpRequest</code>, que se salta CORS y CSP del sitio.</li>
             <li>Apunta a <code className="rounded bg-surface-muted px-1">http://localhost:4200</code>. Si despliegas la app, edita la constante <code className="rounded bg-surface-muted px-1">API</code> dentro de Tampermonkey.</li>
-            <li>Idealista cambia clases CSS periódicamente. Si algún campo deja de extraerse, ajustamos selectores en <code className="rounded bg-surface-muted px-1">public/bookmarklet/buysell-idealista.user.js</code> y vuelves a instalar.</li>
+            <li>Idealista cambia clases CSS periódicamente. Si algún campo deja de extraerse, ajustamos selectores en <code className="rounded bg-surface-muted px-1">public/bookmarklet/nidokey-idealista.user.js</code> y vuelves a instalar.</li>
           </ul>
         </div>
       </Card>

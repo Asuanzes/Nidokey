@@ -1,4 +1,4 @@
-/* BuySell Asturias - Importador Idealista
+/* Nidokey - Importador Idealista
  * Se ejecuta en la pestaña abierta del anuncio. Lee el DOM y manda payload
  * normalizado a http://localhost:4200/api/listings/import.
  *
@@ -10,7 +10,7 @@
   const API = "http://localhost:4200/api/listings/import";
 
   function notify(msg, color) {
-    const id = "__buysell_toast__";
+    const id = "__nidokey_toast__";
     document.getElementById(id)?.remove();
     const el = document.createElement("div");
     el.id = id;
@@ -208,8 +208,8 @@
     features,
   };
 
-  notify("BuySell: extrayendo y enviando…\n" + (title || "").slice(0, 60), "#3A5F8A");
-  console.log("[BuySell] payload:", payload);
+  notify("Nidokey: extrayendo y enviando…\n" + (title || "").slice(0, 60), "#3A5F8A");
+  console.log("[Nidokey] payload:", payload);
 
   fetch(API, {
     method: "POST",
@@ -221,7 +221,7 @@
       const data = await r.json().catch(() => ({}));
       if (!r.ok) {
         notify("Error " + r.status + ":\n" + (data.error || r.statusText), "#B91C1C");
-        console.error("[BuySell] error:", data);
+        console.error("[Nidokey] error:", data);
         return;
       }
       if (data.created) {
@@ -233,10 +233,10 @@
       } else {
         notify("👌 Ya existía, sin cambios", "#2C7A8A");
       }
-      console.log("[BuySell] result:", data);
+      console.log("[Nidokey] result:", data);
     })
     .catch((err) => {
       notify("Error de red:\n" + err.message + "\n¿Está la app en localhost:4200?", "#B91C1C");
-      console.error("[BuySell] fetch error:", err);
+      console.error("[Nidokey] fetch error:", err);
     });
 })();

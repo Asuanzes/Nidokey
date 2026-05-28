@@ -65,7 +65,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Inicializa desde localStorage y sincroniza con el DOM
   useEffect(() => {
-    const saved = localStorage.getItem("buysell.theme");
+    const saved = localStorage.getItem("nidokey.theme");
     const isDark = saved === "dark";
     setDark(isDark);
     document.documentElement.dataset.theme = isDark ? "dark" : "light";
@@ -75,7 +75,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const next = !dark;
     setDark(next);
     document.documentElement.dataset.theme = next ? "dark" : "light";
-    localStorage.setItem("buysell.theme", next ? "dark" : "light");
+    localStorage.setItem("nidokey.theme", next ? "dark" : "light");
   };
 
   useEffect(() => {
@@ -121,7 +121,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <IconKey size={20} />
           </div>
           <div className="leading-tight">
-            <div className="text-sm font-semibold text-accent">BuySell</div>
+            <div className="text-sm font-semibold text-accent">Nidokey</div>
             <div className="text-[11px] text-text-subtle">Asturias</div>
           </div>
         </Link>

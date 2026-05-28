@@ -10,7 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "BuySell Asturias",
+  title: "Nidokey",
   description: "Registro y seguimiento de inmuebles en venta",
 };
 

@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Link } from "expo-router";
 
-import { formatPrice } from "@buysell/shared";
+import { formatPrice } from "@nidokey/shared";
 import { useTheme } from "@/lib/theme";
 
 export type PropertyCardData = {

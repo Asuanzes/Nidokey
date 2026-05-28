@@ -14,7 +14,7 @@ import { useLocalSearchParams, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { formatPrice } from "@buysell/shared";
+import { formatPrice } from "@nidokey/shared";
 import { api } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 

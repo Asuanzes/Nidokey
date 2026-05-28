@@ -5,7 +5,7 @@ import type { NextAuthConfig } from "next-auth";
 import { prisma } from "@/lib/db";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const RESEND_FROM = process.env.RESEND_FROM ?? "BuySell <onboarding@resend.dev>";
+const RESEND_FROM = process.env.RESEND_FROM ?? "Nidokey <onboarding@resend.dev>";
 const APP_URL = process.env.NEXTAUTH_URL ?? "http://localhost:4200";
 
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
@@ -27,22 +27,22 @@ const EmailResendProvider: NextAuthConfig["providers"][number] = {
       .map((b) => b.toString(16).padStart(2, "0"))
       .join(""),
   async sendVerificationRequest({ identifier: email, url }) {
-    const subject = "Tu enlace de acceso a BuySell";
+    const subject = "Tu enlace de acceso a Nidokey";
     // HTML estricto: el enlace SOLO en un anchor con href; nada de URL en
     // texto plano que clientes como Proton podrían "linkificar" mal.
     const html = `<!doctype html>
 <html><body style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:40px auto;padding:24px;color:#1a1a1a;">
-  <h2 style="margin:0 0 16px;color:#3A5F8A;">BuySell Asturias</h2>
+  <h2 style="margin:0 0 16px;color:#3A5F8A;">Nidokey Asturias</h2>
   <p>Pulsa el botón para entrar en tu cuenta:</p>
   <p style="margin:32px 0;text-align:center;">
-    <a href="${url}" style="display:inline-block;padding:14px 28px;background:#3A5F8A;color:#FAFAF7;text-decoration:none;border-radius:8px;font-weight:500;">Acceder a BuySell</a>
+    <a href="${url}" style="display:inline-block;padding:14px 28px;background:#3A5F8A;color:#FAFAF7;text-decoration:none;border-radius:8px;font-weight:500;">Acceder a Nidokey</a>
   </p>
   <hr style="border:none;border-top:1px solid #eee;margin:32px 0;">
   <p style="font-size:12px;color:#999;">Si no solicitaste este email, ignóralo. El enlace caduca en 24 horas.</p>
 </body></html>`;
     // Versión de texto: URL en su propia línea entre angle-brackets (RFC 3986
     // recomienda esto para que los parsers no incluyan texto adyacente).
-    const text = `Pulsa este enlace para entrar en BuySell:\n\n<${url}>\n\nEl enlace caduca en 24h. Si no lo solicitaste, ignóralo.`;
+    const text = `Pulsa este enlace para entrar en Nidokey:\n\n<${url}>\n\nEl enlace caduca en 24h. Si no lo solicitaste, ignóralo.`;
 
     if (!resend) {
       // Modo dev sin Resend: imprimir el enlace en consola
