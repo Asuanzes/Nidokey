@@ -5,6 +5,21 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import "react-native-reanimated";
 import * as SecureStore from "expo-secure-store";
+import * as Linking from "expo-linking";
+
+const PORTAL_HOSTS = [
+  "fotocasa.", "pisos.com", "habitaclia.", "thinkspain.", "indomio.",
+  "idealista.", "milanuncios.", "yaencontre.",
+];
+
+function isPortalUrl(u: string): boolean {
+  try {
+    const hostname = new URL(u).hostname.toLowerCase();
+    return PORTAL_HOSTS.some((h) => hostname.includes(h));
+  } catch {
+    return false;
+  }
+}
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
@@ -52,6 +67,12 @@ function AuthGate() {
       router.replace("/login");
     } else if (state.kind === "authed" && onLogin) {
       router.replace("/(tabs)");
+    } else if (state.kind === "authed") {
+      // Si el app se abre via share intent de Android con una URL de portal,
+      // navegar directamente a la pantalla de importación.
+      Linking.getInitialURL().then((u) => {
+        if (u && isPortalUrl(u)) router.replace("/importar");
+      });
     }
   }, [state, segments, router]);
 
