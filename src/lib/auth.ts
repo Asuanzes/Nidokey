@@ -5,9 +5,8 @@ import type { NextAuthConfig } from "next-auth";
 import { prisma } from "@/lib/db";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const RESEND_FROM = process.env.RESEND_FROM ?? "Nidokey <onboarding@resend.dev>";
+const RESEND_FROM = process.env.RESEND_FROM ?? "Nidokey <auth@nidokey.es>";
 const APP_URL = process.env.NEXTAUTH_URL ?? "http://localhost:4200";
-
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
 /**
