@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -15,42 +14,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { formatPrice } from "@nidokey/shared";
-import { api } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
+import { useRecord } from "@/lib/hooks/useRecord";
+import { fetchPropertyDetail, type PropertyDetail } from "@/lib/records/property";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
-
-type PropertyDetail = {
-  id: string;
-  title: string;
-  description: string | null;
-  type: string;
-  status: string;
-  currentPrice: number | null;
-  address: string | null;
-  city: string;
-  province: string;
-  neighborhood: string | null;
-  rooms: number | null;
-  bathrooms: number | null;
-  builtArea: number | null;
-  usableArea: number | null;
-  plotArea: number | null;
-  floor: string | null;
-  yearBuilt: number | null;
-  hasElevator: boolean | null;
-  hasGarage: boolean | null;
-  hasStorage: boolean | null;
-  hasTerrace: boolean | null;
-  hasFireplace: boolean | null;
-  hasGarden: boolean | null;
-  hasPool: boolean | null;
-  energyRating: string;
-  cadastralRef: string | null;
-  tags: string[];
-  media: { id: string; kind: string; url: string }[];
-  listings: { id: string; portal: string; url: string; lastPrice: number | null; lastCheckedAt: string | null }[];
-};
 
 const PORTAL_LABEL: Record<string, string> = {
   IDEALISTA: "Idealista", FOTOCASA: "Fotocasa", PISOS_COM: "Pisos.com",
@@ -67,22 +35,18 @@ const TYPE_LABEL: Record<string, string> = {
 export default function PropertyDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { th } = useTheme();
-  const [p, setP] = useState<PropertyDetail | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!id) return;
-    api<PropertyDetail>(`/api/properties/${id}`)
-      .then(setP)
-      .catch((e: Error) => setError(e.message));
-  }, [id]);
+  const { data: p, error } = useRecord<PropertyDetail>(
+    () => fetchPropertyDetail(id!),
+    [id],
+    { enabled: !!id }
+  );
 
   if (error) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: th.bg }]}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.center}>
-          <Text style={{ color: th.dangerFg, fontSize: 13 }}>{error}</Text>
+          <Text style={{ color: th.dangerFg, fontSize: 13 }}>{error.message}</Text>
         </View>
       </SafeAreaView>
     );

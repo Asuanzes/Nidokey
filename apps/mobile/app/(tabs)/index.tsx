@@ -1,94 +1,106 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
+  ScrollView,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
+import { RECORD_TYPES, type RecordType } from "@nidokey/shared";
 import { useAuth } from "@/lib/auth-context";
-import { api } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
-import { PropertyCard, type PropertyCardData } from "@/components/PropertyCard";
+import { useRecords } from "@/lib/hooks/useRecords";
+import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
+import { RecordCard } from "@/components/RecordCard";
+import { Chip, EmptyState, Screen } from "@/components/ui";
 
-export default function PropertiesScreen() {
+/**
+ * Lista unificada de registros con filtros por tipo (chips).
+ * Hoy solo "property" tiene datos; el resto aparece deshabilitado
+ * ("Próximamente") sin necesidad de tocar esta pantalla cuando se activen.
+ */
+export default function RecordsScreen() {
   const { state } = useAuth();
   const { th } = useTheme();
-  const [properties, setProperties] = useState<PropertyCardData[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const [type, setType] = useState<RecordType>("property");
 
-  const load = useCallback(async () => {
-    try {
-      setError(null);
-      const data = await api<PropertyCardData[]>("/api/properties");
-      setProperties(data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Error de red");
-    }
-  }, []);
-
-  useEffect(() => {
-    if (state.kind === "authed") load();
-  }, [state.kind, load]);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  }, [load]);
+  const { data: records, error, loading, refreshing, refetch } = useRecords({ type });
 
   if (state.kind !== "authed") return null;
 
+  const cfg = RECORD_TYPE_CONFIG[type];
+  const count = records?.length ?? 0;
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: th.bg }]} edges={["top"]}>
-      {!properties && !error && (
+    <Screen title="Registros" subtitle={`${count} ${cfg.label.toLowerCase()}`}>
+      {/* Filtros por tipo */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chips}
+      >
+        {RECORD_TYPES.map((t) => {
+          const c = RECORD_TYPE_CONFIG[t];
+          return (
+            <Chip
+              key={t}
+              label={c.enabled ? c.label : `${c.label} · pronto`}
+              icon={c.icon}
+              color={c.color}
+              selected={type === t}
+              onPress={() => c.enabled && setType(t)}
+            />
+          );
+        })}
+      </ScrollView>
+
+      {loading && !records && (
         <View style={styles.center}>
           <ActivityIndicator color={th.primary} />
         </View>
       )}
+
       {error && (
-        <View style={styles.center}>
-          <Text style={[styles.error, { color: th.dangerFg }]}>{error}</Text>
-        </View>
+        <EmptyState
+          icon="cloud-offline-outline"
+          title="No se pudieron cargar los registros"
+          description={error.message}
+          actionLabel="Reintentar"
+          onAction={refetch}
+        />
       )}
-      {properties && properties.length === 0 && (
-        <View style={styles.center}>
-          <Text style={[styles.empty, { color: th.text }]}>Aún no tienes casas importadas.</Text>
-          <Text style={[styles.emptySub, { color: th.textMuted }]}>
-            Desde la web entra a /bookmarklet e instala los userscripts para empezar.
-          </Text>
-        </View>
-      )}
-      {properties && properties.length > 0 && (
-        <FlatList
-          data={properties}
-          keyExtractor={(p) => p.id}
-          renderItem={({ item }) => <PropertyCard p={item} />}
-          contentContainerStyle={styles.list}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={th.primary} />
+
+      {records && records.length === 0 && !error && (
+        <EmptyState
+          icon={cfg.enabled ? "file-tray-outline" : "time-outline"}
+          title={cfg.enabled ? `Sin ${cfg.label.toLowerCase()} todavía` : "Próximamente"}
+          description={
+            cfg.enabled
+              ? "Comparte una URL de un portal a Nidokey desde la pestaña Importar."
+              : `El tipo "${cfg.label}" estará disponible pronto.`
           }
         />
       )}
-    </SafeAreaView>
+
+      {records && records.length > 0 && (
+        <FlatList
+          data={records}
+          keyExtractor={(r) => r.id}
+          renderItem={({ item }) => <RecordCard record={item} />}
+          contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={th.primary} />
+          }
+        />
+      )}
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: {
-    paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12,
-    flexDirection: "row", justifyContent: "space-between", alignItems: "baseline",
-  },
-  title: { fontSize: 22, fontWeight: "700" },
-  count: { fontSize: 12 },
-  list: { padding: 16, paddingTop: 0 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24, gap: 8 },
-  error: { fontSize: 13 },
-  empty: { fontSize: 15, fontWeight: "500" },
-  emptySub: { fontSize: 12, textAlign: "center" },
+  chips: { paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
+  list: { padding: 16, paddingTop: 4 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
 });

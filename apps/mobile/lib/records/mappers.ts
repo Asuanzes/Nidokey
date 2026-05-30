@@ -26,6 +26,14 @@ export type RawPropertyListItem = {
 
 export function propertyToRecord(p: RawPropertyListItem): BaseRecord {
   const subtitle = [p.city, p.neighborhood].filter(Boolean).join(" · ") || null;
+  const footnote =
+    [
+      p.rooms != null ? `${p.rooms} hab` : null,
+      p.bathrooms != null ? `${p.bathrooms} baño${p.bathrooms !== 1 ? "s" : ""}` : null,
+      p.builtArea != null ? `${p.builtArea} m²` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ") || null;
   return {
     id: p.id,
     type: "property",
@@ -44,6 +52,7 @@ export function propertyToRecord(p: RawPropertyListItem): BaseRecord {
       rooms: p.rooms ?? null,
       bathrooms: p.bathrooms ?? null,
       builtArea: p.builtArea ?? null,
+      footnote,
     },
   };
 }
