@@ -1,0 +1,48 @@
+import { api } from "@/lib/api";
+
+/**
+ * Dominio "property": tipos de detalle y fetchers específicos.
+ * La capa de presentación (pantalla de detalle) importa de aquí en vez de
+ * declarar el tipo inline y llamar a `api()` directamente.
+ */
+export type PropertyDetail = {
+  id: string;
+  title: string;
+  description: string | null;
+  type: string;
+  status: string;
+  currentPrice: number | null;
+  address: string | null;
+  city: string;
+  province: string;
+  neighborhood: string | null;
+  rooms: number | null;
+  bathrooms: number | null;
+  builtArea: number | null;
+  usableArea: number | null;
+  plotArea: number | null;
+  floor: string | null;
+  yearBuilt: number | null;
+  hasElevator: boolean | null;
+  hasGarage: boolean | null;
+  hasStorage: boolean | null;
+  hasTerrace: boolean | null;
+  hasFireplace: boolean | null;
+  hasGarden: boolean | null;
+  hasPool: boolean | null;
+  energyRating: string;
+  cadastralRef: string | null;
+  tags: string[];
+  media: { id: string; kind: string; url: string }[];
+  listings: {
+    id: string;
+    portal: string;
+    url: string;
+    lastPrice: number | null;
+    lastCheckedAt: string | null;
+  }[];
+};
+
+export function fetchPropertyDetail(id: string): Promise<PropertyDetail> {
+  return api<PropertyDetail>(`/api/properties/${id}`);
+}
