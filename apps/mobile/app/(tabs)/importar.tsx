@@ -1,18 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Linking,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { StyleSheet, Text, TextInput, View, Linking } from "react-native";
+import ShareMenu, { type ShareData } from "react-native-share-menu";
+import { router } from "expo-router";
 
 import { useTheme } from "@/lib/theme";
 import { api, ApiError } from "@/lib/api";
 import { WebViewImporter, type ExtractedPayload } from "@/components/WebViewImporter";
+import { Button, Card, Screen } from "@/components/ui";
 
 const PORTAL_HOSTS = [
   "fotocasa.", "pisos.com", "habitaclia.", "thinkspain.", "indomio.",
@@ -28,6 +22,17 @@ function isPortalUrl(u: string): boolean {
   }
 }
 
+function extractUrl(data: ShareData): string | null {
+  if (!data?.data) return null;
+  const items = Array.isArray(data.data) ? data.data : [data.data];
+  for (const item of items) {
+    const text = typeof item === "string" ? item : item?.data ?? "";
+    const match = text.match(/https?:\/\/[^\s]+/);
+    if (match && isPortalUrl(match[0])) return match[0];
+  }
+  return null;
+}
+
 type ImportResult = {
   created: boolean;
   priceChanged: boolean;
@@ -36,12 +41,7 @@ type ImportResult = {
   newPrice: number | null;
 };
 
-type Status =
-  | "idle"
-  | "extracting"   // WebView cargando y extrayendo datos
-  | "sending"      // enviando a la API
-  | "ok"
-  | "error";
+type Status = "idle" | "extracting" | "sending" | "ok" | "error";
 
 export default function ImportarScreen() {
   const { th } = useTheme();
@@ -59,11 +59,27 @@ export default function ImportarScreen() {
     }
   }, []);
 
+  const handleShare = useCallback(
+    (data: ShareData | null) => {
+      if (!data) return;
+      const u = extractUrl(data);
+      if (u) handleIncomingUrl(u);
+    },
+    [handleIncomingUrl]
+  );
+
   useEffect(() => {
     Linking.getInitialURL().then((u) => { if (u) handleIncomingUrl(u); });
-    const sub = Linking.addEventListener("url", ({ url: u }) => handleIncomingUrl(u));
-    return () => sub.remove();
-  }, [handleIncomingUrl]);
+    const linkSub = Linking.addEventListener("url", ({ url: u }) => handleIncomingUrl(u));
+
+    ShareMenu.getInitialShare(handleShare);
+    const shareSub = ShareMenu.addNewShareListener(handleShare);
+
+    return () => {
+      linkSub.remove();
+      shareSub.remove();
+    };
+  }, [handleIncomingUrl, handleShare]);
 
   function startImport() {
     const trimmed = url.trim();
@@ -82,10 +98,15 @@ export default function ImportarScreen() {
       });
       setResult(res);
       setStatus("ok");
+      setTimeout(() => {
+        router.push(`/property/${res.propertyId}`);
+      }, 800);
     } catch (e) {
       const msg =
         e instanceof ApiError && e.body && typeof e.body === "object"
-          ? ((e.body as { message?: string }).message ?? e.message)
+          ? ((e.body as { message?: string; error?: string }).error ??
+             (e.body as { message?: string }).message ??
+             e.message)
           : e instanceof Error
           ? e.message
           : "Error al guardar el inmueble";
@@ -99,131 +120,123 @@ export default function ImportarScreen() {
     setStatus("error");
   }
 
-  function handleCancel() {
-    setStatus("idle");
-  }
-
   const isExtracting = status === "extracting";
   const isSending = status === "sending";
   const isBusy = isExtracting || isSending;
-  const canImport = url.trim().length > 10 && !isBusy;
+  const canImport = url.trim().length > 10;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: th.bg }]} edges={["top"]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: th.text }]}>Importar</Text>
-      </View>
+    <Screen
+      title="Importar"
+      subtitle="Comparte una URL desde el navegador o pégala aquí"
+      contentStyle={styles.content}
+    >
+      <TextInput
+        value={url}
+        onChangeText={(t) => {
+          setUrl(t);
+          setStatus("idle");
+          setResult(null);
+          setErrorMsg(null);
+        }}
+        placeholder="https://www.idealista.com/…"
+        placeholderTextColor={th.textSubtle}
+        keyboardType="url"
+        autoCapitalize="none"
+        autoCorrect={false}
+        style={[styles.input, { backgroundColor: th.surface, borderColor: th.border, color: th.text }]}
+        editable={!isBusy}
+      />
 
-      <View style={styles.content}>
-        <TextInput
-          value={url}
-          onChangeText={(t) => {
-            setUrl(t);
-            setStatus("idle");
-            setResult(null);
-            setErrorMsg(null);
-          }}
-          placeholder="https://www.idealista.com/…"
-          placeholderTextColor={th.textSubtle}
-          keyboardType="url"
-          autoCapitalize="none"
-          autoCorrect={false}
-          style={[styles.input, { backgroundColor: th.surface, borderColor: th.border, color: th.text }]}
-          editable={!isBusy}
-        />
+      <Button
+        label="Importar"
+        icon="arrow-down-circle-outline"
+        onPress={startImport}
+        loading={isBusy}
+        disabled={!canImport}
+      />
 
-        <Pressable
-          style={[styles.btn, { backgroundColor: canImport ? th.accent : th.border }]}
-          onPress={startImport}
-          disabled={!canImport}
-        >
-          {isBusy ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text style={styles.btnText}>Importar</Text>
-          )}
-        </Pressable>
+      {isExtracting && (
+        <Card>
+          <Text style={[styles.infoText, { color: th.textMuted }]}>
+            🌐 Cargando el anuncio en segundo plano…
+          </Text>
+          <Text style={[styles.infoSub, { color: th.textSubtle }]}>
+            Si aparece una verificación la verás automáticamente.
+          </Text>
+        </Card>
+      )}
 
-        {isExtracting && (
-          <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
-            <Text style={[styles.infoText, { color: th.textMuted }]}>
-              🌐 Cargando el anuncio en segundo plano…
-            </Text>
-            <Text style={[styles.infoSub, { color: th.textSubtle }]}>
-              Si aparece una verificación la verás automáticamente.
-            </Text>
-          </View>
-        )}
+      {isSending && (
+        <Card>
+          <Text style={[styles.infoText, { color: th.textMuted }]}>
+            ☁️ Guardando en tu catálogo…
+          </Text>
+        </Card>
+      )}
 
-        {isSending && (
-          <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
-            <Text style={[styles.infoText, { color: th.textMuted }]}>
-              ☁️ Guardando en tu catálogo…
-            </Text>
-          </View>
-        )}
+      {status === "ok" && result && (
+        <Card>
+          <Text style={[styles.resultText, { color: th.text }]}>
+            {result.created
+              ? "✅ Inmueble creado"
+              : result.priceChanged
+              ? "💶 Precio actualizado"
+              : "👌 Sin cambios — ya estaba en tu catálogo"}
+          </Text>
+        </Card>
+      )}
 
-        {status === "ok" && result && (
-          <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
-            <Text style={[styles.resultText, { color: th.text }]}>
-              {result.created
-                ? "✅ Inmueble creado"
-                : result.priceChanged
-                ? "💶 Precio actualizado"
-                : "👌 Sin cambios — ya estaba en tu catálogo"}
-            </Text>
-          </View>
-        )}
+      {status === "error" && errorMsg && (
+        <Card>
+          <Text style={[styles.errorText, { color: th.dangerFg }]}>{errorMsg}</Text>
+          <Button
+            label="Intentar de nuevo"
+            variant="ghost"
+            size="sm"
+            fullWidth={false}
+            onPress={() => setStatus("idle")}
+            style={styles.retry}
+          />
+        </Card>
+      )}
 
-        {status === "error" && errorMsg && (
-          <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
-            <Text style={[styles.errorText, { color: th.dangerFg }]}>{errorMsg}</Text>
-            <Pressable onPress={() => setStatus("idle")}>
-              <Text style={[styles.link, { color: th.primary }]}>Intentar de nuevo</Text>
-            </Pressable>
-          </View>
-        )}
-
-        <Text style={[styles.hint, { color: th.textSubtle }]}>
-          {"Compatible con todos los portales: Idealista, Fotocasa, Pisos.com, Habitaclia, Milanuncios, Yaencontre, ThinkSPAIN, Indomio"}
+      <Card style={styles.hintBox}>
+        <Text style={[styles.hintTitle, { color: th.textMuted }]}>Cómo importar</Text>
+        <Text style={[styles.hintText, { color: th.textSubtle }]}>
+          1. Abre un anuncio en Chrome{"\n"}
+          2. Pulsa Compartir → Nidokey{"\n"}
+          3. La URL aparecerá aquí automáticamente
         </Text>
-      </View>
+      </Card>
 
-      {/* WebView montado en background cuando está extrayendo */}
       {isExtracting && (
         <WebViewImporter
           url={url.trim()}
           onExtracted={handleExtracted}
           onError={handleWebViewError}
-          onCancel={handleCancel}
+          onCancel={() => setStatus("idle")}
         />
       )}
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 },
-  title: { fontSize: 22, fontWeight: "700" },
-  content: { flex: 1, padding: 16, gap: 12 },
+  content: { padding: 16, gap: 12 },
   input: {
-    height: 48, borderRadius: 10, borderWidth: 1,
-    paddingHorizontal: 14, fontSize: 14,
+    height: 48,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    fontSize: 14,
   },
-  btn: {
-    height: 48, borderRadius: 10,
-    alignItems: "center", justifyContent: "center",
-  },
-  btnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
-  card: { borderRadius: 10, borderWidth: 1, padding: 14, gap: 6 },
   infoText: { fontSize: 14, fontWeight: "500" },
-  infoSub: { fontSize: 12, lineHeight: 16 },
+  infoSub: { fontSize: 12, lineHeight: 16, marginTop: 6 },
   resultText: { fontSize: 14, fontWeight: "500" },
   errorText: { fontSize: 13 },
-  link: { fontSize: 13, fontWeight: "500", marginTop: 4 },
-  hint: {
-    fontSize: 12, lineHeight: 18,
-    marginTop: "auto", textAlign: "center", paddingBottom: 8,
-  },
+  retry: { marginTop: 6 },
+  hintBox: { marginTop: "auto" },
+  hintTitle: { fontSize: 12, fontWeight: "600", marginBottom: 4 },
+  hintText: { fontSize: 12, lineHeight: 18 },
 });

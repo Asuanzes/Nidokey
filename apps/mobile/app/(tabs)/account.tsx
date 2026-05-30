@@ -1,10 +1,9 @@
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme";
 import { API_URL } from "@/lib/api";
+import { Button, Screen, Section } from "@/components/ui";
 
 export default function AccountScreen() {
   const { state, logout } = useAuth();
@@ -12,12 +11,8 @@ export default function AccountScreen() {
   if (state.kind !== "authed") return null;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: th.bg }]} edges={["top"]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: th.text }]}>Cuenta</Text>
-      </View>
-
-      <View style={[styles.section, { backgroundColor: th.surface, borderColor: th.border }]}>
+    <Screen title="Cuenta" contentStyle={styles.content}>
+      <Section>
         <View style={styles.profile}>
           <View style={[styles.avatar, { backgroundColor: th.primarySoft }]}>
             <Text style={[styles.avatarText, { color: th.primary }]}>
@@ -29,55 +24,39 @@ export default function AccountScreen() {
             <Text style={[styles.name, { color: th.textMuted }]}>{state.user.name}</Text>
           )}
         </View>
-      </View>
+      </Section>
 
-      <View style={[styles.section, { backgroundColor: th.surface, borderColor: th.border }]}>
-        <Text style={[styles.sectionLabel, { color: th.textMuted }]}>Servidor</Text>
+      <Section label="Servidor">
         <Text style={[styles.code, { color: th.text }]}>{API_URL}</Text>
-      </View>
+      </Section>
 
-      <TouchableOpacity
-        style={[styles.logoutBtn, { backgroundColor: th.surface, borderColor: th.dangerSoft }]}
+      <Button
+        label="Cerrar sesión"
+        icon="log-out-outline"
+        variant="danger"
         onPress={logout}
-      >
-        <Ionicons name="log-out-outline" size={18} color={th.dangerFg} />
-        <Text style={[styles.logoutText, { color: th.dangerFg }]}>Cerrar sesión</Text>
-      </TouchableOpacity>
+        style={styles.logout}
+      />
 
       <Text style={[styles.footer, { color: th.textSubtle }]}>Nidokey · v0.1.0</Text>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  header: { marginBottom: 16, paddingTop: 8 },
-  title: { fontSize: 22, fontWeight: "700" },
-  section: {
-    borderRadius: 10, padding: 16, gap: 6,
-    borderWidth: 1, marginBottom: 12,
-  },
+  content: { padding: 16, gap: 12 },
   profile: { alignItems: "center", gap: 8 },
   avatar: {
-    width: 56, height: 56, borderRadius: 28,
-    alignItems: "center", justifyContent: "center",
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
   },
   avatarText: { fontSize: 18, fontWeight: "600" },
   email: { fontSize: 15, fontWeight: "500" },
   name: { fontSize: 13 },
-  sectionLabel: {
-    fontSize: 11, fontWeight: "500",
-    textTransform: "uppercase", letterSpacing: 0.5,
-  },
   code: { fontSize: 12, fontFamily: "monospace" },
-  logoutBtn: {
-    flexDirection: "row", gap: 8,
-    alignItems: "center", justifyContent: "center",
-    paddingVertical: 14, borderRadius: 10,
-    borderWidth: 1, marginTop: 8,
-  },
-  logoutText: { fontSize: 14, fontWeight: "500" },
-  footer: {
-    marginTop: "auto", textAlign: "center", fontSize: 11, paddingBottom: 16,
-  },
+  logout: { marginTop: 4 },
+  footer: { marginTop: "auto", textAlign: "center", fontSize: 11, paddingBottom: 16 },
 });

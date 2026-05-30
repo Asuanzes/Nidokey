@@ -17,6 +17,22 @@
           "action": "android.intent.action.SEND",
           "data": [{ "mimeType": "text/plain" }],
           "category": "android.intent.category.DEFAULT"
+        },
+        {
+          "action": "android.intent.action.VIEW",
+          "autoVerify": true,
+          "data": [
+            { "scheme": "https", "host": "www.idealista.com" },
+            { "scheme": "https", "host": "www.fotocasa.es" },
+            { "scheme": "https", "host": "www.pisos.com" },
+            { "scheme": "https", "host": "www.habitaclia.com" },
+            { "scheme": "https", "host": "www.milanuncios.com" },
+            { "scheme": "https", "host": "www.yaencontre.com" },
+            { "scheme": "https", "host": "www.thinkspain.com" },
+            { "scheme": "https", "host": "www.indomio.es" }
+          ],
+          "category": "android.intent.category.DEFAULT",
+          "category2": "android.intent.category.BROWSABLE"
         }
       ],
       "adaptiveIcon": {
@@ -26,7 +42,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.nidokey"
     },
     "web": {
       "output": "static",
