@@ -56,3 +56,27 @@ export function propertyToRecord(p: RawPropertyListItem): BaseRecord {
     },
   };
 }
+
+/** Forma de resultado que devuelve GET /api/search (proyección reducida). */
+export type RawSearchResult = {
+  id: string;
+  title: string;
+  city: string;
+  neighborhood?: string | null;
+  currentPrice: number | null;
+  type: string;
+  media?: { url: string }[];
+};
+
+export function searchResultToRecord(r: RawSearchResult): BaseRecord {
+  return {
+    id: r.id,
+    type: "property",
+    title: r.title,
+    subtitle: [r.city, r.neighborhood].filter(Boolean).join(" · ") || null,
+    status: null,
+    primaryValue: r.currentPrice != null ? formatPrice(r.currentPrice) : null,
+    imageUrl: r.media?.[0]?.url ?? null,
+    meta: { propertyType: r.type, city: r.city, neighborhood: r.neighborhood ?? null },
+  };
+}

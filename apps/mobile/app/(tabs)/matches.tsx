@@ -1,4 +1,3 @@
-import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -9,11 +8,12 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { Link } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
+import { useQuery } from "@/lib/hooks/useQuery";
 import { formatPrice } from "@nidokey/shared";
+import { EmptyState, Screen } from "@/components/ui";
 
 type Match = {
   id: string;
@@ -31,56 +31,41 @@ type PropMin = {
   listings: { portal: string }[];
 };
 
+const fetchMatches = () =>
+  api<{ items: Match[] }>("/api/matches").then((d) => d.items);
+
 export default function MatchesScreen() {
   const { th } = useTheme();
-  const [items, setItems] = useState<Match[] | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { data: items, error, loading, refreshing, refetch } = useQuery(fetchMatches, []);
 
-  const load = useCallback(async () => {
-    try {
-      setError(null);
-      const data = await api<{ items: Match[] }>("/api/matches");
-      setItems(data.items);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Error");
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  }, [load]);
+  const count = items?.length ?? 0;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: th.bg }]} edges={["top"]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: th.text }]}>Duplicados</Text>
-        <Text style={[styles.count, { color: th.textSubtle }]}>
-          {items ? `${items.length} pendiente${items.length !== 1 ? "s" : ""}` : "…"}
-        </Text>
-      </View>
-
-      {!items && !error && (
-        <View style={styles.center}><ActivityIndicator color={th.primary} /></View>
+    <Screen
+      title="Duplicados"
+      subtitle={items ? `${count} pendiente${count !== 1 ? "s" : ""}` : "…"}
+    >
+      {loading && !items && (
+        <View style={styles.center}>
+          <ActivityIndicator color={th.primary} />
+        </View>
       )}
       {error && (
-        <View style={styles.center}>
-          <Text style={[styles.error, { color: th.dangerFg }]}>{error}</Text>
-        </View>
+        <EmptyState
+          icon="cloud-offline-outline"
+          title="No se pudieron cargar los duplicados"
+          description={error.message}
+          actionLabel="Reintentar"
+          onAction={refetch}
+        />
       )}
-      {items && items.length === 0 && (
-        <View style={styles.center}>
-          <Text style={[styles.empty, { color: th.text }]}>Sin duplicados pendientes</Text>
-          <Text style={[styles.emptySub, { color: th.textMuted }]}>
-            Cuando importes inmuebles parecidos a otros, aparecerán aquí.
-          </Text>
-        </View>
+      {items && items.length === 0 && !error && (
+        <EmptyState
+          icon="sparkles-outline"
+          title="Sin duplicados pendientes"
+          description="Cuando importes inmuebles parecidos a otros, aparecerán aquí."
+        />
       )}
-
       {items && items.length > 0 && (
         <FlatList
           data={items}
@@ -88,11 +73,11 @@ export default function MatchesScreen() {
           renderItem={({ item }) => <MatchRow m={item} />}
           contentContainerStyle={styles.list}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={th.primary} />
+            <RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={th.primary} />
           }
         />
       )}
-    </SafeAreaView>
+    </Screen>
   );
 }
 
@@ -139,18 +124,8 @@ function PropTile({ p }: { p: PropMin }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: {
-    paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12,
-    flexDirection: "row", justifyContent: "space-between", alignItems: "baseline",
-  },
-  title: { fontSize: 22, fontWeight: "700" },
-  count: { fontSize: 12 },
   list: { padding: 16, paddingTop: 0 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24, gap: 8 },
-  empty: { fontSize: 15, fontWeight: "500" },
-  emptySub: { fontSize: 12, textAlign: "center" },
-  error: { fontSize: 13 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
   card: {
     borderRadius: 10, padding: 12,
     borderWidth: 1, marginBottom: 10, gap: 12,
