@@ -26,6 +26,13 @@ const EmailResendProvider: NextAuthConfig["providers"][number] = {
       .map((b) => b.toString(16).padStart(2, "0"))
       .join(""),
   async sendVerificationRequest({ identifier: email, url }) {
+    console.log("[auth] sendVerificationRequest called", {
+      email,
+      url,
+      RESEND_API_KEY_PRESENT: !!RESEND_API_KEY,
+      RESEND_FROM,
+      RESEND_INSTANCE: !!resend,
+    });
     const subject = "Tu enlace de acceso a Nidokey";
     // HTML estricto: el enlace SOLO en un anchor con href; nada de URL en
     // texto plano que clientes como Proton podrían "linkificar" mal.
