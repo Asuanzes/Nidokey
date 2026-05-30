@@ -146,6 +146,11 @@ model Property {
   ownerId      String?
   owner        User?          @relation(fields: [ownerId], references: [id])
 
+  // Discriminador de tipo de registro (records unificados). Aditivo: todas las
+  // filas existentes son "property". Reservado para escalar a más tipos en el
+  // futuro sin romper el modelo actual. Ver docs/arquitectura-records.md.
+  recordType   String         @default("property")
+
   title        String
   description  String?
   type         PropertyType
@@ -202,6 +207,7 @@ model Property {
   @@index([cadastralRef])
   @@index([titleSlug])
   @@index([city, builtArea])
+  @@index([recordType])
 }
 
 model Media {
