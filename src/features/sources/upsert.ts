@@ -66,6 +66,8 @@ async function upsertCrypto(
       externalId: existing.externalId ?? n.externalId ?? null,
       currentValue: value ?? existing.currentValue,
       lastCheckedAt: n.observedAt,
+      // refresca los datos de mercado (%24h, volumen, sparkline…)
+      meta: { ...((existing.meta as Record<string, unknown>) ?? {}), ...meta },
       ...(valueChanged
         ? { snapshots: { create: [{ value: value!, source, observedAt: n.observedAt }] } }
         : {}),
