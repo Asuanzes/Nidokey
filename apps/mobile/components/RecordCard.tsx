@@ -39,10 +39,16 @@ function CryptoCard({ record }: { record: BaseRecord }) {
         </View>
         <View style={styles.alignEnd}>
           <Text style={[styles.price, { color: th.text }]}>{record.primaryValue ?? "—"}</Text>
-          <Text style={[styles.change, { color }]}>{change.text}</Text>
+          <View style={styles.changeRow}>
+            <Text style={[styles.change, { color }]}>{change.text}</Text>
+            <Text style={[styles.periodLabel, { color: th.textSubtle }]}>24h</Text>
+          </View>
         </View>
       </View>
 
+      <View style={styles.sparkHeader}>
+        <Text style={[styles.periodLabel, { color: th.textSubtle }]}>7 días</Text>
+      </View>
       <Sparkline data={spark} color={color} />
 
       <View style={[styles.cryptoFooter, { borderTopColor: th.border }]}>
@@ -165,8 +171,11 @@ const styles = StyleSheet.create({
   symbol: { fontSize: 16, fontWeight: "700" },
   coinName: { fontSize: 12, marginTop: 1 },
   price: { fontSize: 17, fontWeight: "700" },
-  change: { fontSize: 13, fontWeight: "600", marginTop: 1 },
-  spark: { flexDirection: "row", alignItems: "flex-end", marginTop: 12 },
+  changeRow: { flexDirection: "row", alignItems: "baseline", gap: 4, marginTop: 1 },
+  change: { fontSize: 13, fontWeight: "600" },
+  periodLabel: { fontSize: 10, fontWeight: "500" },
+  sparkHeader: { alignItems: "flex-end", marginTop: 10 },
+  spark: { flexDirection: "row", alignItems: "flex-end", marginTop: 4 },
   cryptoFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
