@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { RecordType } from "@nidokey/shared";
-import { batchPrices } from "@/features/sources/adapters/coingecko";
+import { marketData, type CoinMarket } from "@/features/sources/adapters/coingecko";
 import { logImportEvent } from "@/lib/import-log";
 
 /**
@@ -48,23 +48,32 @@ async function refreshCrypto(): Promise<RefreshSummary> {
 
   for (const [quote, group] of byQuote) {
     const ids = [...new Set(group.map((h) => h.externalId!).filter(Boolean))];
-    let prices: Record<string, number> = {};
+    let md: Record<string, CoinMarket> = {};
     try {
-      prices = await batchPrices(ids, quote);
+      md = await marketData(ids, quote);
     } catch {
       errors += group.length;
       continue;
     }
     for (const h of group) {
       checked++;
-      const cents = prices[h.externalId!];
-      if (cents == null) continue;
+      const m = md[h.externalId!];
+      if (!m) continue;
+      const cents = m.priceCents;
       const changed = cents !== h.currentValue;
       await prisma.cryptoHolding.update({
         where: { id: h.id },
         data: {
           currentValue: cents,
           lastCheckedAt: now,
+          // refresca siempre %24h/volumen/sparkline (cambian aunque el precio no)
+          meta: {
+            ...((h.meta as Record<string, unknown>) ?? {}),
+            change24h: m.change24h,
+            volume: m.volume,
+            marketCap: m.marketCap,
+            sparkline: m.sparkline,
+          },
           ...(changed
             ? { snapshots: { create: [{ value: cents, source: "coingecko", observedAt: now }] } }
             : {}),

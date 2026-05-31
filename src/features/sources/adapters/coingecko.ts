@@ -56,20 +56,64 @@ async function resolveCoin(symbol: string): Promise<SearchCoin | null> {
   return pool[0] ?? null;
 }
 
-/** Precios por id de CoinGecko en una sola llamada. Devuelve { id: cents }. */
-export async function batchPrices(
+export type CoinMarket = {
+  priceCents: number;
+  change24h: number | null; // % cambio 24h
+  volume: number | null; // volumen 24h en la moneda cotizada
+  marketCap: number | null;
+  sparkline: number[]; // serie de precios 7d (downsampled)
+  image: string | null;
+  name: string;
+  symbol: string;
+};
+
+/** Reduce una serie larga a ~n puntos equiespaciados (para el mini-gráfico). */
+function downsample(arr: number[], n = 48): number[] {
+  if (arr.length <= n) return arr;
+  const step = (arr.length - 1) / (n - 1);
+  const out: number[] = [];
+  for (let i = 0; i < n; i++) out.push(arr[Math.round(i * step)]);
+  return out;
+}
+
+/**
+ * Datos de mercado por id de CoinGecko en UNA llamada: precio, %24h, volumen,
+ * market cap y sparkline 7d. Usado tanto en ingesta como en refresh (batch).
+ */
+export async function marketData(
   ids: string[],
   quote = "EUR"
-): Promise<Record<string, number>> {
+): Promise<Record<string, CoinMarket>> {
   if (ids.length === 0) return {};
   const vs = quote.toLowerCase();
   const data = (await cgFetch(
-    `/simple/price?ids=${ids.map(encodeURIComponent).join(",")}&vs_currencies=${vs}`
-  )) as Record<string, Record<string, number>>;
-  const out: Record<string, number> = {};
-  for (const id of ids) {
-    const price = data[id]?.[vs];
-    if (typeof price === "number") out[id] = Math.round(price * 100);
+    `/coins/markets?vs_currency=${vs}&ids=${ids.map(encodeURIComponent).join(",")}` +
+      `&sparkline=true&price_change_percentage=24h`
+  )) as Array<{
+    id: string;
+    symbol: string;
+    name: string;
+    image?: string;
+    current_price: number | null;
+    market_cap: number | null;
+    total_volume: number | null;
+    price_change_percentage_24h: number | null;
+    sparkline_in_7d?: { price?: number[] };
+  }>;
+  const out: Record<string, CoinMarket> = {};
+  for (const c of data) {
+    if (c.current_price == null) continue;
+    const series = (c.sparkline_in_7d?.price ?? []).filter((n) => typeof n === "number");
+    out[c.id] = {
+      priceCents: Math.round(c.current_price * 100),
+      change24h: c.price_change_percentage_24h ?? null,
+      volume: c.total_volume ?? null,
+      marketCap: c.market_cap ?? null,
+      sparkline: downsample(series),
+      image: c.image ?? null,
+      name: c.name,
+      symbol: c.symbol?.toUpperCase() ?? "",
+    };
   }
   return out;
 }
@@ -91,30 +135,32 @@ export const coingeckoAdapter: SourceAdapter = {
       const coin = await resolveCoin(input.symbol);
       if (!coin) return { kind: "gone", reason: `Símbolo no encontrado: ${input.symbol}` };
 
-      const prices = await batchPrices([coin.id], quote);
-      const cents = prices[coin.id];
-      if (cents == null) {
-        return { kind: "error", error: `Sin precio para ${coin.id}/${quote}` };
-      }
+      const md = (await marketData([coin.id], quote))[coin.id];
+      if (!md) return { kind: "error", error: `Sin datos de mercado para ${coin.id}/${quote}` };
 
+      const symbol = (md.symbol || coin.symbol).toUpperCase();
       return {
         kind: "ok",
         record: {
           recordType: "crypto",
-          title: coin.name,
-          subtitle: `${coin.symbol.toUpperCase()} · ${quote}`,
+          title: md.name || coin.name,
+          subtitle: `${symbol} · ${quote}`,
           status: "WATCH",
-          currentValue: cents,
+          currentValue: md.priceCents,
           currency: quote,
-          imageUrl: coin.large ?? coin.thumb ?? null,
+          imageUrl: md.image ?? coin.large ?? coin.thumb ?? null,
           source: "coingecko",
           externalId: coin.id,
           observedAt: new Date(),
           meta: {
-            symbol: coin.symbol.toUpperCase(),
+            symbol,
             quoteCurrency: quote,
             coingeckoId: coin.id,
-            priceRaw: cents / 100,
+            priceRaw: md.priceCents / 100,
+            change24h: md.change24h,
+            volume: md.volume,
+            marketCap: md.marketCap,
+            sparkline: md.sparkline,
           },
         },
       };
