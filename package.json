@@ -22,6 +22,7 @@
     "fix-prices": "tsx scripts/fix-corrupt-prices.ts",
     "scraper": "node scripts/scraper-service.mjs",
     "claim-orphans": "tsx scripts/claim-orphan-properties.ts",
+    "refresh": "tsx scripts/refresh-type.ts",
     "mobile": "npm --workspace @nidokey/mobile run start"
   },
   "prisma": {

@@ -1,5 +1,5 @@
-import { formatPrice, type BaseRecord } from "@nidokey/shared";
-import type { Property, Media } from "@prisma/client";
+import { formatPrice, formatMoney, type BaseRecord } from "@nidokey/shared";
+import type { Property, Media, CryptoHolding } from "@prisma/client";
 
 /**
  * Mapper server-side: Property (Prisma) -> BaseRecord (modelo unificado).
@@ -40,6 +40,29 @@ export function propertyToBaseRecord(p: PropertyWithCover): BaseRecord {
       bathrooms: p.bathrooms,
       builtArea: p.builtArea,
       footnote,
+    },
+  };
+}
+
+/** CryptoHolding (Prisma) -> BaseRecord. */
+export function cryptoToBaseRecord(c: CryptoHolding): BaseRecord {
+  return {
+    id: c.id,
+    type: "crypto",
+    title: c.title,
+    subtitle: c.subtitle,
+    status: c.status,
+    primaryValue: c.currentValue != null ? formatMoney(c.currentValue, c.currency) : null,
+    imageUrl: c.imageUrl,
+    createdAt: c.createdAt.toISOString(),
+    updatedAt: c.updatedAt.toISOString(),
+    meta: {
+      symbol: c.symbol,
+      quoteCurrency: c.quoteCurrency,
+      quantity: c.quantity != null ? c.quantity.toString() : null,
+      source: c.source,
+      externalId: c.externalId,
+      ...((c.meta as Record<string, unknown> | null) ?? {}),
     },
   };
 }

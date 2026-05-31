@@ -85,10 +85,11 @@ model User {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
-  accounts      Account[]
-  sessions      Session[]
-  apiTokens     ApiToken[]
-  properties    Property[]
+  accounts       Account[]
+  sessions       Session[]
+  apiTokens      ApiToken[]
+  properties     Property[]
+  cryptoHoldings CryptoHolding[]
 }
 
 // Tablas estándar de NextAuth / Auth.js (Prisma adapter).
@@ -310,4 +311,53 @@ model SavedSearch {
   active    Boolean  @default(true)
   lastRunAt DateTime?
   createdAt DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Registros multi-tipo (records unificados). Primer tipo nuevo: CRIPTO.
+// Patrón común: tabla por tipo + tabla *Snapshot (generaliza PriceSnapshot).
+// `currentValue`/`value` en céntimos de la moneda cotizada (Int) — consistente
+// con Property.currentPrice. Nota: tokens sub-céntimo pierden precisión en Int;
+// para esos casos se guarda el precio crudo en `meta` (futuro: Decimal).
+// ─────────────────────────────────────────────────────────────────────────
+model CryptoHolding {
+  id            String   @id @default(cuid())
+  ownerId       String?
+  owner         User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  recordType    String   @default("crypto")
+
+  title         String              // "Bitcoin"
+  subtitle      String?             // "BTC · EUR"
+  status        String?             // libre: "WATCH" | "HOLDING"
+  symbol        String              // "BTC"
+  quoteCurrency String   @default("EUR")
+  quantity      Decimal? @db.Decimal(36, 18) // opcional: cantidad en cartera
+  currentValue  Int?                // precio por unidad, céntimos de quoteCurrency
+  currency      String?  @default("EUR")
+  imageUrl      String?
+  source        String?             // "coingecko" | "kraken" | …
+  externalId    String?             // id de CoinGecko ("bitcoin")
+  lastCheckedAt DateTime?
+  meta          Json?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  snapshots     CryptoSnapshot[]
+
+  @@unique([ownerId, symbol, quoteCurrency, source])
+  @@index([recordType])
+  @@index([lastCheckedAt])
+}
+
+model CryptoSnapshot {
+  id         String        @id @default(cuid())
+  holdingId  String
+  holding    CryptoHolding @relation(fields: [holdingId], references: [id], onDelete: Cascade)
+  value      Int           // precio por unidad, céntimos
+  source     String
+  observedAt DateTime      @default(now())
+  meta       Json?
+
+  @@index([holdingId, observedAt])
 }
