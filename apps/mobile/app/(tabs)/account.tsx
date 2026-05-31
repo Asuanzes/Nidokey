@@ -12,7 +12,7 @@ export default function AccountScreen() {
   if (state.kind !== "authed") return null;
 
   return (
-    <Screen title="Cuenta" contentStyle={styles.content}>
+    <Screen contentStyle={styles.content}>
       <Section>
         <View style={styles.profile}>
           <View style={[styles.avatar, { backgroundColor: th.primarySoft }]}>

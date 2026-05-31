@@ -38,13 +38,8 @@ export default function MatchesScreen() {
   const { th } = useTheme();
   const { data: items, error, loading, refreshing, refetch } = useQuery(fetchMatches, []);
 
-  const count = items?.length ?? 0;
-
   return (
-    <Screen
-      title="Duplicados"
-      subtitle={items ? `${count} pendiente${count !== 1 ? "s" : ""}` : "…"}
-    >
+    <Screen>
       {loading && !items && (
         <View style={styles.center}>
           <ActivityIndicator color={th.primary} />

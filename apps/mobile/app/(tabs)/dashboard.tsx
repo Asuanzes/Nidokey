@@ -2,7 +2,7 @@ import { Screen, EmptyState } from "@/components/ui";
 
 export default function DashboardScreen() {
   return (
-    <Screen title="Dashboard">
+    <Screen>
       <EmptyState
         icon="grid-outline"
         title="Próximamente"

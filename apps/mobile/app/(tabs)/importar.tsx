@@ -126,11 +126,7 @@ export default function ImportarScreen() {
   const canImport = url.trim().length > 10;
 
   return (
-    <Screen
-      title="Importar"
-      subtitle="Comparte una URL desde el navegador o pégala aquí"
-      contentStyle={styles.content}
-    >
+    <Screen contentStyle={styles.content}>
       <TextInput
         value={url}
         onChangeText={(t) => {

@@ -33,10 +33,9 @@ export default function RecordsScreen() {
   if (state.kind !== "authed") return null;
 
   const cfg = RECORD_TYPE_CONFIG[type];
-  const count = records?.length ?? 0;
 
   return (
-    <Screen title="Registros" subtitle={`${count} ${cfg.label.toLowerCase()}`}>
+    <Screen>
       {/* Filtro de tipo: solo iconos, activo en bronce */}
       <View style={styles.filterRow}>
         {RECORD_TYPES.map((t) => {

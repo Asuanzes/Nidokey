@@ -34,7 +34,9 @@ export function Screen({ title, subtitle, children, contentStyle, headerRight }:
           {headerRight}
         </View>
       )}
-      <View style={[styles.content, contentStyle]}>{children}</View>
+      <View style={[styles.content, !title && styles.contentNoHeader, contentStyle]}>
+        {children}
+      </View>
     </SafeAreaView>
   );
 }
@@ -53,4 +55,6 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: "700" },
   subtitle: { fontSize: 13, marginTop: 2 },
   content: { flex: 1 },
+  /** Sin cabecera de título: pequeño respiro bajo la barra de estado. */
+  contentNoHeader: { paddingTop: 8 },
 });

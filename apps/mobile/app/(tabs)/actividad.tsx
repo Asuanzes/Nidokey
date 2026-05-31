@@ -2,7 +2,7 @@ import { Screen, EmptyState } from "@/components/ui";
 
 export default function ActividadScreen() {
   return (
-    <Screen title="Actividad">
+    <Screen>
       <EmptyState
         icon="pulse-outline"
         title="Próximamente"

@@ -27,7 +27,7 @@ export default function SearchScreen() {
   );
 
   return (
-    <Screen title="Buscar">
+    <Screen>
       <View style={[styles.searchBar, { backgroundColor: th.surface, borderColor: th.border }]}>
         <Ionicons name="search" size={16} color={th.textSubtle} />
         <TextInput

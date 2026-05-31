@@ -42,10 +42,16 @@ export default function TabsLayout() {
   const filled = (icon: IconName): IconName =>
     icon.replace(/-outline$/, "") as IconName;
 
-  const TABS: { href: string; label: string; icon: IconName; badge?: number }[] = [
+  const TABS: {
+    href: string;
+    label: string;
+    icon: IconName;
+    badge?: number;
+    primary?: boolean;
+  }[] = [
     { href: "/",         label: "Registros", icon: "albums-outline" },
-    { href: "/importar", label: "Importar",  icon: "add-circle-outline" },
     { href: "/search",   label: "Buscar",    icon: "search-outline" },
+    { href: "/importar", label: "Importar",  icon: "add", primary: true },
     { href: "/matches",  label: "Duplic.",   icon: "sparkles-outline", badge: dupCount || undefined },
     { href: "/account",  label: "Cuenta",    icon: "person-outline" },
   ];
@@ -64,6 +70,27 @@ export default function TabsLayout() {
       >
         {TABS.map((tab) => {
           const active = isActive(tab.href);
+
+          // Acción principal: botón central, más grande y elevado sobre la barra.
+          if (tab.primary) {
+            return (
+              <Link key={tab.href} href={tab.href as never} asChild>
+                <Pressable style={styles.fabItem} accessibilityLabel={tab.label}>
+                  {({ pressed }) => (
+                    <View
+                      style={[
+                        styles.fab,
+                        { backgroundColor: th.primary, opacity: pressed ? 0.9 : 1 },
+                      ]}
+                    >
+                      <Ionicons name={tab.icon} size={30} color={th.primaryFg} />
+                    </View>
+                  )}
+                </Pressable>
+              </Link>
+            );
+          }
+
           const color = active ? th.accent : th.textMuted;
           return (
             <Link key={tab.href} href={tab.href as never} asChild>
@@ -95,6 +122,21 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   tabItem: { flex: 1, alignItems: "center", gap: 3, paddingVertical: 4 },
+  // Botón central elevado (acción principal "Importar").
+  fabItem: { flex: 1, alignItems: "center", justifyContent: "flex-start" },
+  fab: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: -24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.22,
+    shadowRadius: 6,
+    elevation: 8,
+  },
   iconWrap: { position: "relative" },
   tabLabel: { fontSize: 10, fontWeight: "500" },
   badge: {
