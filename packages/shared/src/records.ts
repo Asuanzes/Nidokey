@@ -13,22 +13,23 @@
  */
 
 /** Tipos de registro. Solo `property` está implementado; el resto está
- * reservado para que añadir un tipo = añadir un valor aquí + su config. */
+ * reservado para que añadir un tipo = añadir un valor aquí + su config.
+ * El orden define el del menú de filtros en la app móvil. */
 export type RecordType =
   | "property"
-  | "crypto"
-  | "job"
-  | "workout"
+  | "renting"
   | "holiday"
-  | "renting";
+  | "crypto"
+  | "market"
+  | "job";
 
 export const RECORD_TYPES: RecordType[] = [
   "property",
-  "crypto",
-  "job",
-  "workout",
-  "holiday",
   "renting",
+  "holiday",
+  "crypto",
+  "market",
+  "job",
 ];
 
 /**

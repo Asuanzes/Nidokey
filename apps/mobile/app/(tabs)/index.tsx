@@ -2,11 +2,12 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 import { RECORD_TYPES, type RecordType } from "@nidokey/shared";
 import { useAuth } from "@/lib/auth-context";
@@ -14,12 +15,13 @@ import { useTheme } from "@/lib/theme";
 import { useRecords } from "@/lib/hooks/useRecords";
 import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
 import { RecordCard } from "@/components/RecordCard";
-import { Chip, EmptyState, Screen } from "@/components/ui";
+import { EmptyState, Screen } from "@/components/ui";
 
 /**
- * Lista unificada de registros con filtros por tipo (chips).
- * Hoy solo "property" tiene datos; el resto aparece deshabilitado
- * ("Próximamente") sin necesidad de tocar esta pantalla cuando se activen.
+ * Lista unificada de registros. El menú superior es una tira de iconos (sin
+ * texto) para filtrar por tipo; el tipo activo se marca en bronce (th.accent)
+ * sobre fondo accentSoft, consistente con la barra de pestañas inferior.
+ * Solo "property" tiene datos; el resto muestra el estado "Próximamente".
  */
 export default function RecordsScreen() {
   const { state } = useAuth();
@@ -35,26 +37,25 @@ export default function RecordsScreen() {
 
   return (
     <Screen title="Registros" subtitle={`${count} ${cfg.label.toLowerCase()}`}>
-      {/* Filtros por tipo */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chips}
-      >
+      {/* Filtro de tipo: solo iconos, activo en bronce */}
+      <View style={styles.filterRow}>
         {RECORD_TYPES.map((t) => {
           const c = RECORD_TYPE_CONFIG[t];
+          const active = type === t;
           return (
-            <Chip
+            <Pressable
               key={t}
-              label={c.enabled ? c.label : `${c.label} · pronto`}
-              icon={c.icon}
-              color={c.color}
-              selected={type === t}
-              onPress={() => c.enabled && setType(t)}
-            />
+              onPress={() => setType(t)}
+              accessibilityRole="button"
+              accessibilityLabel={c.label}
+              accessibilityState={{ selected: active }}
+              style={[styles.filterItem, active && { backgroundColor: th.accentSoft }]}
+            >
+              <Ionicons name={c.icon} size={22} color={active ? th.accent : th.textMuted} />
+            </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
 
       {loading && !records && (
         <View style={styles.center}>
@@ -100,7 +101,19 @@ export default function RecordsScreen() {
 }
 
 const styles = StyleSheet.create({
-  chips: { paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
+  filterRow: {
+    flexDirection: "row",
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    gap: 4,
+  },
+  filterItem: {
+    flex: 1,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+  },
   list: { padding: 16, paddingTop: 4 },
   center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
 });
