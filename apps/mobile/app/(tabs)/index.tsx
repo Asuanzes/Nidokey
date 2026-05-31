@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams } from "expo-router";
 
 import { RECORD_TYPES, type RecordType } from "@nidokey/shared";
 import { useAuth } from "@/lib/auth-context";
@@ -28,6 +29,14 @@ export default function RecordsScreen() {
   const { state } = useAuth();
   const { th } = useTheme();
   const [type, setType] = useState<RecordType>("property");
+
+  // Permite preseleccionar el tipo desde otra pantalla (p. ej. "Ver Criptos"
+  // tras añadir un registro): navegar a "/?type=crypto".
+  const params = useLocalSearchParams<{ type?: string }>();
+  useEffect(() => {
+    const t = params.type;
+    if (t && (RECORD_TYPES as string[]).includes(t)) setType(t as RecordType);
+  }, [params.type]);
 
   const { data: records, error, loading, refreshing, refetch } = useRecords({ type });
 

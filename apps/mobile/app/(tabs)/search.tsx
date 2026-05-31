@@ -33,7 +33,7 @@ export default function SearchScreen() {
         <TextInput
           value={q}
           onChangeText={setQ}
-          placeholder="Título, ciudad, barrio, ref. catastral…"
+          placeholder="Buscar en tus registros…"
           placeholderTextColor={th.textSubtle}
           style={[styles.input, { color: th.text }]}
           autoCorrect={false}
