@@ -27,7 +27,7 @@ export const RECORD_TYPE_CONFIG: Record<RecordType, RecordTypeConfig> = {
   property: { label: "Inmuebles",  singular: "Inmueble",  color: "#3A5F8A", icon: "home-outline",         enabled: true },
   renting:  { label: "Alquiler",   singular: "Alquiler",  color: "#7A5BA6", icon: "key-outline",          enabled: false },
   holiday:  { label: "Vacaciones", singular: "Vacación",  color: "#2C7A8A", icon: "airplane-outline",     enabled: false },
-  crypto:   { label: "Criptos",    singular: "Cripto",    color: "#B87333", icon: "logo-bitcoin",         enabled: false },
+  crypto:   { label: "Criptos",    singular: "Cripto",    color: "#B87333", icon: "logo-bitcoin",         enabled: true },
   market:   { label: "Markets",    singular: "Mercado",   color: "#2D6A4F", icon: "trending-up-outline",  enabled: false },
   job:      { label: "Empleos",    singular: "Empleo",    color: "#A86A17", icon: "briefcase-outline",    enabled: false },
   workout:  { label: "Entrenos",   singular: "Entreno",   color: "#A23E3E", icon: "barbell-outline",      enabled: false },
