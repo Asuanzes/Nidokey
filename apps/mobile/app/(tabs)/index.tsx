@@ -120,6 +120,8 @@ const styles = StyleSheet.create({
     flexGrow: 0,
   },
   railContent: {
+    flexGrow: 1,
+    justifyContent: "center",
     paddingVertical: 8,
     gap: 6,
     alignItems: "center",
