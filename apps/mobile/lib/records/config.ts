@@ -30,6 +30,8 @@ export const RECORD_TYPE_CONFIG: Record<RecordType, RecordTypeConfig> = {
   crypto:   { label: "Criptos",    singular: "Cripto",    color: "#B87333", icon: "logo-bitcoin",         enabled: false },
   market:   { label: "Markets",    singular: "Mercado",   color: "#2D6A4F", icon: "trending-up-outline",  enabled: false },
   job:      { label: "Empleos",    singular: "Empleo",    color: "#A86A17", icon: "briefcase-outline",    enabled: false },
+  workout:  { label: "Entrenos",   singular: "Entreno",   color: "#A23E3E", icon: "barbell-outline",      enabled: false },
+  chat:     { label: "Chat",       singular: "Chat",      color: "#3A7BD5", icon: "chatbubbles-outline",  enabled: false },
 };
 
 export function recordTypeConfig(type: RecordType): RecordTypeConfig {

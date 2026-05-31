@@ -21,7 +21,9 @@ export type RecordType =
   | "holiday"
   | "crypto"
   | "market"
-  | "job";
+  | "job"
+  | "workout"
+  | "chat";
 
 export const RECORD_TYPES: RecordType[] = [
   "property",
@@ -30,6 +32,8 @@ export const RECORD_TYPES: RecordType[] = [
   "crypto",
   "market",
   "job",
+  "workout",
+  "chat",
 ];
 
 /**
