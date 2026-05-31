@@ -18,6 +18,11 @@ import { useTheme } from "@/lib/theme";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
+/** Color del botón central "Importar": fijo en ambos temas (el primary de
+ * modo oscuro aclara demasiado). Steel-blue del modo claro + icono casi blanco. */
+const FAB_BG = "#3A5F8A";
+const FAB_FG = "#FAFAF7";
+
 export default function TabsLayout() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
@@ -80,10 +85,12 @@ export default function TabsLayout() {
                     <View
                       style={[
                         styles.fab,
-                        { backgroundColor: th.primary, opacity: pressed ? 0.9 : 1 },
+                        // Azul fijo (steel-blue del modo claro) en ambos temas:
+                        // el primary de modo oscuro aclara demasiado y desentona.
+                        { backgroundColor: FAB_BG, opacity: pressed ? 0.9 : 1 },
                       ]}
                     >
-                      <Ionicons name={tab.icon} size={30} color={th.primaryFg} />
+                      <Ionicons name={tab.icon} size={30} color={FAB_FG} />
                     </View>
                   )}
                 </Pressable>
