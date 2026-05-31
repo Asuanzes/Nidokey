@@ -16,6 +16,8 @@ const PUBLIC_PATHS = [
   /^\/login(\/.*)?$/,
   /^\/api\/auth(\/.*)?$/,
   /^\/api\/listings\/import$/,        // validada por token Bearer
+  /^\/api\/records\/import$/,         // ingesta unificada; validada por requireUserId() en el handler
+  /^\/api\/cron(\/.*)?$/,             // validada por CRON_SECRET en el handler
   /^\/_next(\/.*)?$/,
   /^\/favicon\./,
   /^\/icon\./,

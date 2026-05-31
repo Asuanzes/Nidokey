@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ImportListingInput, importListing } from "@/lib/import-listing";
 import { extractTokenFromRequest, resolveUserFromToken } from "@/lib/api-token";
-import { verifyMobileJwt } from "@/lib/mobile-jwt";
+import { getUserId } from "@/lib/auth-helpers";
 
 // CORS: el bookmarklet se ejecuta en idealista.com / fotocasa.es / …
 // Mantenemos CORS abierto a *, pero exigimos token Bearer en Authorization.
@@ -16,32 +16,16 @@ export async function OPTIONS() {
 }
 
 export async function POST(req: NextRequest) {
-  // 1. Validar token: acepta bs_ API tokens (bookmarklet) y JWT móvil
-  let ownerId: string | null = null;
-
-  const authHeader = req.headers.get("authorization");
-  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
-
-  if (bearerToken) {
-    // Intentar primero como JWT móvil (iss: buysell-mobile)
-    try {
-      const verified = await verifyMobileJwt(bearerToken);
-      if (verified) ownerId = verified.userId;
-    } catch { /* no es JWT móvil */ }
-
-    // Si no, intentar como bs_ API token
-    if (!ownerId) {
-      ownerId = await resolveUserFromToken(bearerToken);
-    }
-  } else {
-    // ?token= query param (bookmarklet legacy)
+  // 1. Auth UNIFICADA: cookie web / JWT móvil / token bs_ (vía getUserId, el
+  //    único resolver). Fallback ?token= para bookmarklets legacy (GET-style).
+  let ownerId = await getUserId();
+  if (!ownerId) {
     const token = extractTokenFromRequest(req);
     if (token) ownerId = await resolveUserFromToken(token);
   }
-
   if (!ownerId) {
     return NextResponse.json(
-      { error: "Token inválido o revocado" },
+      { error: "No autenticado" },
       { status: 401, headers: CORS_HEADERS }
     );
   }
