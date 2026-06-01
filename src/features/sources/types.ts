@@ -36,6 +36,15 @@ export type FetchOutcome =
   | { kind: "blocked"; reason: string }
   | { kind: "error"; error: string };
 
+/** Candidato de búsqueda (nombre/ticker → símbolo importable + su bolsa). */
+export type SearchHit = {
+  /** Identificador exacto para importar (ej. "JEDI.DE"). */
+  symbol: string;
+  name: string | null;
+  exchange: string | null;
+  type: string | null; // ETF | EQUITY | MUTUALFUND | INDEX…
+};
+
 export interface SourceAdapter {
   /** Tipo de registro que alimenta este adaptador. */
   readonly type: RecordType;
@@ -47,4 +56,9 @@ export interface SourceAdapter {
   identify(input: SourceInput): boolean;
   /** Trae + normaliza. No lanza; devuelve outcome. */
   fetch(input: SourceInput, ctx?: { previousValue?: number | null }): Promise<FetchOutcome>;
+  /**
+   * Busca candidatos por nombre/ticker (opcional). Habilita el "buscar y
+   * elegir" para evitar colisiones de símbolo y sufijos de bolsa.
+   */
+  search?(query: string): Promise<SearchHit[]>;
 }

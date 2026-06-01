@@ -55,6 +55,7 @@ function extractUrl(data: ShareData): string | null {
 
 type ImportResult = { created: boolean; priceChanged: boolean; propertyId: string };
 type RecordImportResult = { created: boolean; record: { id: string; title: string } | null };
+type SearchHit = { symbol: string; name: string | null; exchange: string | null; type: string | null };
 
 type Status = "idle" | "extracting" | "sending" | "ok" | "error";
 
@@ -65,6 +66,8 @@ export default function ImportarScreen() {
   const [status, setStatus] = useState<Status>("idle");
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [results, setResults] = useState<SearchHit[]>([]);
+  const [searching, setSearching] = useState(false);
 
   const cfg = RECORD_TYPE_CONFIG[type];
 
@@ -105,6 +108,34 @@ export default function ImportarScreen() {
     };
   }, [handleIncomingUrl, handleShare]);
 
+  // ── Buscador (mercados): teclear nombre/ticker → resultados con su bolsa ──
+  useEffect(() => {
+    if (cfg.addMode !== "search") return;
+    const q = value.trim();
+    if (q.length < 2) {
+      setResults([]);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const handle = setTimeout(async () => {
+      try {
+        const res = await api<{ results: SearchHit[] }>(
+          `/api/records/search?type=${type}&q=${encodeURIComponent(q)}`
+        );
+        if (!cancelled) setResults(res.results ?? []);
+      } catch {
+        if (!cancelled) setResults([]);
+      } finally {
+        if (!cancelled) setSearching(false);
+      }
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [value, type, cfg.addMode]);
+
   // ── URL flow (inmuebles, vía WebView) ───────────────────────────────────
   function startUrlImport() {
     if (value.trim().length < 8 || status === "extracting" || status === "sending") return;
@@ -129,9 +160,9 @@ export default function ImportarScreen() {
     }
   }
 
-  // ── Symbol flow (cripto/mercados, vía API server-side) ──────────────────
-  async function addSymbol() {
-    const symbol = value.trim().toUpperCase();
+  // ── Symbol flow (cripto: símbolo directo / mercados: elegido del buscador) ─
+  async function importSymbol(rawSymbol: string) {
+    const symbol = rawSymbol.trim().toUpperCase();
     if (!symbol || status === "sending") return;
     setStatus("sending");
     setOkMsg(null);
@@ -147,6 +178,10 @@ export default function ImportarScreen() {
       setErrorMsg(errMsg(e, `No se pudo añadir ${symbol}`));
       setStatus("error");
     }
+  }
+
+  function addSymbol() {
+    void importSymbol(value);
   }
 
   const isExtracting = status === "extracting";
@@ -173,6 +208,7 @@ export default function ImportarScreen() {
               onPress={() => {
                 setType(t);
                 setValue("");
+                setResults([]);
                 reset();
               }}
               style={[styles.typeItem, active && { backgroundColor: th.accentSoft }]}
@@ -207,13 +243,50 @@ export default function ImportarScreen() {
             style={[styles.input, { backgroundColor: th.surface, borderColor: th.border, color: th.text }]}
           />
 
-          <Button
-            label={cfg.addMode === "url" ? "Importar" : `Añadir ${cfg.singular.toLowerCase()}`}
-            icon={cfg.addMode === "url" ? "arrow-down-circle-outline" : "add-circle-outline"}
-            onPress={cfg.addMode === "url" ? startUrlImport : addSymbol}
-            loading={isBusy}
-            disabled={value.trim().length < (cfg.addMode === "url" ? 8 : 1)}
-          />
+          {cfg.addMode !== "search" && (
+            <Button
+              label={cfg.addMode === "url" ? "Importar" : `Añadir ${cfg.singular.toLowerCase()}`}
+              icon={cfg.addMode === "url" ? "arrow-down-circle-outline" : "add-circle-outline"}
+              onPress={cfg.addMode === "url" ? startUrlImport : addSymbol}
+              loading={isBusy}
+              disabled={value.trim().length < (cfg.addMode === "url" ? 8 : 1)}
+            />
+          )}
+
+          {cfg.addMode === "search" && value.trim().length >= 2 && (
+            <View style={styles.results}>
+              {searching && results.length === 0 && (
+                <Text style={[styles.infoSub, { color: th.textSubtle }]}>Buscando…</Text>
+              )}
+              {!searching && results.length === 0 && (
+                <Text style={[styles.infoSub, { color: th.textSubtle }]}>
+                  Sin resultados para “{value.trim()}”.
+                </Text>
+              )}
+              {results.map((hit) => (
+                <Pressable
+                  key={`${hit.symbol}-${hit.exchange ?? ""}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Añadir ${hit.name ?? hit.symbol}`}
+                  onPress={() => void importSymbol(hit.symbol)}
+                  disabled={isSending}
+                  style={[styles.resultRow, { backgroundColor: th.surface, borderColor: th.border }]}
+                >
+                  <View style={styles.resultInfo}>
+                    <Text style={[styles.resultName, { color: th.text }]} numberOfLines={1}>
+                      {hit.name ?? hit.symbol}
+                    </Text>
+                    <Text style={[styles.resultMeta, { color: th.textSubtle }]} numberOfLines={1}>
+                      {hit.symbol}
+                      {hit.exchange ? ` · ${hit.exchange}` : ""}
+                      {hit.type ? ` · ${hit.type}` : ""}
+                    </Text>
+                  </View>
+                  <Ionicons name="add-circle-outline" size={22} color={th.accent} />
+                </Pressable>
+              ))}
+            </View>
+          )}
         </>
       )}
 
@@ -232,7 +305,7 @@ export default function ImportarScreen() {
       {status === "ok" && okMsg && (
         <Card>
           <Text style={[styles.resultText, { color: th.text }]}>{okMsg}</Text>
-          {cfg.addMode === "symbol" && (
+          {(cfg.addMode === "symbol" || cfg.addMode === "search") && (
             <Button
               label={`Ver ${cfg.label}`}
               variant="ghost"
@@ -268,6 +341,15 @@ export default function ImportarScreen() {
           </Text>
         </Card>
       )}
+      {cfg.addMode === "search" && (
+        <Card style={styles.hintBox}>
+          <Text style={[styles.hintTitle, { color: th.textMuted }]}>Cómo añadir {cfg.label.toLowerCase()}</Text>
+          <Text style={[styles.hintText, { color: th.textSubtle }]}>
+            Escribe el nombre o el ticker (p. ej. “sxr8”, “apple”, “vaneck space”) y elige el
+            correcto de la lista — con su bolsa. Sin sufijos ni colisiones.
+          </Text>
+        </Card>
+      )}
 
       {isExtracting && (
         <WebViewImporter
@@ -298,6 +380,19 @@ const styles = StyleSheet.create({
   infoText: { fontSize: 14, fontWeight: "500" },
   infoSub: { fontSize: 12, lineHeight: 16, marginTop: 6 },
   resultText: { fontSize: 14, fontWeight: "500" },
+  results: { gap: 8 },
+  resultRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  resultInfo: { flex: 1 },
+  resultName: { fontSize: 14, fontWeight: "600" },
+  resultMeta: { fontSize: 12, marginTop: 2 },
   errorText: { fontSize: 13 },
   retry: { marginTop: 6 },
   hintBox: { marginTop: "auto" },

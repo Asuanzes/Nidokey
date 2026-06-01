@@ -1,10 +1,11 @@
 import type {
   FetchOutcome,
   NormalizedRecord,
+  SearchHit,
   SourceAdapter,
   SourceInput,
 } from "@/features/sources/types";
-import { yahooQuote, type YahooQuote } from "@/features/sources/providers/yahoo";
+import { yahooQuote, yahooSearch, type YahooQuote } from "@/features/sources/providers/yahoo";
 
 /**
  * Adaptador de MERCADOS (bolsa) vía Yahoo Finance (no oficial, sin clave).
@@ -72,5 +73,9 @@ export const yahooAdapter: SourceAdapter = {
     } catch (e) {
       return { kind: "error", error: e instanceof Error ? e.message : String(e) };
     }
+  },
+
+  async search(query: string): Promise<SearchHit[]> {
+    return yahooSearch(query);
   },
 };
