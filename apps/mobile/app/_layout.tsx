@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import "react-native-reanimated";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as SecureStore from "expo-secure-store";
 import * as Linking from "expo-linking";
 
@@ -23,7 +24,7 @@ function isPortalUrl(u: string): boolean {
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
-import { ThemeContext, T, TD } from "@/lib/theme";
+import { ThemeContext, T, TD, useTheme } from "@/lib/theme";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -44,19 +45,22 @@ export default function RootLayout() {
   const th = dark ? TD : T;
 
   return (
-    <AuthProvider>
-      <ThemeContext.Provider value={{ dark, th, toggleTheme }}>
-        <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-          <AuthGate />
-          <StatusBar style="auto" />
-        </ThemeProvider>
-      </ThemeContext.Provider>
-    </AuthProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
+        <ThemeContext.Provider value={{ dark, th, toggleTheme }}>
+          <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+            <AuthGate />
+            <StatusBar style="auto" />
+          </ThemeProvider>
+        </ThemeContext.Provider>
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }
 
 function AuthGate() {
   const { state } = useAuth();
+  const { th } = useTheme();
   const segments = useSegments();
   const router = useRouter();
 
@@ -99,6 +103,26 @@ function AuthGate() {
         }}
       />
       <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
+      <Stack.Screen
+        name="tools/mortgage"
+        options={{
+          headerShown: true,
+          headerBackTitle: "Atrás",
+          headerTintColor: th.primary,
+          headerStyle: { backgroundColor: th.surface },
+          headerTitleStyle: { color: th.text },
+        }}
+      />
+      <Stack.Screen
+        name="tools/[tool]"
+        options={{
+          headerShown: true,
+          headerBackTitle: "Atrás",
+          headerTintColor: th.primary,
+          headerStyle: { backgroundColor: th.surface },
+          headerTitleStyle: { color: th.text },
+        }}
+      />
     </Stack>
   );
 }

@@ -3,7 +3,7 @@ import type { RecordType } from "@nidokey/shared";
 
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth-helpers";
-import { propertyToBaseRecord, cryptoToBaseRecord } from "@/lib/records/mapper";
+import { propertyToBaseRecord, cryptoToBaseRecord, jobToBaseRecord } from "@/lib/records/mapper";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -30,6 +30,16 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     return NextResponse.json({ ...record, meta: { ...record.meta, detail: holding } });
   }
 
+  if (type === "job") {
+    const job = await prisma.jobListing.findFirst({
+      where: { id, ownerId },
+      include: { snapshots: { orderBy: { observedAt: "asc" } } },
+    });
+    if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const record = jobToBaseRecord(job);
+    return NextResponse.json({ ...record, meta: { ...record.meta, detail: job } });
+  }
+
   const property = await prisma.property.findFirst({
     where: { id, ownerId },
     include: {
@@ -43,4 +53,33 @@ export async function GET(req: NextRequest, { params }: Ctx) {
 
   const record = propertyToBaseRecord(property);
   return NextResponse.json({ ...record, meta: { ...record.meta, detail: property } });
+}
+
+/**
+ * DELETE /api/records/:id?type=<tipo>
+ *
+ * Borra un registro del usuario. Owner-scoped vía `deleteMany({ id, ownerId })`
+ * ⇒ 404 si no es del usuario (no se filtra existencia ajena). La cascada
+ * (listings, snapshots, media) la aplican las relaciones del schema.
+ */
+export async function DELETE(req: NextRequest, { params }: Ctx) {
+  const { id } = await params;
+  const ownerId = await requireUserId();
+  const type = (req.nextUrl.searchParams.get("type") ?? "property") as RecordType;
+
+  if (type === "crypto") {
+    const res = await prisma.cryptoHolding.deleteMany({ where: { id, ownerId } });
+    if (res.count === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (type === "job") {
+    const res = await prisma.jobListing.deleteMany({ where: { id, ownerId } });
+    if (res.count === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ ok: true });
+  }
+
+  const res = await prisma.property.deleteMany({ where: { id, ownerId } });
+  if (res.count === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json({ ok: true });
 }

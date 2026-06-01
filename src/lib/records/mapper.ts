@@ -1,5 +1,5 @@
 import { formatPrice, formatMoney, type BaseRecord } from "@nidokey/shared";
-import type { Property, Media, CryptoHolding } from "@prisma/client";
+import type { Property, Media, CryptoHolding, JobListing } from "@prisma/client";
 
 /**
  * Mapper server-side: Property (Prisma) -> BaseRecord (modelo unificado).
@@ -63,6 +63,40 @@ export function cryptoToBaseRecord(c: CryptoHolding): BaseRecord {
       source: c.source,
       externalId: c.externalId,
       ...((c.meta as Record<string, unknown> | null) ?? {}),
+    },
+  };
+}
+
+/** JobListing (Prisma) -> BaseRecord. */
+export function jobToBaseRecord(j: JobListing): BaseRecord {
+  const meta = (j.meta as Record<string, unknown> | null) ?? {};
+  const salaryText = typeof meta.salaryText === "string" ? meta.salaryText : null;
+  const primaryValue =
+    salaryText ??
+    (j.currentValue != null ? `${formatMoney(j.currentValue, j.currency)}/año` : null);
+
+  return {
+    id: j.id,
+    type: "job",
+    title: j.title,
+    subtitle: j.subtitle ?? ([j.company, j.location].filter(Boolean).join(" · ") || null),
+    status: j.status,
+    primaryValue,
+    imageUrl: j.imageUrl,
+    createdAt: j.createdAt.toISOString(),
+    updatedAt: j.updatedAt.toISOString(),
+    meta: {
+      company: j.company,
+      location: j.location,
+      salaryMin: j.salaryMin,
+      salaryMax: j.salaryMax,
+      contractType: j.contractType,
+      contractTime: j.contractTime,
+      category: j.category,
+      url: j.redirectUrl,
+      source: j.source,
+      externalId: j.externalId,
+      ...meta,
     },
   };
 }

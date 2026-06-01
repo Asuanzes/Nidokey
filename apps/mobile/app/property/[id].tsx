@@ -1,22 +1,29 @@
+import { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   Linking,
+  Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import { Image } from "expo-image";
-import { useLocalSearchParams, Stack } from "expo-router";
+import { useLocalSearchParams, Stack, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { formatPrice } from "@nidokey/shared";
 import { useTheme } from "@/lib/theme";
+import { api } from "@/lib/api";
 import { useRecord } from "@/lib/hooks/useRecord";
 import { fetchPropertyDetail, type PropertyDetail } from "@/lib/records/property";
+import { toolsForType, type ToolDef } from "@/lib/records/tools";
+import { CategoryContextSheet } from "@/components/CategoryContextSheet";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
@@ -35,11 +42,68 @@ const TYPE_LABEL: Record<string, string> = {
 export default function PropertyDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { th } = useTheme();
-  const { data: p, error } = useRecord<PropertyDetail>(
+  const insets = useSafeAreaInsets();
+  const { data: p, error, refetch } = useRecord<PropertyDetail>(
     () => fetchPropertyDetail(id!),
     [id],
     { enabled: !!id }
   );
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [busyTool, setBusyTool] = useState<string | null>(null);
+
+  // Re-check: re-consulta cada anuncio vinculado y refresca el detalle.
+  async function recheck() {
+    if (!p) return;
+    if (p.listings.length === 0) {
+      Alert.alert("Sin anuncios", "Este inmueble no tiene anuncios vinculados que actualizar.");
+      return;
+    }
+    setBusyTool("recheck");
+    try {
+      for (const l of p.listings) {
+        await api("/api/listings/check", { method: "POST", body: JSON.stringify({ listingId: l.id }) });
+      }
+      await refetch();
+      setSheetOpen(false);
+      Alert.alert("Precio actualizado", "Se han revisado los anuncios vinculados.");
+    } catch (e) {
+      Alert.alert("No se pudo actualizar", e instanceof Error ? e.message : "Error desconocido");
+    } finally {
+      setBusyTool(null);
+    }
+  }
+
+  // Dispatch del panel contextual por id de herramienta.
+  function handleTool(tool: ToolDef) {
+    if (!p) return;
+    switch (tool.id) {
+      case "recheck":
+        void recheck();
+        return;
+      case "mortgage":
+        setSheetOpen(false);
+        router.push(`/tools/mortgage?amount=${p.currentPrice ? Math.round(p.currentPrice / 100) : ""}` as never);
+        return;
+      case "catastro":
+        setSheetOpen(false);
+        router.push(`/tools/catastro?ref=${encodeURIComponent(p.cadastralRef ?? "")}` as never);
+        return;
+      case "registro":
+        setSheetOpen(false);
+        router.push("/tools/registro" as never);
+        return;
+      case "ine":
+        setSheetOpen(false);
+        router.push(`/tools/ine?city=${encodeURIComponent(p.city ?? "")}` as never);
+        return;
+      case "share":
+        setSheetOpen(false);
+        void Share.share({
+          message: [p.title, formatPrice(p.currentPrice), p.listings[0]?.url].filter(Boolean).join("\n"),
+        });
+        return;
+    }
+  }
 
   if (error) {
     return (
@@ -96,6 +160,15 @@ export default function PropertyDetailScreen() {
               {Math.round(p.currentPrice / 100 / p.builtArea).toLocaleString("es-ES")} €/m²
             </Text>
           )}
+          <Pressable
+            onPress={() => setSheetOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Herramientas del inmueble"
+            hitSlop={8}
+            style={({ pressed }) => [styles.toolsFab, { backgroundColor: th.primary }, pressed && { opacity: 0.85 }]}
+          >
+            <Ionicons name="construct" size={20} color="#fff" />
+          </Pressable>
         </View>
 
         <View style={[styles.section, { backgroundColor: th.surface, borderColor: th.border }]}>
@@ -162,7 +235,28 @@ export default function PropertyDetailScreen() {
           </View>
         )}
       </ScrollView>
+
+      <View style={[styles.floatBar, { top: insets.top + 8 }]} pointerEvents="box-none">
+        <FloatButton icon="chevron-back" onPress={() => router.back()} />
+      </View>
+
+      <CategoryContextSheet
+        visible={sheetOpen}
+        title="Herramientas del inmueble"
+        tools={toolsForType("property")}
+        busyToolId={busyTool}
+        onClose={() => setSheetOpen(false)}
+        onSelect={handleTool}
+      />
     </View>
+  );
+}
+
+function FloatButton({ icon, onPress }: { icon: keyof typeof Ionicons.glyphMap; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} hitSlop={8} style={styles.floatBtn}>
+      <Ionicons name={icon} size={20} color="#fff" />
+    </Pressable>
   );
 }
 
@@ -179,6 +273,21 @@ function Spec({ label, value }: { label: string; value: React.ReactNode }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingBottom: 32 },
+  floatBar: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  floatBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
   gallery: { height: SCREEN_WIDTH * 0.66, backgroundColor: "#000" },
   photoCount: {
@@ -193,6 +302,21 @@ const styles = StyleSheet.create({
   title: { fontSize: 18, fontWeight: "700" },
   location: { fontSize: 13, marginTop: 4 },
   price: { fontSize: 26, fontWeight: "700", marginTop: 12 },
+  toolsFab: {
+    position: "absolute",
+    right: 12,
+    bottom: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
   pricePerSqm: { fontSize: 12, marginTop: 2 },
   sectionTitle: {
     fontSize: 11, fontWeight: "600",

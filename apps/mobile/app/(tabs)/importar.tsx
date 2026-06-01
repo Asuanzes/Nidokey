@@ -17,6 +17,7 @@ import { useTheme } from "@/lib/theme";
 import { api, ApiError } from "@/lib/api";
 import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
 import { WebViewImporter, type ExtractedPayload } from "@/components/WebViewImporter";
+import { JobSearch } from "@/components/JobSearch";
 import { Button, Card, EmptyState, Screen } from "@/components/ui";
 
 /**
@@ -193,7 +194,9 @@ export default function ImportarScreen() {
         />
       )}
 
-      {cfg.addMode !== "soon" && (
+      {cfg.addMode === "search" && <JobSearch />}
+
+      {(cfg.addMode === "url" || cfg.addMode === "symbol") && (
         <>
           <TextInput
             value={value}

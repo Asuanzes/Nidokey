@@ -12,7 +12,9 @@ import type { RecordType } from "@nidokey/shared";
 export type SourceInput =
   | { kind: "url"; url: string }
   | { kind: "symbol"; symbol: string; quote?: string } // cripto / mercado
-  | { kind: "query"; query: string };
+  | { kind: "query"; query: string }
+  | { kind: "search"; what: string; where?: string } // agregadores (empleo, viajes…)
+  | { kind: "record"; record: NormalizedRecord }; // candidato ya normalizado a registrar
 
 /** Registro normalizado que devuelve cualquier adaptador (superset común). */
 export type NormalizedRecord = {
@@ -47,4 +49,9 @@ export interface SourceAdapter {
   identify(input: SourceInput): boolean;
   /** Trae + normaliza. No lanza; devuelve outcome. */
   fetch(input: SourceInput, ctx?: { previousValue?: number | null }): Promise<FetchOutcome>;
+  /**
+   * Búsqueda en agregadores (empleo, viajes…): devuelve VARIOS candidatos para
+   * que el usuario elija cuál registrar. Opcional (solo fuentes tipo buscador).
+   */
+  search?(input: { what: string; where?: string }): Promise<NormalizedRecord[]>;
 }

@@ -1,22 +1,24 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  FlatList,
+  Alert,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
+  Text,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 
-import { RECORD_TYPES, type RecordType } from "@nidokey/shared";
+import { RECORD_TYPES, type BaseRecord, type RecordType } from "@nidokey/shared";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme";
 import { useRecords } from "@/lib/hooks/useRecords";
 import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
-import { RecordCard } from "@/components/RecordCard";
+import { ReorderableRecordList } from "@/components/ReorderableRecordList";
+import { deleteRecord } from "@/lib/data/records-repository";
+import { getSavedOrder, saveOrder, applySavedOrder } from "@/lib/local-order";
 import { EmptyState, Screen } from "@/components/ui";
 
 /**
@@ -40,9 +42,53 @@ export default function RecordsScreen() {
 
   const { data: records, error, loading, refreshing, refetch } = useRecords({ type });
 
+  // Modo edición (pulsación larga): muestra ✕ para borrar. Sale al cambiar de
+  // tipo o si la lista queda vacía.
+  const [editing, setEditing] = useState(false);
+  useEffect(() => { setEditing(false); }, [type]);
+  useEffect(() => { if (records && records.length === 0) setEditing(false); }, [records]);
+
+  // Orden manual local: aplica el orden guardado (SecureStore) a los registros
+  // traídos. `draggingRef` evita que un refetch en segundo plano pise un
+  // arrastre en curso.
+  const [items, setItems] = useState<BaseRecord[] | null>(null);
+  const draggingRef = useRef(false);
+  useEffect(() => {
+    if (!records) { setItems(null); return; }
+    let cancel = false;
+    getSavedOrder(type).then((ids) => {
+      if (cancel || draggingRef.current) return;
+      setItems(applySavedOrder(records, ids));
+    });
+    return () => { cancel = true; };
+  }, [records, type]);
+
+  async function handleDelete(record: BaseRecord) {
+    Alert.alert(
+      "Eliminar registro",
+      `¿Eliminar "${record.title}"? Esta acción no se puede deshacer.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteRecord(record);
+              await refetch();
+            } catch (e) {
+              Alert.alert("No se pudo eliminar", e instanceof Error ? e.message : "Error desconocido");
+            }
+          },
+        },
+      ],
+    );
+  }
+
   if (state.kind !== "authed") return null;
 
   const cfg = RECORD_TYPE_CONFIG[type];
+  const ordered = items ?? records;
 
   return (
     <Screen>
@@ -77,16 +123,33 @@ export default function RecordsScreen() {
             />
           )}
 
-          {records && records.length > 0 && (
-            <FlatList
-              data={records}
-              keyExtractor={(r) => r.id}
-              renderItem={({ item }) => <RecordCard record={item} />}
-              contentContainerStyle={styles.list}
-              refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={th.primary} />
-              }
-            />
+          {ordered && ordered.length > 0 && (
+            <View style={styles.fill}>
+              {editing && (
+                <View style={[styles.editBar, { backgroundColor: th.accentSoft, borderBottomColor: th.border }]}>
+                  <Text style={[styles.editHint, { color: th.textMuted }]} numberOfLines={1}>
+                    Arrastra para reordenar · ✕ borra
+                  </Text>
+                  <Pressable onPress={() => setEditing(false)} hitSlop={8}>
+                    <Text style={[styles.editDone, { color: th.accent }]}>Listo</Text>
+                  </Pressable>
+                </View>
+              )}
+              <ReorderableRecordList
+                data={ordered}
+                editing={editing}
+                refreshing={refreshing}
+                onRefresh={refetch}
+                onEnterEdit={() => setEditing(true)}
+                onDelete={handleDelete}
+                onReorder={(next) => setItems(next)}
+                onCommit={(ids) => { void saveOrder(type, ids); }}
+                onDragStart={() => { draggingRef.current = true; }}
+                onDragEnd={() => { draggingRef.current = false; }}
+                tintColor={th.primary}
+                contentStyle={styles.list}
+              />
+            </View>
           )}
         </View>
 
@@ -121,7 +184,18 @@ export default function RecordsScreen() {
 const styles = StyleSheet.create({
   body: { flex: 1, flexDirection: "row" },
   main: { flex: 1 },
+  fill: { flex: 1 },
   list: { padding: 16, paddingTop: 8 },
+  editBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  editHint: { fontSize: 12, fontWeight: "500", flex: 1, marginRight: 8 },
+  editDone: { fontSize: 14, fontWeight: "700" },
   center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
   rail: {
     width: 60,
