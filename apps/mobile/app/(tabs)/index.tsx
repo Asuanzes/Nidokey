@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   body: { flex: 1, flexDirection: "row" },
   main: { flex: 1 },
   fill: { flex: 1 },
-  list: { padding: 16, paddingTop: 8 },
+  list: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 16 },
   editBar: {
     flexDirection: "row",
     alignItems: "center",
