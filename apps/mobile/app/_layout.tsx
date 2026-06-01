@@ -7,24 +7,13 @@ import "react-native-reanimated";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as SecureStore from "expo-secure-store";
 import * as Linking from "expo-linking";
-
-const PORTAL_HOSTS = [
-  "fotocasa.", "pisos.com", "habitaclia.", "thinkspain.", "indomio.",
-  "idealista.", "milanuncios.", "yaencontre.",
-];
-
-function isPortalUrl(u: string): boolean {
-  try {
-    const hostname = new URL(u).hostname.toLowerCase();
-    return PORTAL_HOSTS.some((h) => hostname.includes(h));
-  } catch {
-    return false;
-  }
-}
+import ShareMenu from "react-native-share-menu";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { ThemeContext, T, TD, useTheme } from "@/lib/theme";
+import { isPortalUrl, extractSharedUrl } from "@/lib/portal-url";
+import { PendingImportProvider, usePendingImport } from "@/lib/pending-import";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -49,8 +38,10 @@ export default function RootLayout() {
       <AuthProvider>
         <ThemeContext.Provider value={{ dark, th, toggleTheme }}>
           <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-            <AuthGate />
-            <StatusBar style="auto" />
+            <PendingImportProvider>
+              <AuthGate />
+              <StatusBar style="auto" />
+            </PendingImportProvider>
           </ThemeProvider>
         </ThemeContext.Provider>
       </AuthProvider>
@@ -63,6 +54,7 @@ function AuthGate() {
   const { th } = useTheme();
   const segments = useSegments();
   const router = useRouter();
+  const { setUrl } = usePendingImport();
 
   useEffect(() => {
     if (state.kind === "loading") return;
@@ -71,14 +63,40 @@ function AuthGate() {
       router.replace("/login");
     } else if (state.kind === "authed" && onLogin) {
       router.replace("/(tabs)");
-    } else if (state.kind === "authed") {
-      // Si el app se abre via share intent de Android con una URL de portal,
-      // navegar directamente a la pantalla de importación.
-      Linking.getInitialURL().then((u) => {
-        if (u && isPortalUrl(u)) router.replace("/importar");
-      });
     }
   }, [state, segments, router]);
+
+  // Share intent (react-native-share-menu) + deep links (expo-linking): estés en
+  // la pantalla que estés, si llega una URL de portal la guardamos y navegamos a
+  // Importar, que la auto-importa mostrando la ventana de carga. Centralizado
+  // aquí (siempre montado) porque antes solo lo escuchaba Importar, que no está
+  // montada al compartir → el share se perdía y quedabas en la pantalla principal.
+  useEffect(() => {
+    if (state.kind !== "authed") return;
+    let alive = true;
+    const go = (u: string | null) => {
+      if (alive && u) {
+        setUrl(u);
+        router.navigate("/importar");
+      }
+    };
+    Linking.getInitialURL().then((u) => go(u && isPortalUrl(u) ? u : null));
+    const linkSub = Linking.addEventListener("url", ({ url }) =>
+      go(isPortalUrl(url) ? url : null)
+    );
+    let shareSub: { remove?: () => void } | undefined;
+    try {
+      ShareMenu.getInitialShare((data) => go(extractSharedUrl(data)));
+      shareSub = ShareMenu.addNewShareListener((data) => go(extractSharedUrl(data)));
+    } catch {
+      // react-native-share-menu no disponible (p. ej. web) → ignorar.
+    }
+    return () => {
+      alive = false;
+      linkSub.remove();
+      shareSub?.remove?.();
+    };
+  }, [state.kind, router, setUrl]);
 
   if (state.kind === "loading") {
     return (

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,11 +9,12 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import ShareMenu, { type ShareData } from "react-native-share-menu";
 import { router } from "expo-router";
 
 import { RECORD_TYPES } from "@nidokey/shared";
 import { useRecordCategory } from "@/lib/records/category-context";
+import { usePendingImport } from "@/lib/pending-import";
+import { isPortalUrl } from "@/lib/portal-url";
 import { useTheme } from "@/lib/theme";
 import { api, ApiError } from "@/lib/api";
 import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
@@ -29,31 +29,6 @@ import { Button, Card, EmptyState, Screen } from "@/components/ui";
  *  - "soon": "Próximamente".
  * Cada registro se guarda en su tipo y aparece en su menú correspondiente.
  */
-
-const PORTAL_HOSTS = [
-  "fotocasa.", "pisos.com", "habitaclia.", "thinkspain.", "indomio.",
-  "idealista.", "milanuncios.", "yaencontre.",
-];
-
-function isPortalUrl(u: string): boolean {
-  try {
-    const hostname = new URL(u).hostname.toLowerCase();
-    return PORTAL_HOSTS.some((h) => hostname.includes(h));
-  } catch {
-    return false;
-  }
-}
-
-function extractUrl(data: ShareData): string | null {
-  if (!data?.data) return null;
-  const items = Array.isArray(data.data) ? data.data : [data.data];
-  for (const item of items) {
-    const text = typeof item === "string" ? item : item?.data ?? "";
-    const match = text.match(/https?:\/\/[^\s]+/);
-    if (match && isPortalUrl(match[0])) return match[0];
-  }
-  return null;
-}
 
 type ImportResult = { created: boolean; priceChanged: boolean; propertyId: string };
 type RecordImportResult = { created: boolean; record: { id: string; title: string } | null };
@@ -95,25 +70,15 @@ export default function ImportarScreen() {
     }
   }, []);
 
-  const handleShare = useCallback(
-    (data: ShareData | null) => {
-      if (!data) return;
-      const u = extractUrl(data);
-      if (u) handleIncomingUrl(u);
-    },
-    [handleIncomingUrl]
-  );
-
+  // El layout raíz captura el share/deep-link (estés donde estés) y deja la URL
+  // aquí; la consumimos: auto-arranca la importación y la limpiamos.
+  const { url: pendingUrl, setUrl: setPendingUrl } = usePendingImport();
   useEffect(() => {
-    Linking.getInitialURL().then((u) => { if (u) handleIncomingUrl(u); });
-    const linkSub = Linking.addEventListener("url", ({ url: u }) => handleIncomingUrl(u));
-    ShareMenu.getInitialShare(handleShare);
-    const shareSub = ShareMenu.addNewShareListener(handleShare);
-    return () => {
-      linkSub.remove();
-      shareSub.remove();
-    };
-  }, [handleIncomingUrl, handleShare]);
+    if (pendingUrl) {
+      handleIncomingUrl(pendingUrl);
+      setPendingUrl(null);
+    }
+  }, [pendingUrl, handleIncomingUrl, setPendingUrl]);
 
   // ── Buscador (mercados): teclear nombre/ticker → resultados con su bolsa ──
   useEffect(() => {
