@@ -220,7 +220,13 @@ export default function ImportarScreen() {
   const progressPct = isSending ? 100 : Math.max(8, Math.round((progress || 0) * 100));
 
   return (
-    <Screen contentStyle={styles.content}>
+    <Screen contentStyle={styles.screen}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
       {/* Selector de tipo (a qué menú va el registro) */}
       <ScrollView
         horizontal
@@ -456,6 +462,8 @@ export default function ImportarScreen() {
         </Card>
       )}
 
+      </ScrollView>
+
       {isExtracting && (
         <WebViewImporter
           url={value.trim()}
@@ -478,7 +486,9 @@ function errMsg(e: unknown, fallback: string): string {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16, gap: 12 },
+  screen: { flex: 1 },
+  scroll: { flex: 1 },
+  content: { padding: 16, gap: 12, paddingBottom: 32 },
   typeRow: { gap: 6, paddingBottom: 4 },
   typeItem: { width: 46, height: 46, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   heading: { fontSize: 16, fontWeight: "700" },

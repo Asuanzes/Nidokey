@@ -67,8 +67,8 @@ export const apifyJobsAdapter: SourceAdapter = {
     const base = { keywords: query, location: opts?.location, remote: opts?.remote };
     // InfoJobs (España) + LinkedIn en paralelo. Si una falla, la otra responde.
     const [infojobs, linkedin] = await Promise.all([
-      ingestInfoJobsOffers({ ...base, maxItems: 12 }).catch(() => [] as JobOffer[]),
-      ingestLinkedInOffers({ ...base, maxItems: 8 }).catch(() => [] as JobOffer[]),
+      ingestInfoJobsOffers({ ...base, maxItems: 20 }).catch(() => [] as JobOffer[]),
+      ingestLinkedInOffers({ ...base, maxItems: 15 }).catch(() => [] as JobOffer[]),
     ]);
     // Intercala para que se vean ambas fuentes arriba; dedup por URL.
     const merged: JobOffer[] = [];
@@ -84,6 +84,6 @@ export const apifyJobsAdapter: SourceAdapter = {
       seen.add(k);
       return true;
     });
-    return deduped.slice(0, 16).map(hitFor);
+    return deduped.slice(0, 30).map(hitFor);
   },
 };
