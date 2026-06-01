@@ -26,8 +26,13 @@ export async function GET(req: NextRequest) {
   const adapter = adaptersFor(type).find((a) => typeof a.search === "function");
   if (!adapter?.search) return NextResponse.json({ results: [] });
 
+  // Filtros opcionales (empleo: ciudad/zona + remoto). Las fuentes que no los
+  // usen los ignoran.
+  const location = req.nextUrl.searchParams.get("location")?.trim() || undefined;
+  const remote = req.nextUrl.searchParams.get("remote") === "1";
+
   try {
-    const results = await adapter.search(q);
+    const results = await adapter.search(q, { location, remote });
     return NextResponse.json({ results });
   } catch (e) {
     return NextResponse.json(

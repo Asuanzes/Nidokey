@@ -55,6 +55,9 @@ export default function ImportarScreen() {
   const [results, setResults] = useState<SearchHit[]>([]);
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  // Empleo: filtros extra de búsqueda (ciudad/zona + remoto).
+  const [searchLocation, setSearchLocation] = useState("");
+  const [searchRemote, setSearchRemote] = useState(false);
   const [progress, setProgress] = useState(0); // carga del anuncio (0–1)
 
   const cfg = RECORD_TYPE_CONFIG[type];
@@ -102,9 +105,12 @@ export default function ImportarScreen() {
       const myId = ++searchRunId.current;
       setSearching(true);
       try {
-        const res = await api<{ results: SearchHit[] }>(
-          `/api/records/search?type=${type}&q=${encodeURIComponent(q)}`
-        );
+        let url = `/api/records/search?type=${type}&q=${encodeURIComponent(q)}`;
+        if (type === "job") {
+          if (searchLocation.trim()) url += `&location=${encodeURIComponent(searchLocation.trim())}`;
+          if (searchRemote) url += `&remote=1`;
+        }
+        const res = await api<{ results: SearchHit[] }>(url);
         if (myId === searchRunId.current) setResults(res.results ?? []);
       } catch {
         if (myId === searchRunId.current) setResults([]);
@@ -115,7 +121,7 @@ export default function ImportarScreen() {
         }
       }
     },
-    [type]
+    [type, searchLocation, searchRemote]
   );
 
   // Mercados (Yahoo, gratis): búsqueda EN VIVO con debounce. Empleo (Apify, de
@@ -235,6 +241,8 @@ export default function ImportarScreen() {
                 setValue("");
                 setResults([]);
                 setHasSearched(false);
+                setSearchLocation("");
+                setSearchRemote(false);
                 reset();
               }}
               style={[styles.typeItem, active && { backgroundColor: th.accentSoft }]}
@@ -285,6 +293,39 @@ export default function ImportarScreen() {
               loading={isBusy}
               disabled={value.trim().length < (cfg.addMode === "url" ? 8 : 1)}
             />
+          )}
+
+          {type === "job" && (
+            <>
+              <TextInput
+                value={searchLocation}
+                onChangeText={(t) => {
+                  setSearchLocation(t);
+                  if (cfg.searchOnSubmit) setHasSearched(false);
+                }}
+                placeholder="Ciudad o zona (opcional)"
+                placeholderTextColor={th.textSubtle}
+                autoCapitalize="words"
+                autoCorrect={false}
+                editable={!isBusy}
+                returnKeyType="search"
+                onSubmitEditing={() => void runSearch(value)}
+                style={[styles.input, { backgroundColor: th.surface, borderColor: th.border, color: th.text }]}
+              />
+              <Pressable
+                onPress={() => setSearchRemote((r) => !r)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: searchRemote }}
+                style={styles.remoteToggle}
+              >
+                <Ionicons
+                  name={searchRemote ? "checkbox" : "square-outline"}
+                  size={20}
+                  color={searchRemote ? th.accent : th.textSubtle}
+                />
+                <Text style={[styles.remoteLabel, { color: th.textMuted }]}>Solo remoto</Text>
+              </Pressable>
+            </>
           )}
 
           {cfg.addMode === "search" && cfg.searchOnSubmit && (
@@ -409,7 +450,7 @@ export default function ImportarScreen() {
           <Text style={[styles.hintTitle, { color: th.textMuted }]}>Cómo añadir {cfg.label.toLowerCase()}</Text>
           <Text style={[styles.hintText, { color: th.textSubtle }]}>
             {type === "job"
-              ? "Escribe el puesto (p. ej. “react”, “enfermero/a”) y pulsa Buscar. Elige una oferta de la lista para guardarla en tus Empleos."
+              ? "Escribe el puesto (p. ej. “react”, “enfermero/a”) y, si quieres, la ciudad o zona; pulsa Buscar y elige una oferta para guardarla en tus Empleos."
               : "Escribe el nombre o el ticker (p. ej. “sxr8”, “apple”, “vaneck space”) y elige el correcto de la lista — con su bolsa. Sin sufijos ni colisiones."}
           </Text>
         </Card>
@@ -449,6 +490,8 @@ const styles = StyleSheet.create({
   progressTrack: { height: 6, borderRadius: 999, overflow: "hidden", marginTop: 12 },
   progressFill: { height: 6, borderRadius: 999, minWidth: 6 },
   resultText: { fontSize: 14, fontWeight: "500" },
+  remoteToggle: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 2 },
+  remoteLabel: { fontSize: 13, fontWeight: "500" },
   results: { gap: 8 },
   resultRow: {
     flexDirection: "row",

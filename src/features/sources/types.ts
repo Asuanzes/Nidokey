@@ -64,8 +64,12 @@ export interface SourceAdapter {
   /** Trae + normaliza. No lanza; devuelve outcome. */
   fetch(input: SourceInput, ctx?: { previousValue?: number | null }): Promise<FetchOutcome>;
   /**
-   * Busca candidatos por nombre/ticker (opcional). Habilita el "buscar y
-   * elegir" para evitar colisiones de símbolo y sufijos de bolsa.
+   * Busca candidatos por nombre/ticker/palabras clave (opcional). Habilita el
+   * "buscar y elegir". `opts` permite filtros extra por tipo (p. ej. empleo:
+   * ciudad/zona y remoto); las fuentes que no los usen los ignoran.
    */
-  search?(query: string): Promise<SearchHit[]>;
+  search?(query: string, opts?: SearchOpts): Promise<SearchHit[]>;
 }
+
+/** Filtros opcionales del buscador (los usa quien los soporte; ej. empleo). */
+export type SearchOpts = { location?: string; remote?: boolean };

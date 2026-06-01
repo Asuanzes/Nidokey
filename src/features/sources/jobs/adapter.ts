@@ -2,6 +2,7 @@ import type {
   FetchOutcome,
   NormalizedRecord,
   SearchHit,
+  SearchOpts,
   SourceAdapter,
   SourceInput,
 } from "@/features/sources/types";
@@ -56,8 +57,13 @@ export const apifyJobsAdapter: SourceAdapter = {
     }
   },
 
-  async search(query: string): Promise<SearchHit[]> {
-    const offers = await ingestInfoJobsOffers({ keywords: query, maxItems: 12 });
+  async search(query: string, opts?: SearchOpts): Promise<SearchHit[]> {
+    const offers = await ingestInfoJobsOffers({
+      keywords: query,
+      location: opts?.location,
+      remote: opts?.remote,
+      maxItems: 12,
+    });
     return offers.slice(0, 12).map(hitFor);
   },
 };
