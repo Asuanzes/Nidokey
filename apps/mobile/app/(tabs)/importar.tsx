@@ -80,14 +80,15 @@ export default function ImportarScreen() {
     setErrorMsg(null);
   }
 
-  // Share / deep-link: solo aplica a inmuebles (URL de portal).
+  // Share / deep-link: solo aplica a inmuebles (URL de portal). Auto-arranca la
+  // importación (status "extracting") → no hay que pulsar "Importar".
   const handleIncomingUrl = useCallback((u: string) => {
     if (isPortalUrl(u)) {
       setType("property");
       setValue(u);
-      setStatus("idle");
       setOkMsg(null);
       setErrorMsg(null);
+      setStatus("extracting");
     }
   }, []);
 

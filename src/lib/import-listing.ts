@@ -66,12 +66,14 @@ export const ImportListingInput = z.object({
 
 /**
  * Filtro defensivo de imágenes en el SERVIDOR (red de seguridad sobre el
- * filtrado del cliente WebView): exige http(s), descarta svg/gif y patrones de
- * basura (logos, iconos, marcas de agua, mapas…), deduplica por path (sin query
- * → conserva URLs firmadas) y limita a 40 para no inflar Media ni el hashing.
+ * filtrado del cliente WebView): exige http(s), descarta svg/gif y basura
+ * (logos, iconos, marcas, mapas…) — pero SOLO como segmento de ruta/fichero,
+ * no como subcadena, para NO descartar fotos reales servidas desde /static/ o
+ * /assets/. Deduplica por path (sin query → conserva URLs firmadas), tope 60.
  */
 const IMG_JUNK_RE =
-  /(logo|sprite|icono?s?|favicon|placeholder|avatar|watermark|marca|blank|pixel|spacer|loading|banner|badge|flag|bandera|sello|googleapis|gstatic|maps\.|staticmap|facebook|whatsapp|instagram|\/static\/|\/assets\/|\/icons?\/)/i;
+  /(?:^|[/_.\-])(logos?|sprites?|icons?|icono|favicon|placeholder|avatars?|watermark|marca-?agua|blank|pixel|spacer|loading|banner|badges?|sello|bandera|flags?)(?:[/_.\-]|$)/i;
+const IMG_JUNK_HOST_RE = /(googleapis|gstatic|staticmap|maps\.google|fbcdn|facebook|whatsapp|instagram|twitter|gravatar)/i;
 
 export function filterImages(urls: string[] | undefined): string[] {
   const seen = new Set<string>();
@@ -82,11 +84,11 @@ export function filterImages(urls: string[] | undefined): string[] {
     if (!/^https?:\/\//i.test(u)) continue;
     const path = u.split("?")[0];
     if (/\.(svg|gif)$/i.test(path)) continue;
-    if (IMG_JUNK_RE.test(path)) continue;
+    if (IMG_JUNK_RE.test(path) || IMG_JUNK_HOST_RE.test(path)) continue;
     if (seen.has(path)) continue;
     seen.add(path);
     out.push(u);
-    if (out.length >= 40) break;
+    if (out.length >= 60) break;
   }
   return out;
 }

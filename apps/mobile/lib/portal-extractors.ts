@@ -7,15 +7,16 @@
  *   { type: 'challenge' }               — captcha/DataDome detectado
  *   { type: 'error', reason: string }
  *
- * Estrategia de robustez (todos los portales):
- *  - IMÁGENES: nunca se prioriza og:image (suele ser una tarjeta con marca de
- *    agua). Se filtran por tamaño real (naturalWidth/Height), ratio y patrón de
- *    URL (logo/icon/watermark/mapa…). Las imágenes estructuradas del JSON del
- *    portal son la fuente primaria; el barrido del DOM es el fallback.
- *  - CAMPOS: además de los que cada portal expone en su JSON, SIEMPRE se manda
- *    `features` (texto de las listas de características). El servidor lo
- *    re-parsea para rellenar m²/hab./baños/año/planta/parcela/eficiencia y
- *    amenidades aunque el JSON del portal no los traiga.
+ * Robustez (todos los portales):
+ *  - PRECIO: __price quita TODO lo no-dígito (en es-ES el '.' es separador de
+ *    miles → parseFloat('185.000') daba 185). Fallback __priceDom() por si el
+ *    JSON del portal no lo trae.
+ *  - IMÁGENES: no se prioriza og:image. Se filtra basura SOLO por segmento de
+ *    ruta (no se descartan fotos en /static/ o /assets/), por tamaño/ratio real
+ *    (DOM) y, si la galería es lazy y hay pocas, se completa con un barrido del
+ *    HTML excluyendo miniaturas (para no colar fotos de anuncios "similares").
+ *  - CAMPOS: SIEMPRE se manda `features` (texto de las características) +
+ *    descripción por DOM como fallback; el servidor re-parsea el resto.
  */
 
 function detectPortal(url: string): string {
@@ -53,10 +54,15 @@ var __jsonLd = function(type) {
   return null;
 };
 
+// Precio de inmueble = euros enteros. Quitamos TODO lo no-dígito porque en
+// es-ES el '.' es separador de miles (parseFloat('185.000') = 185 era un bug).
 var __price = function(v) {
   if (v == null) return null;
-  var n = parseFloat(String(v).replace(/[^\\d.]/g, ''));
-  return isNaN(n) ? null : Math.round(n);
+  if (typeof v === 'number') return Math.round(v);
+  var s = String(v).replace(/[^\\d]/g, '');
+  if (!s) return null;
+  var n = parseInt(s, 10);
+  return isNaN(n) ? null : n;
 };
 
 // Resuelve a URL absoluta. keepQuery=true conserva la query (URLs firmadas de CDN).
@@ -66,20 +72,37 @@ var __abs = function(src, keepQuery) {
   catch(e) { return keepQuery ? String(src) : String(src).split('?')[0]; }
 };
 
-// Patrón de imágenes basura: logos, iconos, marcas de agua, banderas, mapas, sellos…
-var __junk = /(logo|sprite|icono?s?|favicon|placeholder|avatar|watermark|marca|blank|pixel|spacer|loading|banner|badge|flag|bandera|sello|googleapis|gstatic|maps\\.|staticmap|facebook|whatsapp|instagram|\\/static\\/|\\/assets\\/|\\/icons?\\/)/i;
+// Basura SOLO como segmento de ruta/fichero (no subcadena) → no descarta fotos
+// reales en /static/ o /assets/. + hosts de no-fotos. + miniaturas.
+var __junk = /(?:^|[\\/_.\\-])(logos?|sprites?|icons?|icono|favicon|placeholder|avatars?|watermark|marca-?agua|blank|pixel|spacer|loading|banner|badges?|sello|bandera|flags?)(?:[\\/_.\\-]|$)/i;
+var __junkHost = /(googleapis|gstatic|staticmap|maps\\.google|fbcdn|facebook|whatsapp|instagram|twitter|gravatar)/i;
+var __thumb = /(thumbs?|_thumb|-thumb|\\/mini\\/|_mini|web_listing|gallery-thumb|listing-thumb)/i;
 
 var __goodImg = function(path) {
   if (!path || !/^https?:/i.test(path)) return false;
   if (/\\.(svg|gif)(\\?|$)/i.test(path)) return false;
-  if (__junk.test(path)) return false;
+  if (__junk.test(path) || __junkHost.test(path)) return false;
   return true;
 };
 
-// Imágenes REALES del inmueble desde el DOM, filtrando por tamaño, ratio y
-// patrón de URL. NO prioriza og:image (solo último recurso).
+// Barrido del HTML por URLs de imágenes (capta galerías lazy aún no en el DOM).
+// Excluye miniaturas para no colar fotos de anuncios "similares".
+var __htmlImgs = function(max) {
+  var html = ''; try { html = document.documentElement.outerHTML || ''; } catch(e) {}
+  var re = /https?:\\/\\/[^"'\\s<>()\\\\]+\\.(?:jpe?g|png|webp)(?:\\?[^"'\\s<>()\\\\]*)?/gi;
+  var m, seen = {}, out = []; var lim = max || 60;
+  while ((m = re.exec(html)) && out.length < lim) {
+    var full = m[0]; var path = full.split('?')[0];
+    if (!__goodImg(path) || __thumb.test(path) || seen[path]) continue;
+    seen[path] = 1; out.push(full);
+  }
+  return out;
+};
+
+// (DOM) imágenes reales filtrando por tamaño, ratio y URL. NO prioriza og:image.
+// Si hay pocas (galería lazy), completa con el barrido del HTML.
 var __imgs = function(max) {
-  var seen = {}; var result = []; var lim = max || 40;
+  var seen = {}; var result = []; var lim = max || 60;
   var imgs = document.querySelectorAll('img');
   for (var i = 0; i < imgs.length && result.length < lim; i++) {
     var el = imgs[i];
@@ -87,29 +110,30 @@ var __imgs = function(max) {
               el.getAttribute('data-lazy') || el.getAttribute('data-original') ||
               el.getAttribute('data-srcset') || '';
     if (raw && raw.indexOf(' ') > -1) raw = raw.split(' ')[0]; // srcset → primera URL
-    var full = __abs(raw, true);
-    var path = full.split('?')[0];
+    var full = __abs(raw, true); var path = full.split('?')[0];
     if (!__goodImg(path) || seen[path]) continue;
     var w = el.naturalWidth || el.width || 0;
     var h = el.naturalHeight || el.height || 0;
-    if (w && h) {
-      if (w < 300 || h < 200) continue;          // icono/miniatura
-      var r = w / h;
-      if (r > 4 || r < 0.25) continue;           // banner/columna (logo/anuncio)
-    }
+    if (w && h) { if (w < 300 || h < 200) continue; var r = w / h; if (r > 4 || r < 0.25) continue; }
     seen[path] = 1; result.push(full);
   }
-  if (!result.length) {                          // último recurso: og:image
+  if (result.length < 10) {
+    var extra = __htmlImgs(lim);
+    for (var e = 0; e < extra.length && result.length < lim; e++) {
+      var p = extra[e].split('?')[0];
+      if (!seen[p]) { seen[p] = 1; result.push(extra[e]); }
+    }
+  }
+  if (!result.length) {
     var og = document.querySelector('meta[property="og:image"]');
     if (og && og.content) { var o = __abs(og.content, true); if (__goodImg(o.split('?')[0])) result.push(o); }
   }
   return result;
 };
 
-// Filtra/normaliza una lista de URLs estructuradas (multimedia del JSON),
-// conservando la query (URLs firmadas) y descartando basura/duplicados.
+// Filtra/normaliza una lista de URLs estructuradas (multimedia del JSON).
 var __cleanImgs = function(arr, max) {
-  var seen = {}; var out = []; var lim = max || 40;
+  var seen = {}; var out = []; var lim = max || 60;
   for (var i = 0; i < (arr || []).length && out.length < lim; i++) {
     var full = __abs(arr[i], true); if (!full) continue;
     var path = full.split('?')[0];
@@ -119,8 +143,36 @@ var __cleanImgs = function(arr, max) {
   return out;
 };
 
-// Texto de las listas de características del anuncio (portal-agnóstico). El
-// servidor lo re-parsea para rellenar campos que el JSON del portal no trae.
+// Precio desde el DOM (fallback). Ignora €/m² y €/mes.
+var __priceDom = function() {
+  var sels = ['[itemprop="price"]','[class*="price" i]','[class*="Price"]','[data-testid*="price" i]'];
+  for (var s = 0; s < sels.length; s++) {
+    var els; try { els = document.querySelectorAll(sels[s]); } catch(e) { continue; }
+    for (var i = 0; i < els.length; i++) {
+      var txt = (els[i].innerText || els[i].textContent || '');
+      if (txt.indexOf('€') === -1 && !/eur/i.test(txt)) continue;
+      if (/\\/\\s*m|\\/mes|mensual/i.test(txt)) continue;
+      var p = __price(txt);
+      if (p && p >= 1000) return p;
+    }
+  }
+  return null;
+};
+
+// Descripción/resumen desde el DOM (fallback).
+var __descDom = function() {
+  var sels = ['[itemprop="description"]','[class*="description" i]','[class*="comment" i]','[class*="detail-text" i]','[class*="adText" i]','[class*="texto" i]'];
+  var best = '';
+  for (var s = 0; s < sels.length; s++) {
+    var els; try { els = document.querySelectorAll(sels[s]); } catch(e) { continue; }
+    for (var i = 0; i < els.length; i++) {
+      var t = (els[i].innerText || els[i].textContent || '').replace(/\\s+/g,' ').trim();
+      if (t.length > best.length) best = t;
+    }
+  }
+  return best ? best.slice(0, 2000) : null;
+};
+
 var __features = function() {
   var out = []; var seen = {};
   var add = function(s) {
@@ -162,48 +214,45 @@ var ad = pp && (pp.ad || pp.realEstate || pp.listing);
 if (ad) {
   var rawImgs = [];
   if (ad.multimedia && ad.multimedia.images) {
-    for (var i = 0; i < ad.multimedia.images.length; i++) {
-      var im = ad.multimedia.images[i];
-      if (im) rawImgs.push(im.url || im.src || '');
-    }
+    for (var i = 0; i < ad.multimedia.images.length; i++) { var im = ad.multimedia.images[i]; if (im) rawImgs.push(im.url || im.src || ''); }
   }
-  var imgs = __cleanImgs(rawImgs, 40);
-  if (!imgs.length) imgs = __imgs(40);
+  var imgs = __cleanImgs(rawImgs, 60);
+  if (imgs.length < 5) imgs = __imgs(60);
   __post({ type: 'extracted', data: {
     url: ${JSON.stringify(url)}, portal: 'FOTOCASA',
-    title: ad.title || ad.name || '',
-    price: __price(ad.price || (ad.priceInfo && ad.priceInfo.amount)),
+    title: ad.title || ad.name || document.title,
+    price: __price(ad.price || (ad.priceInfo && ad.priceInfo.amount)) || __priceDom(),
     rooms: ad.rooms || ad.roomsNumber || null,
     bathrooms: ad.bathrooms || null,
     builtArea: ad.constructedArea || ad.surface || null,
     usableArea: ad.usableArea || null,
     floor: ad.floor || null,
-    description: (ad.description || '').slice(0, 2000) || null,
+    description: ((ad.description || '').slice(0, 2000)) || __descDom(),
     address: (ad.ubication && ad.ubication.address) || null,
     city: (ad.ubication && (ad.ubication.municipality || ad.ubication.city)) || null,
     province: (ad.ubication && ad.ubication.province) || null,
     postalCode: (ad.ubication && ad.ubication.postalCode) || null,
     latitude: (ad.ubication && ad.ubication.latitude) || null,
     longitude: (ad.ubication && ad.ubication.longitude) || null,
-    images: imgs,
-    features: __features()
+    images: imgs, features: __features()
   }});
   return;
 }
 var ld = __jsonLd('RealEstateListing') || __jsonLd('Apartment') || __jsonLd('House');
 if (ld) {
+  var li = []; if (ld.image) { var a = Array.isArray(ld.image) ? ld.image : [ld.image]; for (var i=0;i<a.length;i++){ var im=a[i]; li.push(typeof im==='string'?im:(im.url||im.contentUrl||'')); } }
+  var imgs = __cleanImgs(li, 60); if (imgs.length < 5) imgs = __imgs(60);
   __post({ type: 'extracted', data: {
     url: ${JSON.stringify(url)}, portal: 'FOTOCASA',
     title: ld.name || document.title,
-    price: __price(ld.offers && ld.offers.price),
+    price: __price(ld.offers && ld.offers.price) || __priceDom(),
     rooms: ld.numberOfRooms || null,
-    description: (ld.description || '').slice(0, 2000) || null,
-    images: __imgs(40),
-    features: __features()
+    description: ((ld.description || '').slice(0, 2000)) || __descDom(),
+    images: imgs, features: __features()
   }});
   return;
 }
-__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'FOTOCASA', title: document.title, images: __imgs(40), features: __features() }});
+__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'FOTOCASA', title: document.title, price: __priceDom(), description: __descDom(), images: __imgs(60), features: __features() }});
 `;
 
 const PISOS_SCRIPT = (url: string) => `
@@ -213,40 +262,37 @@ var pr = pp && (pp.property || pp.ad || pp.listing || pp.detail);
 if (pr) {
   var imgSrc = pr.images || pr.photos || pr.multimedia || [];
   var rawImgs = [];
-  for (var i = 0; i < imgSrc.length; i++) {
-    var im = imgSrc[i];
-    rawImgs.push(typeof im === 'string' ? im : (im.url || im.src || ''));
-  }
-  var imgs = __cleanImgs(rawImgs, 40);
-  if (!imgs.length) imgs = __imgs(40);
+  for (var i = 0; i < imgSrc.length; i++) { var im = imgSrc[i]; rawImgs.push(typeof im === 'string' ? im : (im.url || im.src || '')); }
+  var imgs = __cleanImgs(rawImgs, 60); if (imgs.length < 5) imgs = __imgs(60);
   __post({ type: 'extracted', data: {
     url: ${JSON.stringify(url)}, portal: 'PISOS_COM',
     title: pr.title || pr.name || document.title,
-    price: __price(pr.price || (pr.offers && pr.offers.price)),
+    price: __price(pr.price || (pr.offers && pr.offers.price)) || __priceDom(),
     rooms: pr.rooms || pr.bedrooms || null,
     bathrooms: pr.bathrooms || null,
     builtArea: pr.area || pr.builtArea || pr.constructedArea || null,
     usableArea: pr.usableArea || null,
     city: pr.city || (pr.location && pr.location.city) || null,
     province: pr.province || (pr.location && pr.location.province) || null,
-    description: (pr.description || '').slice(0, 2000) || null,
-    images: imgs,
-    features: __features()
+    description: ((pr.description || '').slice(0, 2000)) || __descDom(),
+    images: imgs, features: __features()
   }});
   return;
 }
 var ld = __jsonLd('RealEstateListing') || __jsonLd('Apartment');
 if (ld) {
+  var li = []; if (ld.image) { var a = Array.isArray(ld.image) ? ld.image : [ld.image]; for (var i=0;i<a.length;i++){ var im=a[i]; li.push(typeof im==='string'?im:(im.url||im.contentUrl||'')); } }
+  var imgs = __cleanImgs(li, 60); if (imgs.length < 5) imgs = __imgs(60);
   __post({ type: 'extracted', data: {
     url: ${JSON.stringify(url)}, portal: 'PISOS_COM',
     title: ld.name || document.title,
-    price: __price(ld.offers && ld.offers.price),
-    images: __imgs(40),
-    features: __features()
+    price: __price(ld.offers && ld.offers.price) || __priceDom(),
+    description: ((ld.description || '').slice(0, 2000)) || __descDom(),
+    images: imgs, features: __features()
   }});
   return;
 }
-__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'PISOS_COM', title: document.title, images: __imgs(40), features: __features() }});
+__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'PISOS_COM', title: document.title, price: __priceDom(), description: __descDom(), images: __imgs(60), features: __features() }});
 `;
 
 const HABITACLIA_SCRIPT = (url: string) => `
@@ -255,31 +301,24 @@ var pp = nd && nd.props && nd.props.pageProps;
 var ad = pp && (pp.ad || pp.property || pp.listing);
 if (ad) {
   var rawImgs = [];
-  if (ad.multimedia && ad.multimedia.images) {
-    for (var i = 0; i < ad.multimedia.images.length; i++) {
-      var im = ad.multimedia.images[i];
-      if (im) rawImgs.push(im.url || im.src || '');
-    }
-  }
-  var imgs = __cleanImgs(rawImgs, 40);
-  if (!imgs.length) imgs = __imgs(40);
+  if (ad.multimedia && ad.multimedia.images) { for (var i = 0; i < ad.multimedia.images.length; i++) { var im = ad.multimedia.images[i]; if (im) rawImgs.push(im.url || im.src || ''); } }
+  var imgs = __cleanImgs(rawImgs, 60); if (imgs.length < 5) imgs = __imgs(60);
   __post({ type: 'extracted', data: {
     url: ${JSON.stringify(url)}, portal: 'HABITACLIA',
     title: ad.title || ad.name || document.title,
-    price: __price(ad.price || (ad.priceInfo && ad.priceInfo.amount)),
+    price: __price(ad.price || (ad.priceInfo && ad.priceInfo.amount)) || __priceDom(),
     rooms: ad.rooms || null,
     bathrooms: ad.bathrooms || null,
     builtArea: ad.constructedArea || ad.surface || null,
     usableArea: ad.usableArea || null,
     city: (ad.ubication && (ad.ubication.municipality || ad.ubication.city)) || null,
     province: (ad.ubication && ad.ubication.province) || null,
-    description: (ad.description || '').slice(0, 2000) || null,
-    images: imgs,
-    features: __features()
+    description: ((ad.description || '').slice(0, 2000)) || __descDom(),
+    images: imgs, features: __features()
   }});
   return;
 }
-__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'HABITACLIA', title: document.title, images: __imgs(40), features: __features() }});
+__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'HABITACLIA', title: document.title, price: __priceDom(), description: __descDom(), images: __imgs(60), features: __features() }});
 `;
 
 const IDEALISTA_SCRIPT = (url: string) => `
@@ -287,20 +326,13 @@ if (__challenge()) { __post({ type: 'challenge' }); return; }
 var ld = __jsonLd('RealEstateListing');
 if (ld) {
   var imgArr = [];
-  if (ld.image) {
-    var src = Array.isArray(ld.image) ? ld.image : [ld.image];
-    for (var i = 0; i < src.length; i++) {
-      var im = src[i];
-      imgArr.push(typeof im === 'string' ? im : (im.url || im.contentUrl || ''));
-    }
-  }
-  var imgs = __cleanImgs(imgArr, 40);
-  if (!imgs.length) imgs = __imgs(40);
+  if (ld.image) { var src = Array.isArray(ld.image) ? ld.image : [ld.image]; for (var i = 0; i < src.length; i++) { var im = src[i]; imgArr.push(typeof im === 'string' ? im : (im.url || im.contentUrl || '')); } }
+  var imgs = __cleanImgs(imgArr, 60); if (imgs.length < 5) imgs = __imgs(60);
   __post({ type: 'extracted', data: {
     url: ${JSON.stringify(url)}, portal: 'IDEALISTA',
     title: ld.name || document.title,
-    price: __price(ld.offers && ld.offers.price),
-    description: (ld.description || '').slice(0, 2000) || null,
+    price: __price(ld.offers && ld.offers.price) || __priceDom(),
+    description: ((ld.description || '').slice(0, 2000)) || __descDom(),
     rooms: ld.numberOfRooms || null,
     builtArea: (ld.floorSize && ld.floorSize.value) ? Math.round(ld.floorSize.value) : null,
     address: (ld.address && ld.address.streetAddress) || null,
@@ -309,19 +341,17 @@ if (ld) {
     postalCode: (ld.address && ld.address.postalCode) || null,
     latitude: (ld.geo && ld.geo.latitude) || null,
     longitude: (ld.geo && ld.geo.longitude) || null,
-    images: imgs,
-    features: __features()
+    images: imgs, features: __features()
   }});
   return;
 }
 var titleEl = document.querySelector('h1.main-info__title, span.main-info__title-main, h1');
-var priceEl = document.querySelector('.info-data-price span, .price-features__primary, [class*="price"]');
 __post({ type: 'extracted', data: {
   url: ${JSON.stringify(url)}, portal: 'IDEALISTA',
   title: (titleEl && titleEl.innerText && titleEl.innerText.trim()) || document.title,
-  price: priceEl ? __price(priceEl.innerText) : null,
-  images: __imgs(40),
-  features: __features()
+  price: __priceDom(),
+  description: __descDom(),
+  images: __imgs(60), features: __features()
 }});
 `;
 
@@ -329,29 +359,24 @@ const MILANUNCIOS_SCRIPT = (url: string) => `
 if (__challenge()) { __post({ type: 'challenge' }); return; }
 var ld = __jsonLd('Product') || __jsonLd('RealEstateListing');
 if (ld) {
-  var imgArr = [];
-  if (ld.image) { var src = Array.isArray(ld.image) ? ld.image : [ld.image];
-    for (var i = 0; i < src.length; i++) { var im = src[i]; imgArr.push(typeof im === 'string' ? im : (im.url || im.contentUrl || '')); } }
-  var imgs = __cleanImgs(imgArr, 40);
-  if (!imgs.length) imgs = __imgs(40);
+  var imgArr = []; if (ld.image) { var src = Array.isArray(ld.image) ? ld.image : [ld.image]; for (var i = 0; i < src.length; i++) { var im = src[i]; imgArr.push(typeof im === 'string' ? im : (im.url || im.contentUrl || '')); } }
+  var imgs = __cleanImgs(imgArr, 60); if (imgs.length < 5) imgs = __imgs(60);
   __post({ type: 'extracted', data: {
     url: ${JSON.stringify(url)}, portal: 'MILANUNCIOS',
     title: ld.name || document.title,
-    price: __price(ld.offers && ld.offers.price),
-    description: (ld.description || '').slice(0, 2000) || null,
-    images: imgs,
-    features: __features()
+    price: __price(ld.offers && ld.offers.price) || __priceDom(),
+    description: ((ld.description || '').slice(0, 2000)) || __descDom(),
+    images: imgs, features: __features()
   }});
   return;
 }
 var titleEl = document.querySelector('h1, [class*="title"]');
-var priceEl = document.querySelector('[class*="price"], [class*="Price"]');
 __post({ type: 'extracted', data: {
   url: ${JSON.stringify(url)}, portal: 'MILANUNCIOS',
   title: (titleEl && titleEl.innerText && titleEl.innerText.trim()) || document.title,
-  price: priceEl ? __price(priceEl.innerText) : null,
-  images: __imgs(40),
-  features: __features()
+  price: __priceDom(),
+  description: __descDom(),
+  images: __imgs(60), features: __features()
 }});
 `;
 
@@ -363,58 +388,54 @@ if (pr) {
   var imgSrc = pr.images || pr.photos || pr.multimedia || [];
   var rawImgs = [];
   for (var i = 0; i < imgSrc.length; i++) { var im = imgSrc[i]; rawImgs.push(typeof im === 'string' ? im : (im.url || im.src || '')); }
-  var imgs = __cleanImgs(rawImgs, 40);
-  if (!imgs.length) imgs = __imgs(40);
+  var imgs = __cleanImgs(rawImgs, 60); if (imgs.length < 5) imgs = __imgs(60);
   __post({ type: 'extracted', data: {
     url: ${JSON.stringify(url)}, portal: 'YAENCONTRE',
     title: pr.title || pr.name || document.title,
-    price: __price(pr.price || (pr.offers && pr.offers.price)),
+    price: __price(pr.price || (pr.offers && pr.offers.price)) || __priceDom(),
     rooms: pr.rooms || pr.bedrooms || null,
     bathrooms: pr.bathrooms || null,
     builtArea: pr.area || pr.constructedArea || null,
     city: pr.city || (pr.location && pr.location.city) || null,
-    description: (pr.description || '').slice(0, 2000) || null,
-    images: imgs,
-    features: __features()
+    description: ((pr.description || '').slice(0, 2000)) || __descDom(),
+    images: imgs, features: __features()
   }});
   return;
 }
 var ld = __jsonLd('RealEstateListing');
 if (ld) {
+  var li = []; if (ld.image) { var a = Array.isArray(ld.image) ? ld.image : [ld.image]; for (var i=0;i<a.length;i++){ var im=a[i]; li.push(typeof im==='string'?im:(im.url||im.contentUrl||'')); } }
+  var imgs = __cleanImgs(li, 60); if (imgs.length < 5) imgs = __imgs(60);
   __post({ type: 'extracted', data: {
     url: ${JSON.stringify(url)}, portal: 'YAENCONTRE',
     title: ld.name || document.title,
-    price: __price(ld.offers && ld.offers.price),
-    images: __imgs(40),
-    features: __features()
+    price: __price(ld.offers && ld.offers.price) || __priceDom(),
+    description: ((ld.description || '').slice(0, 2000)) || __descDom(),
+    images: imgs, features: __features()
   }});
   return;
 }
-__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'YAENCONTRE', title: document.title, images: __imgs(40), features: __features() }});
+__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'YAENCONTRE', title: document.title, price: __priceDom(), description: __descDom(), images: __imgs(60), features: __features() }});
 `;
 
 const GENERIC_SCRIPT = (url: string, portal: string) => `
 var ld = __jsonLd('RealEstateListing') || __jsonLd('Apartment') || __jsonLd('House') || __jsonLd('Product');
 if (ld) {
-  var imgArr = [];
-  if (ld.image) { var src = Array.isArray(ld.image) ? ld.image : [ld.image];
-    for (var i = 0; i < src.length; i++) { var im = src[i]; imgArr.push(typeof im === 'string' ? im : (im.url || im.contentUrl || '')); } }
-  var imgs = __cleanImgs(imgArr, 40);
-  if (!imgs.length) imgs = __imgs(40);
+  var li = []; if (ld.image) { var a = Array.isArray(ld.image) ? ld.image : [ld.image]; for (var i=0;i<a.length;i++){ var im=a[i]; li.push(typeof im==='string'?im:(im.url||im.contentUrl||'')); } }
+  var imgs = __cleanImgs(li, 60); if (imgs.length < 5) imgs = __imgs(60);
   __post({ type: 'extracted', data: {
     url: ${JSON.stringify(url)}, portal: ${JSON.stringify(portal)},
     title: ld.name || document.title,
-    price: __price(ld.offers && ld.offers.price),
+    price: __price(ld.offers && ld.offers.price) || __priceDom(),
     rooms: ld.numberOfRooms || null,
     builtArea: (ld.floorSize && ld.floorSize.value) ? Math.round(ld.floorSize.value) : null,
     city: (ld.address && ld.address.addressLocality) || null,
-    description: (ld.description || '').slice(0, 2000) || null,
-    images: imgs,
-    features: __features()
+    description: ((ld.description || '').slice(0, 2000)) || __descDom(),
+    images: imgs, features: __features()
   }});
   return;
 }
-__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: ${JSON.stringify(portal)}, title: document.title, images: __imgs(40), features: __features() }});
+__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: ${JSON.stringify(portal)}, title: document.title, price: __priceDom(), description: __descDom(), images: __imgs(60), features: __features() }});
 `;
 
 // ─── Public API ───────────────────────────────────────────────────────────────

@@ -28,12 +28,14 @@ const fixtures: Fixture[] = [
       yearBuilt: null, floor: null, energyRating: undefined,
       images: [
         "https://static.fotocasa.es/images/foto1.jpg?sig=abc",   // real (firmada)
-        "https://www.fotocasa.es/assets/logo-fotocasa.svg",      // logo svg → fuera
+        "https://cdn.fotocasa.es/static/img/real-a.jpg",         // /static/ → ¡REAL, debe quedar!
+        "https://cdn.fotocasa.es/assets/img/real-b.jpg",         // /assets/ → ¡REAL, debe quedar!
+        "https://www.fotocasa.es/img/logo-fotocasa.svg",         // logo svg → fuera
         "https://maps.googleapis.com/maps/staticmap?center=x",   // mapa → fuera
         "https://static.fotocasa.es/images/foto1.jpg?sig=zzz",   // dup (mismo path) → fuera
         "https://static.fotocasa.es/images/foto2.jpg",           // real
         "/relativa/foto3.jpg",                                   // no http → fuera
-        "https://cdn.fotocasa.es/icons/watermark-grande.png",    // marca → fuera
+        "https://cdn.fotocasa.es/img/watermark.png",             // marca → fuera
         "https://static.fotocasa.es/images/foto4.webp",          // real
       ],
       features: [
