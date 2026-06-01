@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import type { RecordType } from "@nidokey/shared";
+import type { BaseRecord, RecordType } from "@nidokey/shared";
 
 import { getUserId } from "@/lib/auth-helpers";
 import { pickAdapter } from "@/features/sources/registry";
-import { upsertRecord, getCryptoById } from "@/features/sources/upsert";
-import { cryptoToBaseRecord } from "@/lib/records/mapper";
+import { upsertRecord, getCryptoById, getMarketById } from "@/features/sources/upsert";
+import { cryptoToBaseRecord, marketToBaseRecord } from "@/lib/records/mapper";
 
 /**
  * POST /api/records/import — ingesta UNIFICADA de registros (todos los tipos).
@@ -85,8 +85,14 @@ export async function POST(req: NextRequest) {
 
   try {
     const { id, created } = await upsertRecord(ownerId, outcome.record);
-    const row = type === "crypto" ? await getCryptoById(id) : null;
-    const record = row ? cryptoToBaseRecord(row) : null;
+    let record: BaseRecord | null = null;
+    if (type === "crypto") {
+      const r = await getCryptoById(id);
+      record = r ? cryptoToBaseRecord(r) : null;
+    } else if (type === "market") {
+      const r = await getMarketById(id);
+      record = r ? marketToBaseRecord(r) : null;
+    }
     return NextResponse.json(
       { created, record },
       { status: created ? 201 : 200, headers: CORS_HEADERS }

@@ -28,8 +28,8 @@ export async function fetchRecords(params: RecordListParams = {}): Promise<BaseR
   // Cripto (y futuros tipos): el backend ya devuelve BaseRecord[] desde
   // /api/records — no hace falta mapper de cliente. Requiere desplegar
   // /api/records + migración en producción para tener datos.
-  if (type === "crypto") {
-    return api<BaseRecord[]>(`/api/records?type=crypto`);
+  if (type === "crypto" || type === "market") {
+    return api<BaseRecord[]>(`/api/records?type=${type}`);
   }
 
   // Tipos reservados: sin backend todavía.

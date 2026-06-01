@@ -28,7 +28,7 @@ type CardProps = {
 };
 
 export function RecordCard(props: CardProps) {
-  if (props.record.type === "crypto") return <CryptoCard {...props} />;
+  if (props.record.type === "crypto" || props.record.type === "market") return <CryptoCard {...props} />;
   return <DefaultCard {...props} />;
 }
 
@@ -62,6 +62,8 @@ function CryptoCard({ record, editing, onLongPress, onDelete }: CardProps) {
   const marketCap = metaField<number | null>(record, "marketCap", null);
   const quote = metaField<string>(record, "quoteCurrency", "EUR");
   const spark = metaField<number[]>(record, "sparkline", []);
+  const isMarket = record.type === "market";
+  const exchange = metaField<string | null>(record, "exchange", null);
   // El % grande va por el cambio de 24h; el gráfico por la tendencia de 7 días
   // (precio actual vs. hace 7 días). Verde sube / rojo baja en ambos casos.
   const changeColor = change.up ? UP : DOWN;
@@ -83,7 +85,7 @@ function CryptoCard({ record, editing, onLongPress, onDelete }: CardProps) {
           <Text style={[styles.price, { color: th.text }]}>{record.primaryValue ?? "—"}</Text>
           <View style={styles.changeRow}>
             <Text style={[styles.change, { color: changeColor }]}>{change.text}</Text>
-            <Text style={[styles.periodLabel, { color: th.textSubtle }]}>24h</Text>
+            <Text style={[styles.periodLabel, { color: th.textSubtle }]}>{isMarket ? "día" : "24h"}</Text>
           </View>
         </View>
       </View>
@@ -95,12 +97,16 @@ function CryptoCard({ record, editing, onLongPress, onDelete }: CardProps) {
 
       <View style={[styles.cryptoFooter, { borderTopColor: th.border }]}>
         <View>
-          <Text style={[styles.statLabel, { color: th.textSubtle }]}>Cap. mercado</Text>
-          <Text style={[styles.statValue, { color: th.textMuted }]}>{compactMoney(marketCap, quote)}</Text>
+          <Text style={[styles.statLabel, { color: th.textSubtle }]}>{isMarket ? "Bolsa" : "Cap. mercado"}</Text>
+          <Text style={[styles.statValue, { color: th.textMuted }]}>
+            {isMarket ? (exchange ?? "—") : compactMoney(marketCap, quote)}
+          </Text>
         </View>
         <View style={styles.alignEnd}>
-          <Text style={[styles.statLabel, { color: th.textSubtle }]}>Vol. 24h</Text>
-          <Text style={[styles.statValue, { color: th.textMuted }]}>{compactMoney(volume, quote)}</Text>
+          <Text style={[styles.statLabel, { color: th.textSubtle }]}>{isMarket ? "Volumen" : "Vol. 24h"}</Text>
+          <Text style={[styles.statValue, { color: th.textMuted }]}>
+            {isMarket ? compactNumber(volume) : compactMoney(volume, quote)}
+          </Text>
         </View>
       </View>
 
@@ -298,6 +304,17 @@ function compactMoney(n: number | null, currency = "EUR"): string {
   if (abs >= 1e6) return `${fmt(n / 1e6)} M ${sym}`;
   if (abs >= 1e3) return `${fmt(n / 1e3)} k ${sym}`;
   return `${Math.round(n)} ${sym}`;
+}
+
+/** Número compacto SIN moneda (p. ej. volumen de bolsa en acciones). */
+function compactNumber(n: number | null): string {
+  if (n == null) return "—";
+  const abs = Math.abs(n);
+  const fmt = (x: number) => x.toFixed(x >= 100 ? 0 : 1).replace(".", ",");
+  if (abs >= 1e9) return `${fmt(n / 1e9)} B`;
+  if (abs >= 1e6) return `${fmt(n / 1e6)} M`;
+  if (abs >= 1e3) return `${fmt(n / 1e3)} k`;
+  return `${Math.round(n)}`;
 }
 
 const styles = StyleSheet.create({

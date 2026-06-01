@@ -1,5 +1,5 @@
 import { formatPrice, formatMoney, type BaseRecord } from "@nidokey/shared";
-import type { Property, Media, CryptoHolding } from "@prisma/client";
+import type { Property, Media, CryptoHolding, MarketInstrument } from "@prisma/client";
 
 /**
  * Mapper server-side: Property (Prisma) -> BaseRecord (modelo unificado).
@@ -63,6 +63,30 @@ export function cryptoToBaseRecord(c: CryptoHolding): BaseRecord {
       source: c.source,
       externalId: c.externalId,
       ...((c.meta as Record<string, unknown> | null) ?? {}),
+    },
+  };
+}
+
+/** MarketInstrument (Prisma) -> BaseRecord. */
+export function marketToBaseRecord(m: MarketInstrument): BaseRecord {
+  return {
+    id: m.id,
+    type: "market",
+    title: m.title,
+    subtitle: m.subtitle,
+    status: m.status,
+    primaryValue: m.currentValue != null ? formatMoney(m.currentValue, m.currency) : null,
+    imageUrl: m.imageUrl,
+    createdAt: m.createdAt.toISOString(),
+    updatedAt: m.updatedAt.toISOString(),
+    meta: {
+      symbol: m.symbol,
+      exchange: m.exchange,
+      quoteCurrency: m.quoteCurrency,
+      quantity: m.quantity != null ? m.quantity.toString() : null,
+      source: m.source,
+      externalId: m.externalId,
+      ...((m.meta as Record<string, unknown> | null) ?? {}),
     },
   };
 }

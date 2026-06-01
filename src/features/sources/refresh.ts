@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import type { RecordType } from "@nidokey/shared";
 import { marketData, type CoinMarket } from "@/features/sources/adapters/coingecko";
+import { tdQuote } from "@/features/sources/providers/twelvedata";
 import { logImportEvent } from "@/lib/import-log";
 
 /**
@@ -20,6 +21,7 @@ export type RefreshSummary = {
 
 export async function refreshType(type: RecordType): Promise<RefreshSummary> {
   if (type === "crypto") return refreshCrypto();
+  if (type === "market") return refreshMarket();
   return { type, checked: 0, updated: 0, errors: 0 };
 }
 
@@ -87,6 +89,70 @@ async function refreshCrypto(): Promise<RefreshSummary> {
   await logImportEvent("RECHECK", {
     ok: errors === 0,
     message: `crypto refresh: ${updated}/${checked} actualizados`,
+    meta: summary,
+  });
+  return summary;
+}
+
+/**
+ * Refresh de mercados (Twelve Data). El free tier es 1 símbolo/llamada, así que
+ * iteramos (con el throttle del provider) en vez de batch. Actualiza precio,
+ * %día y volumen; el sparkline se fija al añadir (cambia poco) para ahorrar
+ * créditos. `take` acota por ejecución para no agotar la cuota.
+ */
+async function refreshMarket(): Promise<RefreshSummary> {
+  const instruments = await prisma.marketInstrument.findMany({
+    where: { source: "twelvedata", externalId: { not: null } },
+    orderBy: { lastCheckedAt: { sort: "asc", nulls: "first" } },
+    take: 20,
+  });
+
+  let checked = 0;
+  let updated = 0;
+  let errors = 0;
+  const now = new Date();
+
+  for (const inst of instruments) {
+    checked++;
+    try {
+      const q = await tdQuote(inst.symbol);
+      if (q.status === "error" || !q.close) {
+        errors++;
+        continue;
+      }
+      const cents = Math.round(Number(q.close) * 100);
+      if (!Number.isFinite(cents)) {
+        errors++;
+        continue;
+      }
+      const changed = cents !== inst.currentValue;
+      const pct = q.percent_change != null ? Number(q.percent_change) : NaN;
+      const vol = q.volume != null ? Number(q.volume) : NaN;
+      await prisma.marketInstrument.update({
+        where: { id: inst.id },
+        data: {
+          currentValue: cents,
+          lastCheckedAt: now,
+          meta: {
+            ...((inst.meta as Record<string, unknown>) ?? {}),
+            change24h: Number.isFinite(pct) ? pct : null,
+            volume: Number.isFinite(vol) ? vol : null,
+          },
+          ...(changed
+            ? { snapshots: { create: [{ value: cents, source: "twelvedata", observedAt: now }] } }
+            : {}),
+        },
+      });
+      if (changed) updated++;
+    } catch {
+      errors++;
+    }
+  }
+
+  const summary = { type: "market" as const, checked, updated, errors };
+  await logImportEvent("RECHECK", {
+    ok: errors === 0,
+    message: `market refresh: ${updated}/${checked} actualizados`,
     meta: summary,
   });
   return summary;

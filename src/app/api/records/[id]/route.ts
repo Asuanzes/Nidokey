@@ -3,7 +3,7 @@ import type { RecordType } from "@nidokey/shared";
 
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth-helpers";
-import { propertyToBaseRecord, cryptoToBaseRecord } from "@/lib/records/mapper";
+import { propertyToBaseRecord, cryptoToBaseRecord, marketToBaseRecord } from "@/lib/records/mapper";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -28,6 +28,16 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     if (!holding) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const record = cryptoToBaseRecord(holding);
     return NextResponse.json({ ...record, meta: { ...record.meta, detail: holding } });
+  }
+
+  if (type === "market") {
+    const instrument = await prisma.marketInstrument.findFirst({
+      where: { id, ownerId },
+      include: { snapshots: { orderBy: { observedAt: "asc" } } },
+    });
+    if (!instrument) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const record = marketToBaseRecord(instrument);
+    return NextResponse.json({ ...record, meta: { ...record.meta, detail: instrument } });
   }
 
   const property = await prisma.property.findFirst({
@@ -59,6 +69,12 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
 
   if (type === "crypto") {
     const res = await prisma.cryptoHolding.deleteMany({ where: { id, ownerId } });
+    if (res.count === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (type === "market") {
+    const res = await prisma.marketInstrument.deleteMany({ where: { id, ownerId } });
     if (res.count === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ ok: true });
   }

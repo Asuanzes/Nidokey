@@ -85,11 +85,12 @@ model User {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
-  accounts       Account[]
-  sessions       Session[]
-  apiTokens      ApiToken[]
-  properties     Property[]
-  cryptoHoldings CryptoHolding[]
+  accounts          Account[]
+  sessions          Session[]
+  apiTokens         ApiToken[]
+  properties        Property[]
+  cryptoHoldings    CryptoHolding[]
+  marketInstruments MarketInstrument[]
 }
 
 // Tablas estándar de NextAuth / Auth.js (Prisma adapter).
@@ -360,4 +361,51 @@ model CryptoSnapshot {
   meta       Json?
 
   @@index([holdingId, observedAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// MarketInstrument — instrumento de bolsa (acción/ETF/índice) seguido por el
+// usuario. Mismo contrato común que CryptoHolding. Precio en céntimos.
+// ─────────────────────────────────────────────────────────────────────────
+model MarketInstrument {
+  id            String   @id @default(cuid())
+  ownerId       String?
+  owner         User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  recordType    String   @default("market")
+
+  title         String              // "Apple Inc."
+  subtitle      String?             // "AAPL · NASDAQ"
+  status        String?             // libre: "WATCH" | "HOLDING"
+  symbol        String              // "AAPL"
+  exchange      String?
+  quoteCurrency String   @default("USD")
+  quantity      Decimal? @db.Decimal(36, 18) // opcional: cantidad en cartera
+  currentValue  Int?                // precio por unidad, céntimos de quoteCurrency
+  currency      String?  @default("USD")
+  imageUrl      String?
+  source        String?             // "twelvedata" | "finnhub" | …
+  externalId    String?             // símbolo normalizado
+  lastCheckedAt DateTime?
+  meta          Json?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  snapshots     MarketSnapshot[]
+
+  @@unique([ownerId, symbol, source])
+  @@index([recordType])
+  @@index([lastCheckedAt])
+}
+
+model MarketSnapshot {
+  id           String           @id @default(cuid())
+  instrumentId String
+  instrument   MarketInstrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  value        Int              // precio por unidad, céntimos
+  source       String
+  observedAt   DateTime         @default(now())
+  meta         Json?
+
+  @@index([instrumentId, observedAt])
 }

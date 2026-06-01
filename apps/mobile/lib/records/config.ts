@@ -40,7 +40,7 @@ export const RECORD_TYPE_CONFIG: Record<RecordType, RecordTypeConfig> = {
   renting:  { label: "Alquiler",   singular: "Alquiler",  color: "#7A5BA6", icon: "key-outline",          enabled: false, addMode: "soon",   addPlaceholder: "" },
   holiday:  { label: "Vacaciones", singular: "Vacación",  color: "#2C7A8A", icon: "airplane-outline",     enabled: false, addMode: "soon",   addPlaceholder: "" },
   crypto:   { label: "Criptos",    singular: "Cripto",    color: "#B87333", icon: "logo-bitcoin",         enabled: true,  addMode: "symbol", addPlaceholder: "BTC, ETH, SOL…" },
-  market:   { label: "Markets",    singular: "Mercado",   color: "#2D6A4F", icon: "trending-up-outline",  enabled: false, addMode: "soon",   addPlaceholder: "" },
+  market:   { label: "Markets",    singular: "Mercado",   color: "#2D6A4F", icon: "trending-up-outline",  enabled: true,  addMode: "symbol", addPlaceholder: "AAPL, TSLA, SPY…" },
   job:      { label: "Empleos",    singular: "Empleo",    color: "#A86A17", icon: "briefcase-outline",    enabled: false, addMode: "soon",   addPlaceholder: "" },
   workout:  { label: "Entrenos",   singular: "Producto",  color: "#A23E3E", icon: "barbell-outline",      enabled: false, addMode: "soon",   addPlaceholder: "" },
   chat:     { label: "Chat",       singular: "Chat",      color: "#3A7BD5", icon: "chatbubbles-outline",  enabled: false, addMode: "soon",   addPlaceholder: "" },
