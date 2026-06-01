@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -32,7 +32,14 @@ import { Button, Card, EmptyState, Screen } from "@/components/ui";
 
 type ImportResult = { created: boolean; priceChanged: boolean; propertyId: string };
 type RecordImportResult = { created: boolean; record: { id: string; title: string } | null };
-type SearchHit = { symbol: string; name: string | null; exchange: string | null; type: string | null };
+type SearchHit = {
+  symbol: string;
+  name: string | null;
+  exchange: string | null;
+  type: string | null;
+  /** Empleo: el candidato ya trae su registro normalizado → import sin re-llamar. */
+  record?: unknown;
+};
 
 type Status = "idle" | "extracting" | "sending" | "ok" | "error";
 
@@ -47,6 +54,7 @@ export default function ImportarScreen() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [results, setResults] = useState<SearchHit[]>([]);
   const [searching, setSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [progress, setProgress] = useState(0); // carga del anuncio (0–1)
 
   const cfg = RECORD_TYPE_CONFIG[type];
@@ -80,33 +88,49 @@ export default function ImportarScreen() {
     }
   }, [pendingUrl, handleIncomingUrl, setPendingUrl]);
 
-  // ── Buscador (mercados): teclear nombre/ticker → resultados con su bolsa ──
-  useEffect(() => {
-    if (cfg.addMode !== "search") return;
-    const q = value.trim();
-    if (q.length < 2) {
-      setResults([]);
-      return;
-    }
-    let cancelled = false;
-    setSearching(true);
-    const handle = setTimeout(async () => {
+  // ── Buscador (mercados / empleo): nombre/ticker/keywords → candidatos ──────
+  // Guard de respuesta obsoleta por id de ejecución (evita pisar con una vieja).
+  const searchRunId = useRef(0);
+  const runSearch = useCallback(
+    async (raw: string) => {
+      const q = raw.trim();
+      if (q.length < 2) {
+        setResults([]);
+        setHasSearched(false);
+        return;
+      }
+      const myId = ++searchRunId.current;
+      setSearching(true);
       try {
         const res = await api<{ results: SearchHit[] }>(
           `/api/records/search?type=${type}&q=${encodeURIComponent(q)}`
         );
-        if (!cancelled) setResults(res.results ?? []);
+        if (myId === searchRunId.current) setResults(res.results ?? []);
       } catch {
-        if (!cancelled) setResults([]);
+        if (myId === searchRunId.current) setResults([]);
       } finally {
-        if (!cancelled) setSearching(false);
+        if (myId === searchRunId.current) {
+          setSearching(false);
+          setHasSearched(true);
+        }
       }
-    }, 350);
-    return () => {
-      cancelled = true;
-      clearTimeout(handle);
-    };
-  }, [value, type, cfg.addMode]);
+    },
+    [type]
+  );
+
+  // Mercados (Yahoo, gratis): búsqueda EN VIVO con debounce. Empleo (Apify, de
+  // pago) usa searchOnSubmit → no busca al teclear (ver botón "Buscar").
+  useEffect(() => {
+    if (cfg.addMode !== "search" || cfg.searchOnSubmit) return;
+    const q = value.trim();
+    if (q.length < 2) {
+      setResults([]);
+      setHasSearched(false);
+      return;
+    }
+    const handle = setTimeout(() => void runSearch(q), 350);
+    return () => clearTimeout(handle);
+  }, [value, cfg.addMode, cfg.searchOnSubmit, runSearch]);
 
   // ── URL flow (inmuebles, vía WebView) ───────────────────────────────────
   function startUrlImport() {
@@ -157,6 +181,32 @@ export default function ImportarScreen() {
     void importSymbol(value);
   }
 
+  // Elegir un candidato del buscador. Empleo: el hit trae su `record` → se
+  // guarda tal cual (kind:"record", sin re-llamar a la fuente de pago).
+  // Mercados: import por símbolo (fetch server-side, gratis).
+  async function importHit(hit: SearchHit) {
+    if (status === "sending") return;
+    setStatus("sending");
+    setOkMsg(null);
+    setErrorMsg(null);
+    try {
+      const input = hit.record
+        ? { kind: "record", record: hit.record }
+        : { kind: "symbol", symbol: hit.symbol.trim().toUpperCase(), quote: "EUR" };
+      const res = await api<RecordImportResult>("/api/records/import", {
+        method: "POST",
+        body: JSON.stringify({ type, input }),
+      });
+      setOkMsg(
+        `✅ ${res.record?.title ?? hit.name ?? "Registro"} ${res.created ? "añadido" : "actualizado"} en ${cfg.label}`
+      );
+      setStatus("ok");
+    } catch (e) {
+      setErrorMsg(errMsg(e, `No se pudo añadir ${hit.name ?? hit.symbol ?? ""}`));
+      setStatus("error");
+    }
+  }
+
   const isExtracting = status === "extracting";
   const isSending = status === "sending";
   const isBusy = isExtracting || isSending;
@@ -184,6 +234,7 @@ export default function ImportarScreen() {
                 setType(t);
                 setValue("");
                 setResults([]);
+                setHasSearched(false);
                 reset();
               }}
               style={[styles.typeItem, active && { backgroundColor: th.accentSoft }]}
@@ -208,13 +259,21 @@ export default function ImportarScreen() {
         <>
           <TextInput
             value={value}
-            onChangeText={(t) => { setValue(t); reset(); }}
+            onChangeText={(t) => {
+              setValue(t);
+              reset();
+              if (cfg.searchOnSubmit) setHasSearched(false);
+            }}
             placeholder={cfg.addPlaceholder}
             placeholderTextColor={th.textSubtle}
             keyboardType={cfg.addMode === "url" ? "url" : "default"}
             autoCapitalize={cfg.addMode === "symbol" ? "characters" : "none"}
             autoCorrect={false}
             editable={!isBusy}
+            returnKeyType={cfg.addMode === "search" ? "search" : "default"}
+            onSubmitEditing={() => {
+              if (cfg.addMode === "search" && cfg.searchOnSubmit) void runSearch(value);
+            }}
             style={[styles.input, { backgroundColor: th.surface, borderColor: th.border, color: th.text }]}
           />
 
@@ -228,38 +287,51 @@ export default function ImportarScreen() {
             />
           )}
 
-          {cfg.addMode === "search" && value.trim().length >= 2 && (
+          {cfg.addMode === "search" && cfg.searchOnSubmit && (
+            <Button
+              label="Buscar"
+              icon="search-outline"
+              onPress={() => void runSearch(value)}
+              loading={searching}
+              disabled={value.trim().length < 2 || isSending}
+            />
+          )}
+
+          {cfg.addMode === "search" && (searching || results.length > 0 || hasSearched) && (
             <View style={styles.results}>
               {searching && results.length === 0 && (
                 <Text style={[styles.infoSub, { color: th.textSubtle }]}>Buscando…</Text>
               )}
-              {!searching && results.length === 0 && (
+              {!searching && hasSearched && results.length === 0 && (
                 <Text style={[styles.infoSub, { color: th.textSubtle }]}>
                   Sin resultados para “{value.trim()}”.
                 </Text>
               )}
-              {results.map((hit) => (
-                <Pressable
-                  key={`${hit.symbol}-${hit.exchange ?? ""}`}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Añadir ${hit.name ?? hit.symbol}`}
-                  onPress={() => void importSymbol(hit.symbol)}
-                  disabled={isSending}
-                  style={[styles.resultRow, { backgroundColor: th.surface, borderColor: th.border }]}
-                >
-                  <View style={styles.resultInfo}>
-                    <Text style={[styles.resultName, { color: th.text }]} numberOfLines={1}>
-                      {hit.name ?? hit.symbol}
-                    </Text>
-                    <Text style={[styles.resultMeta, { color: th.textSubtle }]} numberOfLines={1}>
-                      {hit.symbol}
-                      {hit.exchange ? ` · ${hit.exchange}` : ""}
-                      {hit.type ? ` · ${hit.type}` : ""}
-                    </Text>
-                  </View>
-                  <Ionicons name="add-circle-outline" size={22} color={th.accent} />
-                </Pressable>
-              ))}
+              {results.map((hit, i) => {
+                const meta = [hit.symbol, hit.exchange, hit.type].filter(Boolean).join(" · ");
+                return (
+                  <Pressable
+                    key={`${hit.symbol}|${hit.name ?? ""}|${i}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Añadir ${hit.name ?? hit.symbol}`}
+                    onPress={() => void importHit(hit)}
+                    disabled={isSending}
+                    style={[styles.resultRow, { backgroundColor: th.surface, borderColor: th.border }]}
+                  >
+                    <View style={styles.resultInfo}>
+                      <Text style={[styles.resultName, { color: th.text }]} numberOfLines={2}>
+                        {hit.name ?? hit.symbol}
+                      </Text>
+                      {meta.length > 0 && (
+                        <Text style={[styles.resultMeta, { color: th.textSubtle }]} numberOfLines={1}>
+                          {meta}
+                        </Text>
+                      )}
+                    </View>
+                    <Ionicons name="add-circle-outline" size={22} color={th.accent} />
+                  </Pressable>
+                );
+              })}
             </View>
           )}
         </>
@@ -271,7 +343,7 @@ export default function ImportarScreen() {
             <ActivityIndicator color={th.primary} />
             <Text style={[styles.loadingText, { color: th.text }]}>
               {isSending
-                ? "Guardando inmueble…"
+                ? `Guardando ${cfg.singular.toLowerCase()}…`
                 : progress < 1
                 ? "Cargando el anuncio…"
                 : "Leyendo datos del inmueble…"}
@@ -336,8 +408,9 @@ export default function ImportarScreen() {
         <Card style={styles.hintBox}>
           <Text style={[styles.hintTitle, { color: th.textMuted }]}>Cómo añadir {cfg.label.toLowerCase()}</Text>
           <Text style={[styles.hintText, { color: th.textSubtle }]}>
-            Escribe el nombre o el ticker (p. ej. “sxr8”, “apple”, “vaneck space”) y elige el
-            correcto de la lista — con su bolsa. Sin sufijos ni colisiones.
+            {type === "job"
+              ? "Escribe el puesto (p. ej. “react”, “enfermero/a”) y pulsa Buscar. Elige una oferta de la lista para guardarla en tus Empleos."
+              : "Escribe el nombre o el ticker (p. ej. “sxr8”, “apple”, “vaneck space”) y elige el correcto de la lista — con su bolsa. Sin sufijos ni colisiones."}
           </Text>
         </Card>
       )}

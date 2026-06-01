@@ -91,6 +91,7 @@ model User {
   properties        Property[]
   cryptoHoldings    CryptoHolding[]
   marketInstruments MarketInstrument[]
+  jobListings       JobListing[]
 }
 
 // Tablas estándar de NextAuth / Auth.js (Prisma adapter).
@@ -408,4 +409,53 @@ model MarketSnapshot {
   meta         Json?
 
   @@index([instrumentId, observedAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// JobListing — oferta de empleo seguida por el usuario (vía Apify: InfoJobs,
+// LinkedIn…). Mismo contrato común. `currentValue` = salario (mínimo) en
+// céntimos cuando se conoce. Dedup por (ownerId, externalId, source).
+// ─────────────────────────────────────────────────────────────────────────
+model JobListing {
+  id            String   @id @default(cuid())
+  ownerId       String?
+  owner         User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  recordType    String   @default("job")
+
+  title         String              // "Frontend Developer (React)"
+  subtitle      String?             // "Empresa · Ubicación"
+  status        String?             // "OPEN" | "CLOSED"
+  company       String?
+  location      String?
+  currentValue  Int?                // salario (mínimo) en céntimos
+  currency      String?  @default("EUR")
+  imageUrl      String?             // logo de la empresa
+  url           String?             // URL de la oferta
+  source        String?             // "apify"
+  platform      String?             // "infojobs" | "linkedin"
+  externalId    String?             // id/URL de la oferta en la plataforma
+  lastCheckedAt DateTime?
+  meta          Json?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  snapshots     JobSnapshot[]
+
+  @@unique([ownerId, externalId, source])
+  @@index([recordType])
+  @@index([lastCheckedAt])
+}
+
+model JobSnapshot {
+  id         String     @id @default(cuid())
+  listingId  String
+  listing    JobListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  value      Int?       // salario si se sigue, céntimos
+  status     String?
+  source     String
+  observedAt DateTime   @default(now())
+  meta       Json?
+
+  @@index([listingId, observedAt])
 }

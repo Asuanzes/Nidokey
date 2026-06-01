@@ -4,8 +4,9 @@ import type { BaseRecord, RecordType } from "@nidokey/shared";
 
 import { getUserId } from "@/lib/auth-helpers";
 import { pickAdapter } from "@/features/sources/registry";
-import { upsertRecord, getCryptoById, getMarketById } from "@/features/sources/upsert";
-import { cryptoToBaseRecord, marketToBaseRecord } from "@/lib/records/mapper";
+import { upsertRecord, getCryptoById, getMarketById, getJobById } from "@/features/sources/upsert";
+import { cryptoToBaseRecord, marketToBaseRecord, jobToBaseRecord } from "@/lib/records/mapper";
+import type { NormalizedRecord } from "@/features/sources/types";
 
 /**
  * POST /api/records/import — ingesta UNIFICADA de registros (todos los tipos).
@@ -25,6 +26,22 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
+// Registro ya normalizado que envía el cliente (candidato elegido en una
+// búsqueda de pago, p. ej. empleo): se guarda tal cual, sin re-llamar a la fuente.
+const RecordPayload = z.object({
+  recordType: z.string().min(1),
+  title: z.string().min(1),
+  subtitle: z.string().nullish(),
+  status: z.string().nullish(),
+  currentValue: z.number().nullish(),
+  currency: z.string().nullish(),
+  imageUrl: z.string().nullish(),
+  source: z.string().min(1),
+  externalId: z.string().nullish(),
+  observedAt: z.union([z.string(), z.date()]).optional(),
+  meta: z.record(z.unknown()).optional(),
+});
+
 const Body = z.object({
   type: z.string().min(1),
   source: z.string().optional(),
@@ -32,8 +49,26 @@ const Body = z.object({
     z.object({ kind: z.literal("url"), url: z.string().url() }),
     z.object({ kind: z.literal("symbol"), symbol: z.string().min(1), quote: z.string().optional() }),
     z.object({ kind: z.literal("query"), query: z.string().min(1) }),
+    z.object({ kind: z.literal("record"), record: RecordPayload }),
   ]),
 });
+
+/** Recarga la fila guardada y la mapea a BaseRecord para la respuesta. */
+async function recordById(type: RecordType, id: string): Promise<BaseRecord | null> {
+  if (type === "crypto") {
+    const r = await getCryptoById(id);
+    return r ? cryptoToBaseRecord(r) : null;
+  }
+  if (type === "market") {
+    const r = await getMarketById(id);
+    return r ? marketToBaseRecord(r) : null;
+  }
+  if (type === "job") {
+    const r = await getJobById(id);
+    return r ? jobToBaseRecord(r) : null;
+  }
+  return null;
+}
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
@@ -62,6 +97,45 @@ export async function POST(req: NextRequest) {
   const type = parsed.data.type as RecordType;
   const input = parsed.data.input;
 
+  // Candidato ya normalizado (búsqueda de pago, p. ej. empleo): se persiste
+  // directo, SIN volver a llamar a la fuente (coste 0 al elegir).
+  if (input.kind === "record") {
+    const r = input.record;
+    if (r.recordType !== type) {
+      return NextResponse.json(
+        { error: "recordType no coincide con type" },
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+    const normalized: NormalizedRecord = {
+      recordType: type,
+      title: r.title,
+      subtitle: r.subtitle ?? null,
+      status: r.status ?? null,
+      currentValue: r.currentValue ?? null,
+      currency: r.currency ?? null,
+      imageUrl: r.imageUrl ?? null,
+      source: r.source,
+      externalId: r.externalId ?? null,
+      observedAt: r.observedAt ? new Date(r.observedAt) : new Date(),
+      meta: r.meta ?? {},
+    };
+    try {
+      const { id, created } = await upsertRecord(ownerId, normalized);
+      const record = await recordById(type, id);
+      return NextResponse.json(
+        { created, record },
+        { status: created ? 201 : 200, headers: CORS_HEADERS }
+      );
+    } catch (err) {
+      console.error("[records-import] error:", err);
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Error interno" },
+        { status: 500, headers: CORS_HEADERS }
+      );
+    }
+  }
+
   const adapter = pickAdapter(type, input);
   if (!adapter) {
     return NextResponse.json(
@@ -85,14 +159,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const { id, created } = await upsertRecord(ownerId, outcome.record);
-    let record: BaseRecord | null = null;
-    if (type === "crypto") {
-      const r = await getCryptoById(id);
-      record = r ? cryptoToBaseRecord(r) : null;
-    } else if (type === "market") {
-      const r = await getMarketById(id);
-      record = r ? marketToBaseRecord(r) : null;
-    }
+    const record = await recordById(type, id);
     return NextResponse.json(
       { created, record },
       { status: created ? 201 : 200, headers: CORS_HEADERS }

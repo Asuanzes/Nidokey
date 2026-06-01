@@ -1,5 +1,5 @@
 import { formatPrice, formatMoney, type BaseRecord } from "@nidokey/shared";
-import type { Property, Media, CryptoHolding, MarketInstrument } from "@prisma/client";
+import type { Property, Media, CryptoHolding, MarketInstrument, JobListing } from "@prisma/client";
 
 /**
  * Mapper server-side: Property (Prisma) -> BaseRecord (modelo unificado).
@@ -92,6 +92,32 @@ export function marketToBaseRecord(m: MarketInstrument): BaseRecord {
       // Hora del último refresco real (ver cryptoToBaseRecord).
       lastCheckedAt: m.lastCheckedAt?.toISOString() ?? null,
       ...((m.meta as Record<string, unknown> | null) ?? {}),
+    },
+  };
+}
+
+/** JobListing (Prisma) -> BaseRecord. Salario en primaryValue; resto en meta
+ *  (company, location, url, platform, footnote…) que ya viene del normalizado. */
+export function jobToBaseRecord(j: JobListing): BaseRecord {
+  return {
+    id: j.id,
+    type: "job",
+    title: j.title,
+    subtitle: j.subtitle,
+    status: j.status,
+    primaryValue: j.currentValue != null ? formatMoney(j.currentValue, j.currency ?? "EUR") : null,
+    imageUrl: j.imageUrl,
+    createdAt: j.createdAt.toISOString(),
+    updatedAt: j.updatedAt.toISOString(),
+    meta: {
+      company: j.company,
+      location: j.location,
+      url: j.url,
+      platform: j.platform,
+      source: j.source,
+      externalId: j.externalId,
+      lastCheckedAt: j.lastCheckedAt?.toISOString() ?? null,
+      ...((j.meta as Record<string, unknown> | null) ?? {}),
     },
   };
 }

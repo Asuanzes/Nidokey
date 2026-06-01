@@ -38,11 +38,18 @@ export type FetchOutcome =
 
 /** Candidato de búsqueda (nombre/ticker → símbolo importable + su bolsa). */
 export type SearchHit = {
-  /** Identificador exacto para importar (ej. "JEDI.DE"). */
+  /** Identificador exacto para importar (ej. "JEDI.DE"). Vacío si el candidato
+   *  ya trae sus datos en `record` (empleo). */
   symbol: string;
   name: string | null;
   exchange: string | null;
   type: string | null; // ETF | EQUITY | MUTUALFUND | INDEX…
+  /**
+   * Registro YA normalizado que viaja con el candidato. Para fuentes de pago
+   * (empleo/Apify) la búsqueda es cara: en vez de re-llamar al elegir, el hit
+   * lleva su `NormalizedRecord` y el import lo guarda tal cual (kind:"record").
+   */
+  record?: NormalizedRecord | null;
 };
 
 export interface SourceAdapter {

@@ -2,6 +2,7 @@ import type { RecordType } from "@nidokey/shared";
 import type { SourceAdapter, SourceInput } from "@/features/sources/types";
 import { coingeckoAdapter } from "@/features/sources/adapters/coingecko";
 import { yahooAdapter } from "@/features/sources/adapters/yahoo";
+import { apifyJobsAdapter } from "@/features/sources/jobs/adapter";
 
 /**
  * Registro de adaptadores por tipo. Añadir una fuente = añadirla aquí.
@@ -14,6 +15,7 @@ import { yahooAdapter } from "@/features/sources/adapters/yahoo";
 const REGISTRY: Partial<Record<RecordType, SourceAdapter[]>> = {
   crypto: [coingeckoAdapter],
   market: [yahooAdapter],
+  job: [apifyJobsAdapter],
 };
 
 export function adaptersFor(type: RecordType): SourceAdapter[] {

@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Image } from "expo-image";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
@@ -249,7 +249,16 @@ function DefaultCard({ record, editing, onLongPress, onDelete }: CardProps) {
 
   return (
     <Pressable
-      onPress={() => { if (!editing) router.push(`/property/${record.id}` as never); }}
+      onPress={() => {
+        if (editing) return;
+        // Empleo: no hay pantalla de detalle → abre la oferta en el navegador.
+        if (record.type === "job") {
+          const url = metaField<string | null>(record, "url", null);
+          if (url) void Linking.openURL(url);
+          return;
+        }
+        router.push(`/property/${record.id}` as never);
+      }}
       onLongPress={onLongPress ? () => fireLongPress(onLongPress) : undefined}
       delayLongPress={300}
       style={({ pressed }) => [

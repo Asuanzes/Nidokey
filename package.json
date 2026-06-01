@@ -24,6 +24,7 @@
     "claim-orphans": "tsx scripts/claim-orphan-properties.ts",
     "refresh": "tsx scripts/refresh-type.ts",
     "test-ingest": "tsx scripts/test-property-ingest.ts",
+    "test-jobs": "tsx scripts/test-jobs-ingestion.ts",
     "mobile": "npm --workspace @nidokey/mobile run start"
   },
   "prisma": {
