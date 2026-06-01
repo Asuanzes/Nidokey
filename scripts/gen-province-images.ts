@@ -68,12 +68,14 @@ const CAPITAL: Record<string, string> = {
 const OVERRIDES: Record<string, string> = {
   // "Cáceres" en en.wiki es desambiguación → foto de Cáceres, Spain.
   Cáceres:
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Caceres_13_1_%286624238327%29.jpg/800px-Caceres_13_1_%286624238327%29.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Caceres_13_1_%286624238327%29.jpg/500px-Caceres_13_1_%286624238327%29.jpg",
 };
 
 const BAD = /flag|bandera|escudo|coat|locator|location_map|\.svg(\/|$)/i;
 
-function bumpWidth(url: string, width = 800): string {
+// Wikimedia solo sirve thumbnails de una lista fija de anchos (640/800 dan 400);
+// 500 es seguro para todos los formatos.
+function bumpWidth(url: string, width = 500): string {
   return url.replace(/\/\d+px-/, `/${width}px-`);
 }
 
@@ -84,7 +86,7 @@ async function summaryImage(title: string): Promise<string | null> {
   const j = (await res.json()) as { thumbnail?: { source?: string } };
   const thumb = j.thumbnail?.source;
   if (!thumb || BAD.test(decodeURIComponent(thumb))) return null;
-  return bumpWidth(thumb, 800);
+  return bumpWidth(thumb, 500);
 }
 
 async function main() {
