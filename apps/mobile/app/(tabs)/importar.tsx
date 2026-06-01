@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Linking,
   Pressable,
   ScrollView,
@@ -71,6 +72,7 @@ export default function ImportarScreen() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [results, setResults] = useState<SearchHit[]>([]);
   const [searching, setSearching] = useState(false);
+  const [progress, setProgress] = useState(0); // carga del anuncio (0–1)
 
   const cfg = RECORD_TYPE_CONFIG[type];
 
@@ -88,6 +90,7 @@ export default function ImportarScreen() {
       setValue(u);
       setOkMsg(null);
       setErrorMsg(null);
+      setProgress(0);
       setStatus("extracting");
     }
   }, []);
@@ -143,6 +146,7 @@ export default function ImportarScreen() {
   // ── URL flow (inmuebles, vía WebView) ───────────────────────────────────
   function startUrlImport() {
     if (value.trim().length < 8 || status === "extracting" || status === "sending") return;
+    setProgress(0);
     setStatus("extracting");
     setOkMsg(null);
     setErrorMsg(null);
@@ -191,6 +195,8 @@ export default function ImportarScreen() {
   const isExtracting = status === "extracting";
   const isSending = status === "sending";
   const isBusy = isExtracting || isSending;
+  // % de la barra: carga del anuncio durante la extracción; 100% al guardar.
+  const progressPct = isSending ? 100 : Math.max(8, Math.round((progress || 0) * 100));
 
   return (
     <Screen contentStyle={styles.content}>
@@ -294,15 +300,31 @@ export default function ImportarScreen() {
         </>
       )}
 
-      {isExtracting && (
+      {isBusy && (
         <Card>
-          <Text style={[styles.infoText, { color: th.textMuted }]}>🌐 Cargando el anuncio en segundo plano…</Text>
-          <Text style={[styles.infoSub, { color: th.textSubtle }]}>Si aparece una verificación la verás automáticamente.</Text>
-        </Card>
-      )}
-      {isSending && (
-        <Card>
-          <Text style={[styles.infoText, { color: th.textMuted }]}>☁️ Guardando…</Text>
+          <View style={styles.loadingRow}>
+            <ActivityIndicator color={th.primary} />
+            <Text style={[styles.loadingText, { color: th.text }]}>
+              {isSending
+                ? "Guardando inmueble…"
+                : progress < 1
+                ? "Cargando el anuncio…"
+                : "Leyendo datos del inmueble…"}
+            </Text>
+          </View>
+          <View style={[styles.progressTrack, { backgroundColor: th.border }]}>
+            <View
+              style={[
+                styles.progressFill,
+                { backgroundColor: th.primary, width: `${progressPct}%` as `${number}%` },
+              ]}
+            />
+          </View>
+          <Text style={[styles.infoSub, { color: th.textSubtle }]}>
+            {isExtracting
+              ? "Si aparece una verificación, la verás automáticamente."
+              : "Casi listo…"}
+          </Text>
         </Card>
       )}
 
@@ -361,6 +383,7 @@ export default function ImportarScreen() {
           onExtracted={handleExtracted}
           onError={(reason) => { setErrorMsg(reason || "No se pudo extraer datos del anuncio"); setStatus("error"); }}
           onCancel={reset}
+          onProgress={setProgress}
         />
       )}
     </Screen>
@@ -383,6 +406,10 @@ const styles = StyleSheet.create({
   input: { height: 48, borderRadius: 10, borderWidth: 1, paddingHorizontal: 14, fontSize: 14 },
   infoText: { fontSize: 14, fontWeight: "500" },
   infoSub: { fontSize: 12, lineHeight: 16, marginTop: 6 },
+  loadingRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  loadingText: { fontSize: 14, fontWeight: "600" },
+  progressTrack: { height: 6, borderRadius: 999, overflow: "hidden", marginTop: 12 },
+  progressFill: { height: 6, borderRadius: 999, minWidth: 6 },
   resultText: { fontSize: 14, fontWeight: "500" },
   results: { gap: 8 },
   resultRow: {

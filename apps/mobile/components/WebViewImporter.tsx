@@ -38,6 +38,8 @@ type Props = {
   onExtracted: (data: ExtractedPayload) => void;
   onError: (reason: string) => void;
   onCancel: () => void;
+  /** Progreso de carga del anuncio (0–1), para pintar la barra en el importador. */
+  onProgress?: (p: number) => void;
 };
 
 type WebViewMsg =
@@ -45,7 +47,7 @@ type WebViewMsg =
   | { type: "challenge" }
   | { type: "error"; reason: string };
 
-export function WebViewImporter({ url, onExtracted, onError, onCancel }: Props) {
+export function WebViewImporter({ url, onExtracted, onError, onCancel, onProgress }: Props) {
   const { th } = useTheme();
   const insets = useSafeAreaInsets();
   const ref = useRef<WebView>(null);
@@ -105,7 +107,10 @@ export function WebViewImporter({ url, onExtracted, onError, onCancel }: Props) 
         source={{ uri: url }}
         onLoadEnd={handleLoadEnd}
         onMessage={handleMessage}
-        onLoadProgress={({ nativeEvent }) => setLoadProgress(nativeEvent.progress)}
+        onLoadProgress={({ nativeEvent }) => {
+          setLoadProgress(nativeEvent.progress);
+          onProgress?.(nativeEvent.progress);
+        }}
         style={styles.webview}
         // Evitar que el WebView intercepte gestos de la pantalla principal cuando está oculto
         pointerEvents={challenge ? "auto" : "none"}
