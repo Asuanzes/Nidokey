@@ -90,7 +90,6 @@ model User {
   apiTokens      ApiToken[]
   properties     Property[]
   cryptoHoldings CryptoHolding[]
-  jobListings    JobListing[]
 }
 
 // Tablas estándar de NextAuth / Auth.js (Prisma adapter).
@@ -361,55 +360,4 @@ model CryptoSnapshot {
   meta       Json?
 
   @@index([holdingId, observedAt])
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// JobListing — empleo seguido por el usuario (fuente: Adzuna u otros).
-// Mismo contrato común que CryptoHolding. Salarios anuales en céntimos.
-// ─────────────────────────────────────────────────────────────────────────
-model JobListing {
-  id            String   @id @default(cuid())
-  ownerId       String?
-  owner         User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  recordType    String   @default("job")
-
-  title         String              // "Business Developer"
-  subtitle      String?             // "Euro-Funding · España"
-  status        String?             // estado de candidatura: "WATCH" | "APPLIED" | …
-  company       String?
-  location      String?
-  salaryMin     Int?                // salario anual, céntimos
-  salaryMax     Int?                // salario anual, céntimos
-  contractType  String?             // permanent | contract
-  contractTime  String?             // full_time | part_time
-  category      String?
-  redirectUrl   String?             // URL a la oferta (redirect de Adzuna)
-  currentValue  Int?                // salario de referencia (máx/medio), céntimos
-  currency      String?  @default("EUR")
-  imageUrl      String?
-  source        String?             // "adzuna"
-  externalId    String?             // id de Adzuna
-  lastCheckedAt DateTime?
-  meta          Json?
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  snapshots     JobSnapshot[]
-
-  @@unique([ownerId, source, externalId])
-  @@index([recordType])
-  @@index([lastCheckedAt])
-}
-
-model JobSnapshot {
-  id         String     @id @default(cuid())
-  jobId      String
-  job        JobListing @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  value      Int        // salario de referencia, céntimos
-  source     String
-  observedAt DateTime   @default(now())
-  meta       Json?
-
-  @@index([jobId, observedAt])
 }

@@ -3,7 +3,7 @@ import type { RecordType } from "@nidokey/shared";
 
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth-helpers";
-import { propertyToBaseRecord, cryptoToBaseRecord, jobToBaseRecord } from "@/lib/records/mapper";
+import { propertyToBaseRecord, cryptoToBaseRecord } from "@/lib/records/mapper";
 
 /**
  * GET /api/records?type=property
@@ -39,15 +39,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(holdings.map(cryptoToBaseRecord));
   }
 
-  if (type === "job") {
-    const jobs = await prisma.jobListing.findMany({
-      where: { ownerId },
-      orderBy: { updatedAt: "desc" },
-      take: 100,
-    });
-    return NextResponse.json(jobs.map(jobToBaseRecord));
-  }
-
-  // Tipos reservados (market, renting…): sin datos todavía.
+  // Tipos reservados (market, job…): sin datos todavía.
   return NextResponse.json([]);
 }

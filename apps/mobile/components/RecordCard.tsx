@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Image } from "expo-image";
-import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
@@ -234,12 +234,7 @@ function DefaultCard({ record, editing, onLongPress, onDelete }: CardProps) {
 
   return (
     <Pressable
-      onPress={() => {
-        if (editing) return;
-        if (record.type === "property") { router.push(`/property/${record.id}` as never); return; }
-        const url = metaField<string | null>(record, "url", null);
-        if (url) void Linking.openURL(url);
-      }}
+      onPress={() => { if (!editing) router.push(`/property/${record.id}` as never); }}
       onLongPress={onLongPress ? () => fireLongPress(onLongPress) : undefined}
       delayLongPress={300}
       style={({ pressed }) => [

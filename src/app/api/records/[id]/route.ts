@@ -3,7 +3,7 @@ import type { RecordType } from "@nidokey/shared";
 
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth-helpers";
-import { propertyToBaseRecord, cryptoToBaseRecord, jobToBaseRecord } from "@/lib/records/mapper";
+import { propertyToBaseRecord, cryptoToBaseRecord } from "@/lib/records/mapper";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -28,16 +28,6 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     if (!holding) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const record = cryptoToBaseRecord(holding);
     return NextResponse.json({ ...record, meta: { ...record.meta, detail: holding } });
-  }
-
-  if (type === "job") {
-    const job = await prisma.jobListing.findFirst({
-      where: { id, ownerId },
-      include: { snapshots: { orderBy: { observedAt: "asc" } } },
-    });
-    if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const record = jobToBaseRecord(job);
-    return NextResponse.json({ ...record, meta: { ...record.meta, detail: job } });
   }
 
   const property = await prisma.property.findFirst({
@@ -69,12 +59,6 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
 
   if (type === "crypto") {
     const res = await prisma.cryptoHolding.deleteMany({ where: { id, ownerId } });
-    if (res.count === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    return NextResponse.json({ ok: true });
-  }
-
-  if (type === "job") {
-    const res = await prisma.jobListing.deleteMany({ where: { id, ownerId } });
     if (res.count === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ ok: true });
   }
