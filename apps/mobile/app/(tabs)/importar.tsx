@@ -399,9 +399,16 @@ export default function ImportarScreen() {
                               {jm.line2}
                             </Text>
                           )}
-                          {jm.line3 && (
+                          {(jm.contract || jm.salary || jm.platform) && (
                             <Text style={[styles.resultMeta, { color: th.textMuted }]} numberOfLines={1}>
-                              {jm.line3}
+                              {jm.contract ?? ""}
+                              {jm.salary ? (
+                                <Text style={{ color: th.accent, fontWeight: "700" }}>
+                                  {jm.contract ? " · " : ""}
+                                  {jm.salary}
+                                </Text>
+                              ) : null}
+                              {jm.platform ? `${jm.contract || jm.salary ? " · " : ""}${jm.platform}` : ""}
                             </Text>
                           )}
                         </>
@@ -522,16 +529,20 @@ export default function ImportarScreen() {
 }
 
 /** Datos de empleo embebidos en el candidato (para mostrar sueldo/contrato). */
-function jobMetaOf(hit: SearchHit): { line2?: string; line3?: string } | null {
+function jobMetaOf(
+  hit: SearchHit
+): { line2?: string; contract?: string; salary?: string; platform?: string } | null {
   const rec = hit.record as { meta?: Record<string, unknown> } | undefined;
   const m = rec?.meta;
   if (!m) return null;
   const s = (k: string) => (typeof m[k] === "string" && m[k] ? (m[k] as string) : undefined);
   const platform = s("platform");
-  const platformLabel = platform === "linkedin" ? "LinkedIn" : platform === "infojobs" ? "InfoJobs" : undefined;
-  const line2 = [s("company"), s("location")].filter(Boolean).join(" · ") || undefined;
-  const line3 = [s("contractType"), s("salaryLabel"), platformLabel].filter(Boolean).join(" · ") || undefined;
-  return { line2, line3 };
+  return {
+    line2: [s("company"), s("location")].filter(Boolean).join(" · ") || undefined,
+    contract: s("contractType"),
+    salary: s("salaryLabel"),
+    platform: platform === "linkedin" ? "LinkedIn" : platform === "infojobs" ? "InfoJobs" : undefined,
+  };
 }
 
 function errMsg(e: unknown, fallback: string): string {

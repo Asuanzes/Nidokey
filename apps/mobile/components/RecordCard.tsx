@@ -86,7 +86,7 @@ function CryptoCard({ record, editing, onLongPress, onDelete }: CardProps) {
           <Text style={[styles.coinName, { color: th.textMuted }]} numberOfLines={1}>{record.title}</Text>
         </View>
         <View style={styles.alignEnd}>
-          <Text style={[styles.price, { color: th.text }]}>{record.primaryValue ?? "—"}</Text>
+          <Text style={[styles.price, { color: th.accent }]}>{record.primaryValue ?? "—"}</Text>
           <View style={styles.changeRow}>
             <Text style={[styles.change, { color: changeColor }]}>{change.text}</Text>
             <Text style={[styles.periodLabel, { color: th.textSubtle }]}>{isMarket ? "día" : "24h"}</Text>
@@ -275,7 +275,7 @@ function DefaultCard({ record, editing, onLongPress, onDelete }: CardProps) {
       )}
 
       <View style={styles.info}>
-        <Text style={[styles.title, { color: th.accent }]} numberOfLines={2}>{record.title}</Text>
+        <Text style={[styles.title, { color: th.text }]} numberOfLines={2}>{record.title}</Text>
         {record.subtitle && (
           <Text style={[styles.sub, { color: th.textMuted }]} numberOfLines={1}>{record.subtitle}</Text>
         )}
@@ -308,8 +308,8 @@ function JobCard({ record, editing, onLongPress, onDelete }: CardProps) {
   const platform = metaField<string | null>(record, "platform", null);
   const thumb = provinceImage(metaField<string | null>(record, "province", null));
   const sub = [company, location].filter(Boolean).join(" · ") || record.subtitle || null;
-  // Pie compacto: contrato · sueldo (· remoto) a la izquierda; fuente a la derecha.
-  const footerLeft = [contract, salary, remote ? "Remoto" : null].filter(Boolean).join(" · ");
+  // Pie compacto: contrato (· remoto) en gris, sueldo en BRONCE; fuente a la derecha.
+  const contractRemote = [contract, remote ? "Remoto" : null].filter(Boolean).join(" · ");
   const platformLabel = platform === "linkedin" ? "LinkedIn" : platform === "infojobs" ? "InfoJobs" : null;
 
   return (
@@ -338,12 +338,20 @@ function JobCard({ record, editing, onLongPress, onDelete }: CardProps) {
       )}
 
       <View style={styles.info}>
-        <Text style={[styles.title, { color: th.accent }]} numberOfLines={2}>{record.title}</Text>
+        <Text style={[styles.title, { color: th.text }]} numberOfLines={2}>{record.title}</Text>
         {sub && <Text style={[styles.sub, { color: th.textMuted }]} numberOfLines={1}>{sub}</Text>}
-        {(footerLeft || platformLabel) && (
+        {(contractRemote || salary || platformLabel) && (
           <View style={styles.jobFooter}>
             <Text style={[styles.jobFooterLeft, { color: th.textMuted }]} numberOfLines={1}>
-              {footerLeft || "—"}
+              {contractRemote}
+              {salary ? (
+                <Text style={{ color: th.accent, fontWeight: "700" }}>
+                  {contractRemote ? "  ·  " : ""}
+                  {salary}
+                </Text>
+              ) : !contractRemote ? (
+                "—"
+              ) : null}
             </Text>
             {platformLabel && (
               <Text style={[styles.jobFooterRight, { color: th.textSubtle }]}>{platformLabel}</Text>

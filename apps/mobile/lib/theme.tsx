@@ -7,8 +7,10 @@ export const T = {
   text: "#1A1A18",
   textMuted: "#6B6862",
   textSubtle: "#9A9690",
-  primary: "#3A5F8A",
-  primarySoft: "#EAEFF6",
+  // `primary` = bronce (= accent): el azul se reserva SOLO para el botón "+"
+  // de Importar (FAB_BG fijo en (tabs)/_layout). Así no hay azul suelto.
+  primary: "#B87333",
+  primarySoft: "#F5EDE3",
   primaryFg: "#FAFAF7",
   accent: "#B87333",
   accentSoft: "#F5EDE3",
@@ -25,8 +27,9 @@ export const TD = {
   text: "#F0EFEA",
   textMuted: "#A8A5A0",
   textSubtle: "#6B6862",
-  primary: "#6A9FD0",
-  primarySoft: "#1A2A3A",
+  // `primary` = bronce (= accent); azul reservado al botón "+" de Importar.
+  primary: "#CC8844",
+  primarySoft: "#2A1A08",
   primaryFg: "#F0EFEA",
   accent: "#CC8844",
   accentSoft: "#2A1A08",

@@ -101,7 +101,7 @@ function AuthGate() {
   if (state.kind === "loading") {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#FAFAF7" }}>
-        <ActivityIndicator size="large" color="#3A5F8A" />
+        <ActivityIndicator size="large" color="#B87333" />
       </View>
     );
   }
@@ -115,7 +115,7 @@ function AuthGate() {
         options={{
           headerShown: true,
           headerBackTitle: "Atrás",
-          headerTintColor: "#3A5F8A",
+          headerTintColor: "#B87333",
           headerStyle: { backgroundColor: "#fff" },
           title: "",
         }}
@@ -125,7 +125,7 @@ function AuthGate() {
         options={{
           headerShown: true,
           headerBackTitle: "Atrás",
-          headerTintColor: "#3A5F8A",
+          headerTintColor: "#B87333",
           headerStyle: { backgroundColor: "#fff" },
           title: "Empleo",
         }}
