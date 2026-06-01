@@ -2,9 +2,7 @@ import { api } from "@/lib/api";
 import type { BaseRecord, RecordListParams } from "@nidokey/shared";
 import {
   propertyToRecord,
-  searchResultToRecord,
   type RawPropertyListItem,
-  type RawSearchResult,
 } from "@/lib/records/mappers";
 
 /**
@@ -56,8 +54,10 @@ export async function deleteRecord(record: BaseRecord): Promise<void> {
  */
 export async function searchRecords(query: string): Promise<BaseRecord[]> {
   if (query.trim().length < 2) return [];
-  const data = await api<{ results: RawSearchResult[] }>(
-    `/api/search?q=${encodeURIComponent(query)}`
+  // Búsqueda UNIFICADA (propiedades + cripto + mercados): con scope=all el
+  // backend ya devuelve BaseRecord[], sin mapper de cliente.
+  const data = await api<{ results: BaseRecord[] }>(
+    `/api/search?q=${encodeURIComponent(query)}&scope=all`
   );
-  return data.results.map(searchResultToRecord);
+  return data.results ?? [];
 }
