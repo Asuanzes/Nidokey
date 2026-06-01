@@ -64,6 +64,53 @@ const CAPITAL: Record<string, string> = {
   Zaragoza: "Zaragoza",
 };
 
+/**
+ * Monumento / lugar más representativo de cada capital (título en en.wikipedia).
+ * Se intenta PRIMERO; si no da foto válida, se cae a la foto de la ciudad
+ * (`CAPITAL`). Las que no estén aquí usan directamente la foto de la ciudad.
+ */
+const LANDMARK: Record<string, string> = {
+  "A Coruña": "Tower of Hercules",
+  "Álava": "Santa María Cathedral, Vitoria-Gasteiz",
+  Alicante: "Santa Bárbara Castle",
+  Almería: "Alcazaba of Almería",
+  Asturias: "Oviedo Cathedral",
+  Ávila: "Walls of Ávila",
+  Badajoz: "Alcazaba of Badajoz",
+  Barcelona: "Sagrada Família",
+  Burgos: "Burgos Cathedral",
+  Cádiz: "Cádiz Cathedral",
+  Cantabria: "Magdalena Palace",
+  Córdoba: "Mosque–Cathedral of Córdoba",
+  Cuenca: "Hanging Houses of Cuenca",
+  Gerona: "Girona Cathedral",
+  Granada: "Alhambra",
+  Guadalajara: "Palacio del Infantado",
+  Huesca: "Huesca Cathedral",
+  "Islas Baleares": "Palma Cathedral",
+  Jaén: "Jaén Cathedral",
+  "Las Palmas": "Las Canteras Beach",
+  León: "León Cathedral",
+  Lérida: "La Seu Vella",
+  Lugo: "Roman walls of Lugo",
+  Madrid: "Puerta de Alcalá",
+  Málaga: "Alcazaba of Málaga",
+  Murcia: "Murcia Cathedral",
+  Navarra: "Pamplona Cathedral",
+  Palencia: "Palencia Cathedral",
+  Salamanca: "University of Salamanca",
+  Segovia: "Aqueduct of Segovia",
+  Sevilla: "Giralda",
+  Tarragona: "Tarragona Amphitheatre",
+  Tenerife: "Auditorio de Tenerife",
+  Toledo: "Alcázar of Toledo",
+  Valencia: "City of Arts and Sciences",
+  Valladolid: "Valladolid Cathedral",
+  Vizcaya: "Guggenheim Museum Bilbao",
+  Zamora: "Zamora Cathedral",
+  Zaragoza: "Basilica of Our Lady of the Pillar",
+};
+
 /** Correcciones manuales: si alguna imagen auto sale mal, fijar aquí la URL. */
 const OVERRIDES: Record<string, string> = {
   // "Cáceres" en en.wiki es desambiguación → foto de Cáceres, Spain.
@@ -99,12 +146,18 @@ async function main() {
       continue;
     }
     try {
-      const img = await summaryImage(CAPITAL[prov]);
+      const title = LANDMARK[prov] ?? CAPITAL[prov];
+      let img = await summaryImage(title);
+      let used = title;
+      if (!img && LANDMARK[prov]) {
+        img = await summaryImage(CAPITAL[prov]); // respaldo: foto de la ciudad
+        used = CAPITAL[prov];
+      }
       if (img) {
         out[prov] = img;
-        console.log(`✓ ${prov} → ${decodeURIComponent(img.split("/").pop() ?? "")}`);
+        console.log(`✓ ${prov} [${used}] → ${decodeURIComponent(img.split("/").pop() ?? "")}`);
       } else {
-        console.warn(`✗ ${prov} (${CAPITAL[prov]}): sin foto válida`);
+        console.warn(`✗ ${prov} (${title}): sin foto válida`);
       }
     } catch (e) {
       console.warn(`✗ ${prov}:`, e instanceof Error ? e.message : e);
