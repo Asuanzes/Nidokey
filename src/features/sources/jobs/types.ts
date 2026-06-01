@@ -122,6 +122,7 @@ export function jobOfferToNormalized(o: JobOffer): NormalizedRecord {
       salaryMin: o.salaryMin ?? null,
       salaryMax: o.salaryMax ?? null,
       salaryLabel: salaryLabel(o),
+      description: o.description ?? null, // para la ficha propia (sin redirigir)
       postedAt: o.postedAt ? o.postedAt.toISOString() : null,
       footnote,
     },

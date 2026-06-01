@@ -58,6 +58,9 @@ export default function ImportarScreen() {
   // Empleo: filtros extra de búsqueda (ciudad/zona + remoto).
   const [searchLocation, setSearchLocation] = useState("");
   const [searchRemote, setSearchRemote] = useState(false);
+  // Confirmación por fila al elegir un resultado (check verde estilo WhatsApp).
+  const [addedKeys, setAddedKeys] = useState<Set<number>>(new Set());
+  const [addingIndex, setAddingIndex] = useState<number | null>(null);
   const [progress, setProgress] = useState(0); // carga del anuncio (0–1)
 
   const cfg = RECORD_TYPE_CONFIG[type];
@@ -104,6 +107,8 @@ export default function ImportarScreen() {
         setHasSearched(false);
         return;
       }
+      setAddedKeys(new Set());
+      setAddingIndex(null);
       const myId = ++searchRunId.current;
       setSearching(true);
       try {
@@ -192,26 +197,30 @@ export default function ImportarScreen() {
   // Elegir un candidato del buscador. Empleo: el hit trae su `record` → se
   // guarda tal cual (kind:"record", sin re-llamar a la fuente de pago).
   // Mercados: import por símbolo (fetch server-side, gratis).
-  async function importHit(hit: SearchHit) {
-    if (status === "sending") return;
-    setStatus("sending");
+  async function importHit(hit: SearchHit, i: number) {
+    if (addingIndex !== null || addedKeys.has(i)) return;
+    setAddingIndex(i);
     setOkMsg(null);
     setErrorMsg(null);
     try {
       const input = hit.record
         ? { kind: "record", record: hit.record }
         : { kind: "symbol", symbol: hit.symbol.trim().toUpperCase(), quote: "EUR" };
-      const res = await api<RecordImportResult>("/api/records/import", {
+      await api<RecordImportResult>("/api/records/import", {
         method: "POST",
         body: JSON.stringify({ type, input }),
       });
-      setOkMsg(
-        `✅ ${res.record?.title ?? hit.name ?? "Registro"} ${res.created ? "añadido" : "actualizado"} en ${cfg.label}`
-      );
-      setStatus("ok");
+      // Confirmación visual en la propia fila (check verde), sin tarjeta grande.
+      setAddedKeys((prev) => {
+        const n = new Set(prev);
+        n.add(i);
+        return n;
+      });
     } catch (e) {
       setErrorMsg(errMsg(e, `No se pudo añadir ${hit.name ?? hit.symbol ?? ""}`));
       setStatus("error");
+    } finally {
+      setAddingIndex(null);
     }
   }
 
@@ -251,6 +260,8 @@ export default function ImportarScreen() {
                 setHasSearched(false);
                 setSearchLocation("");
                 setSearchRemote(false);
+                setAddedKeys(new Set());
+                setAddingIndex(null);
                 reset();
               }}
               style={[styles.typeItem, active && { backgroundColor: th.accentSoft }]}
@@ -362,14 +373,19 @@ export default function ImportarScreen() {
               )}
               {results.map((hit, i) => {
                 const meta = [hit.symbol, hit.exchange, hit.type].filter(Boolean).join(" · ");
+                const added = addedKeys.has(i);
+                const adding = addingIndex === i;
                 return (
                   <Pressable
                     key={`${hit.symbol}|${hit.name ?? ""}|${i}`}
                     accessibilityRole="button"
-                    accessibilityLabel={`Añadir ${hit.name ?? hit.symbol}`}
-                    onPress={() => void importHit(hit)}
-                    disabled={isSending}
-                    style={[styles.resultRow, { backgroundColor: th.surface, borderColor: th.border }]}
+                    accessibilityLabel={added ? `${hit.name ?? hit.symbol} añadido` : `Añadir ${hit.name ?? hit.symbol}`}
+                    onPress={() => void importHit(hit, i)}
+                    disabled={added || addingIndex !== null}
+                    style={[
+                      styles.resultRow,
+                      { backgroundColor: th.surface, borderColor: added ? "#15803D" : th.border },
+                    ]}
                   >
                     <View style={styles.resultInfo}>
                       <Text style={[styles.resultName, { color: th.text }]} numberOfLines={2}>
@@ -381,7 +397,13 @@ export default function ImportarScreen() {
                         </Text>
                       )}
                     </View>
-                    <Ionicons name="add-circle-outline" size={22} color={th.accent} />
+                    {added ? (
+                      <Ionicons name="checkmark-circle" size={24} color="#15803D" />
+                    ) : adding ? (
+                      <ActivityIndicator size="small" color={th.accent} />
+                    ) : (
+                      <Ionicons name="add-circle-outline" size={22} color={th.accent} />
+                    )}
                   </Pressable>
                 );
               })}

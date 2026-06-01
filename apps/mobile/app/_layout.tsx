@@ -120,6 +120,16 @@ function AuthGate() {
           title: "",
         }}
       />
+      <Stack.Screen
+        name="job/[id]"
+        options={{
+          headerShown: true,
+          headerBackTitle: "Atrás",
+          headerTintColor: "#3A5F8A",
+          headerStyle: { backgroundColor: "#fff" },
+          title: "Empleo",
+        }}
+      />
       <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
       <Stack.Screen
         name="tools/mortgage"

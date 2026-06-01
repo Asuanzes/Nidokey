@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Image } from "expo-image";
-import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
@@ -30,6 +30,7 @@ type CardProps = {
 
 export function RecordCard(props: CardProps) {
   if (props.record.type === "crypto" || props.record.type === "market") return <CryptoCard {...props} />;
+  if (props.record.type === "job") return <JobCard {...props} />;
   return <DefaultCard {...props} />;
 }
 
@@ -249,16 +250,7 @@ function DefaultCard({ record, editing, onLongPress, onDelete }: CardProps) {
 
   return (
     <Pressable
-      onPress={() => {
-        if (editing) return;
-        // Empleo: no hay pantalla de detalle → abre la oferta en el navegador.
-        if (record.type === "job") {
-          const url = metaField<string | null>(record, "url", null);
-          if (url) void Linking.openURL(url);
-          return;
-        }
-        router.push(`/property/${record.id}` as never);
-      }}
+      onPress={() => { if (!editing) router.push(`/property/${record.id}` as never); }}
       onLongPress={onLongPress ? () => fireLongPress(onLongPress) : undefined}
       delayLongPress={300}
       style={({ pressed }) => [
@@ -301,6 +293,50 @@ function DefaultCard({ record, editing, onLongPress, onDelete }: CardProps) {
         </View>
       </View>
 
+      {editing && onDelete && <DeleteBadge onPress={() => onDelete(record)} />}
+    </Pressable>
+  );
+}
+
+// ── Empleo (sin imagen; datos clave; abre nuestra ficha propia) ───────────
+function JobCard({ record, editing, onLongPress, onDelete }: CardProps) {
+  const { th } = useTheme();
+  const company = metaField<string | null>(record, "company", null);
+  const location = metaField<string | null>(record, "location", null);
+  const salary = metaField<string | null>(record, "salaryLabel", null) ?? record.primaryValue ?? null;
+  const contract = metaField<string | null>(record, "contractType", null);
+  const remote = metaField<boolean | null>(record, "remote", null);
+  const platform = metaField<string | null>(record, "platform", null);
+  const sub = [company, location].filter(Boolean).join(" · ") || record.subtitle || null;
+  const chips = [salary, contract, remote ? "Remoto" : null].filter(Boolean) as string[];
+  const platformLabel = platform === "linkedin" ? "LinkedIn" : platform === "infojobs" ? "InfoJobs" : null;
+
+  return (
+    <Pressable
+      onPress={() => { if (!editing) router.push(`/job/${record.id}` as never); }}
+      onLongPress={onLongPress ? () => fireLongPress(onLongPress) : undefined}
+      delayLongPress={300}
+      style={({ pressed }) => [
+        styles.card,
+        styles.jobCard,
+        { backgroundColor: th.surface, borderColor: th.border },
+        pressed && !editing && { opacity: 0.7 },
+      ]}
+    >
+      <Text style={[styles.jobTitle, { color: th.accent }]} numberOfLines={2}>{record.title}</Text>
+      {sub && <Text style={[styles.jobSub, { color: th.textMuted }]} numberOfLines={1}>{sub}</Text>}
+      {chips.length > 0 && (
+        <View style={styles.jobChips}>
+          {chips.map((c, i) => (
+            <View key={i} style={[styles.jobChip, { backgroundColor: th.accentSoft }]}>
+              <Text style={[styles.jobChipText, { color: th.accent }]} numberOfLines={1}>{c}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+      {platformLabel && (
+        <Text style={[styles.jobPlatform, { color: th.textSubtle }]}>{platformLabel}</Text>
+      )}
       {editing && onDelete && <DeleteBadge onPress={() => onDelete(record)} />}
     </Pressable>
   );
@@ -394,6 +430,14 @@ const styles = StyleSheet.create({
   },
   statLabel: { fontSize: 11 },
   statValue: { fontSize: 12, fontWeight: "500", marginTop: 1 },
+  // empleo (sin imagen)
+  jobCard: { padding: 14 },
+  jobTitle: { fontSize: 15, fontWeight: "600" },
+  jobSub: { fontSize: 12.5, marginTop: 3 },
+  jobChips: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 },
+  jobChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  jobChipText: { fontSize: 12, fontWeight: "600" },
+  jobPlatform: { fontSize: 11, marginTop: 10 },
   // default (tarjeta estrecha: miniatura izquierda + info derecha)
   narrowCard: { flexDirection: "row", padding: 10, gap: 12, alignItems: "stretch" },
   thumb: { width: 88, height: 88, borderRadius: 8 },
