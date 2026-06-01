@@ -7,6 +7,7 @@ import type {
   SourceInput,
 } from "@/features/sources/types";
 import { ingestInfoJobsOffers } from "@/features/sources/jobs/ingest-infojobs";
+import { ingestLinkedInOffers } from "@/features/sources/jobs/ingest-linkedin";
 import { jobOfferToNormalized, type JobOffer } from "@/features/sources/jobs/types";
 
 /**
@@ -23,15 +24,20 @@ import { jobOfferToNormalized, type JobOffer } from "@/features/sources/jobs/typ
  */
 const SOURCE = "apify";
 
-/** Candidato para el buscador: muestra título/empresa/ubicación y lleva el record. */
+function platformLabel(p: JobOffer["platform"]): string {
+  if (p === "linkedin") return "LinkedIn";
+  if (p === "infojobs") return "InfoJobs";
+  return "";
+}
+
+/** Candidato para el buscador: muestra título/empresa/plataforma/ubicación y lleva el record. */
 function hitFor(o: JobOffer): SearchHit {
-  const record = jobOfferToNormalized(o);
   return {
     symbol: "", // empleo no se re-fetchea por símbolo; los datos van en `record`
     name: o.title,
-    exchange: [o.companyName, "InfoJobs"].filter(Boolean).join(" · ") || null,
+    exchange: [o.companyName, platformLabel(o.platform)].filter(Boolean).join(" · ") || null,
     type: o.location ?? null,
-    record,
+    record: jobOfferToNormalized(o),
   };
 }
 
@@ -58,12 +64,26 @@ export const apifyJobsAdapter: SourceAdapter = {
   },
 
   async search(query: string, opts?: SearchOpts): Promise<SearchHit[]> {
-    const offers = await ingestInfoJobsOffers({
-      keywords: query,
-      location: opts?.location,
-      remote: opts?.remote,
-      maxItems: 12,
+    const base = { keywords: query, location: opts?.location, remote: opts?.remote };
+    // InfoJobs (España) + LinkedIn en paralelo. Si una falla, la otra responde.
+    const [infojobs, linkedin] = await Promise.all([
+      ingestInfoJobsOffers({ ...base, maxItems: 12 }).catch(() => [] as JobOffer[]),
+      ingestLinkedInOffers({ ...base, maxItems: 8 }).catch(() => [] as JobOffer[]),
+    ]);
+    // Intercala para que se vean ambas fuentes arriba; dedup por URL.
+    const merged: JobOffer[] = [];
+    const max = Math.max(infojobs.length, linkedin.length);
+    for (let i = 0; i < max; i++) {
+      if (infojobs[i]) merged.push(infojobs[i]);
+      if (linkedin[i]) merged.push(linkedin[i]);
+    }
+    const seen = new Set<string>();
+    const deduped = merged.filter((o) => {
+      const k = o.url || `${o.platform}:${o.title}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
     });
-    return offers.slice(0, 12).map(hitFor);
+    return deduped.slice(0, 16).map(hitFor);
   },
 };
