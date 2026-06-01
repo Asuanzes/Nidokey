@@ -150,13 +150,13 @@ export default function PropertyDetailScreen() {
         <Text style={[styles.photoCount, { color: th.textMuted }]}>📸 {photos.length} fotos</Text>
 
         <View style={[styles.section, { backgroundColor: th.surface, borderColor: th.border }]}>
-          <Text style={[styles.title, { color: th.accent }]}>{p.title}</Text>
+          <Text style={[styles.title, { color: th.text }]}>{p.title}</Text>
           <Text style={[styles.location, { color: th.textMuted }]}>
             {[TYPE_LABEL[p.type], p.neighborhood, p.city, p.province].filter(Boolean).join(" · ")}
           </Text>
           <Text style={[styles.price, { color: th.accent }]}>{formatPrice(p.currentPrice)}</Text>
           {p.builtArea && p.currentPrice && (
-            <Text style={[styles.pricePerSqm, { color: th.textMuted }]}>
+            <Text style={[styles.pricePerSqm, { color: th.accent }]}>
               {Math.round(p.currentPrice / 100 / p.builtArea).toLocaleString("es-ES")} €/m²
             </Text>
           )}
@@ -220,7 +220,7 @@ export default function PropertyDetailScreen() {
               >
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.listingPortal, { color: th.text }]}>{PORTAL_LABEL[l.portal] ?? l.portal}</Text>
-                  <Text style={[styles.listingMeta, { color: th.textMuted }]}>{formatPrice(l.lastPrice)}</Text>
+                  <Text style={[styles.listingMeta, { color: th.accent }]}>{formatPrice(l.lastPrice)}</Text>
                 </View>
                 <Ionicons name="open-outline" size={18} color={th.primary} />
               </TouchableOpacity>

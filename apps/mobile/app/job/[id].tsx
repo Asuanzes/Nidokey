@@ -83,7 +83,6 @@ export default function JobDetail() {
     [
       ["Empresa", company],
       ["Ubicación", location],
-      ["Sueldo", salary],
       ["Contrato / jornada", contract],
       ["Experiencia", experience],
       ["Sector", sector],
