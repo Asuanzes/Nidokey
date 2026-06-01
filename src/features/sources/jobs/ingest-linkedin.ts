@@ -1,5 +1,6 @@
 import { runActorGetItems, type ApifyItem } from "@/features/sources/providers/apify";
 import { pickStr, pickDate } from "@/features/sources/jobs/_item";
+import { withCountry } from "@/features/sources/jobs/province";
 import {
   parseSalaryToCents,
   type JobOffer,
@@ -28,7 +29,8 @@ function buildInput(p: LinkedInSearchParams): Record<string, unknown> {
   if (p.actorInput) return p.actorInput;
   const input: Record<string, unknown> = {
     title: p.keywords,
-    location: p.location ?? "",
+    // Sin país, LinkedIn geolocaliza mal ("Vitoria" → Brasil) → añadimos ", Spain".
+    location: withCountry(p.location),
     datePosted: p.datePosted ?? "r604800", // última semana
     limit: p.maxItems ?? 25,
   };

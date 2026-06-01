@@ -21,15 +21,17 @@ export async function GET(req: NextRequest) {
 
   const type = (req.nextUrl.searchParams.get("type") ?? "market") as RecordType;
   const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
-  if (q.length < 2) return NextResponse.json({ results: [] });
-
-  const adapter = adaptersFor(type).find((a) => typeof a.search === "function");
-  if (!adapter?.search) return NextResponse.json({ results: [] });
 
   // Filtros opcionales (empleo: ciudad/zona + remoto). Las fuentes que no los
   // usen los ignoran.
   const location = req.nextUrl.searchParams.get("location")?.trim() || undefined;
   const remote = req.nextUrl.searchParams.get("remote") === "1";
+
+  // Se necesita texto (≥2) O una zona (empleo: buscar todo lo que haya en ella).
+  if (q.length < 2 && !location) return NextResponse.json({ results: [] });
+
+  const adapter = adaptersFor(type).find((a) => typeof a.search === "function");
+  if (!adapter?.search) return NextResponse.json({ results: [] });
 
   try {
     const results = await adapter.search(q, { location, remote });

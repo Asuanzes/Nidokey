@@ -97,7 +97,9 @@ export default function ImportarScreen() {
   const runSearch = useCallback(
     async (raw: string) => {
       const q = raw.trim();
-      if (q.length < 2) {
+      // Empleo: se puede buscar solo por zona (puesto vacío).
+      const zoneOnly = type === "job" && searchLocation.trim().length > 0;
+      if (q.length < 2 && !zoneOnly) {
         setResults([]);
         setHasSearched(false);
         return;
@@ -340,7 +342,11 @@ export default function ImportarScreen() {
               icon="search-outline"
               onPress={() => void runSearch(value)}
               loading={searching}
-              disabled={value.trim().length < 2 || isSending}
+              disabled={
+                isSending ||
+                (value.trim().length < 2 &&
+                  !(type === "job" && searchLocation.trim().length > 0))
+              }
             />
           )}
 
@@ -456,7 +462,7 @@ export default function ImportarScreen() {
           <Text style={[styles.hintTitle, { color: th.textMuted }]}>Cómo añadir {cfg.label.toLowerCase()}</Text>
           <Text style={[styles.hintText, { color: th.textSubtle }]}>
             {type === "job"
-              ? "Escribe el puesto (p. ej. “react”, “enfermero/a”) y, si quieres, la ciudad o zona; pulsa Buscar y elige una oferta para guardarla en tus Empleos."
+              ? "Escribe el puesto y/o la ciudad o zona. Puedes dejar el puesto vacío y buscar todo lo que haya en esa zona. Pulsa Buscar y elige una oferta para guardarla en tus Empleos."
               : "Escribe el nombre o el ticker (p. ej. “sxr8”, “apple”, “vaneck space”) y elige el correcto de la lista — con su bolsa. Sin sufijos ni colisiones."}
           </Text>
         </Card>

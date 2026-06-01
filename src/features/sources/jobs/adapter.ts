@@ -65,9 +65,13 @@ export const apifyJobsAdapter: SourceAdapter = {
 
   async search(query: string, opts?: SearchOpts): Promise<SearchHit[]> {
     const base = { keywords: query, location: opts?.location, remote: opts?.remote };
-    // InfoJobs (España) + LinkedIn en paralelo. Si una falla, la otra responde.
+    // InfoJobs necesita palabra clave (sin ella devuelve 0); LinkedIn sí busca
+    // solo por zona. Si no hay puesto → solo LinkedIn (por ubicación).
+    const hasKeyword = query.trim().length >= 2;
     const [infojobs, linkedin] = await Promise.all([
-      ingestInfoJobsOffers({ ...base, maxItems: 20 }).catch(() => [] as JobOffer[]),
+      hasKeyword
+        ? ingestInfoJobsOffers({ ...base, maxItems: 20 }).catch(() => [] as JobOffer[])
+        : Promise.resolve([] as JobOffer[]),
       ingestLinkedInOffers({ ...base, maxItems: 15 }).catch(() => [] as JobOffer[]),
     ]);
     // Intercala para que se vean ambas fuentes arriba; dedup por URL.

@@ -1,5 +1,6 @@
 import { runActorGetItems, type ApifyItem } from "@/features/sources/providers/apify";
 import { pickStr, pickDate } from "@/features/sources/jobs/_item";
+import { resolveInfoJobsProvince } from "@/features/sources/jobs/province";
 import {
   parseSalaryToCents,
   type InfoJobsSearchParams,
@@ -31,7 +32,9 @@ function buildInput(p: InfoJobsSearchParams): Record<string, unknown> {
   if (p.actorInput) return p.actorInput;
   const input: Record<string, unknown> = {
     keywords: p.keywords,
-    location: p.location ?? "",
+    // El actor exige provincia exacta (enum). Mapeamos ciudad→provincia; si no
+    // se reconoce, "" = nacional (en vez de un 400 que vaciaría la búsqueda).
+    location: resolveInfoJobsProvince(p.location) ?? "",
     jobsNumber: Math.max(20, p.maxItems ?? 25), // mínimo del actor
   };
   if (p.remote) input.workModel = "remote";

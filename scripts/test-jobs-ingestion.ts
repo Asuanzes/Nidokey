@@ -43,9 +43,11 @@ async function main() {
   }
 
   const platform = (process.env.JOBS_TEST_PLATFORM as JobPlatform) || "infojobs";
-  const location = platform === "linkedin" ? "Spain" : "Asturias";
-  const params = { keywords: "react", location, maxItems: 5, platforms: [platform] };
-  console.log(`Ingesta ${platform} (POC, maxItems=5):`, { keywords: "react", location }, "\n");
+  const keywords = process.env.JOBS_TEST_Q ?? "react";
+  const location =
+    process.env.JOBS_TEST_LOCATION ?? (platform === "linkedin" ? "Spain" : "Asturias");
+  const params = { keywords, location, maxItems: 8, platforms: [platform] };
+  console.log(`Ingesta ${platform} (POC):`, { keywords, location }, "\n");
 
   const offers = await ingestJobs(params);
   console.log(`✓ ${offers.length} ofertas\n`);
