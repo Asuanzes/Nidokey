@@ -23,6 +23,7 @@
     "scraper": "node scripts/scraper-service.mjs",
     "claim-orphans": "tsx scripts/claim-orphan-properties.ts",
     "refresh": "tsx scripts/refresh-type.ts",
+    "test-ingest": "tsx scripts/test-property-ingest.ts",
     "mobile": "npm --workspace @nidokey/mobile run start"
   },
   "prisma": {

@@ -58,9 +58,38 @@ export const ImportListingInput = z.object({
   hasPool: z.boolean().optional().nullable(),
   energyRating: z.enum(["A", "B", "C", "D", "E", "F", "G", "UNKNOWN"]).optional(),
 
-  images: z.array(z.string().url()).default([]),
+  // Imágenes: aceptamos strings (no .url()). Una sola URL mala NO debe tirar
+  // todo el import con 400; filterImages() valida http(s) y descarta basura.
+  images: z.array(z.string()).default([]),
   features: z.array(z.string()).default([]),
 });
+
+/**
+ * Filtro defensivo de imágenes en el SERVIDOR (red de seguridad sobre el
+ * filtrado del cliente WebView): exige http(s), descarta svg/gif y patrones de
+ * basura (logos, iconos, marcas de agua, mapas…), deduplica por path (sin query
+ * → conserva URLs firmadas) y limita a 40 para no inflar Media ni el hashing.
+ */
+const IMG_JUNK_RE =
+  /(logo|sprite|icono?s?|favicon|placeholder|avatar|watermark|marca|blank|pixel|spacer|loading|banner|badge|flag|bandera|sello|googleapis|gstatic|maps\.|staticmap|facebook|whatsapp|instagram|\/static\/|\/assets\/|\/icons?\/)/i;
+
+export function filterImages(urls: string[] | undefined): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of urls ?? []) {
+    if (typeof raw !== "string") continue;
+    const u = raw.trim();
+    if (!/^https?:\/\//i.test(u)) continue;
+    const path = u.split("?")[0];
+    if (/\.(svg|gif)$/i.test(path)) continue;
+    if (IMG_JUNK_RE.test(path)) continue;
+    if (seen.has(path)) continue;
+    seen.add(path);
+    out.push(u);
+    if (out.length >= 40) break;
+  }
+  return out;
+}
 
 export type ImportListingPayload = z.infer<typeof ImportListingInput>;
 
@@ -126,7 +155,7 @@ function fillIfEmpty<T extends Record<string, unknown>>(
  *   "Parcela de 1.200 m²"   → plotArea: 1200
  *   "4.153 €/m²"            → IGNORADO (precio unitario)
  */
-function parseFeaturesArray(features: string[] | undefined): Partial<ImportListingPayload> {
+export function parseFeaturesArray(features: string[] | undefined): Partial<ImportListingPayload> {
   const out: Partial<ImportListingPayload> = {};
   if (!features?.length) return out;
   for (const raw of features) {
@@ -134,6 +163,26 @@ function parseFeaturesArray(features: string[] | undefined): Partial<ImportListi
     const t = raw.trim();
     if (!t) continue;
     const low = t.toLowerCase();
+
+    // ── Eficiencia energética: requiere palabra clave + letra A-G aislada
+    //    (las etiquetas van en mayúscula: "Certificación energética: D").
+    if (out.energyRating == null && /(energ[eé]tic|emisiones)/i.test(low)) {
+      const em = t.match(/\b([A-G])\b/);
+      if (em) out.energyRating = em[1] as ImportListingPayload["energyRating"];
+    }
+
+    // ── Amenidades (no requieren número). "Sin ascensor"/"no dispone" → false.
+    {
+      const neg = /^\s*sin\b/i.test(t) || /\bno\s+(tiene|dispone|hay|cuenta|incluye|posee)\b/i.test(low);
+      if (out.hasElevator == null && /\bascensor\b/i.test(low)) out.hasElevator = !neg;
+      if (out.hasGarage == null && /\b(garaje|parking|aparcamiento)\b/i.test(low)) out.hasGarage = !neg;
+      if (out.hasStorage == null && /\btrastero\b/i.test(low)) out.hasStorage = !neg;
+      if (out.hasTerrace == null && /\bterraza\b/i.test(low)) out.hasTerrace = !neg;
+      if (out.hasFireplace == null && /\bchimenea\b/i.test(low)) out.hasFireplace = !neg;
+      if (out.hasGarden == null && /\bjard[ií]n\b/i.test(low)) out.hasGarden = !neg;
+      if (out.hasPool == null && /\bpiscina\b/i.test(low)) out.hasPool = !neg;
+    }
+
     // Descartar €/m²
     if (/€\s*\/\s*m|€\/m|€\s*por\s*m/i.test(t)) continue;
     const num = (() => {
@@ -159,7 +208,13 @@ function parseFeaturesArray(features: string[] | undefined): Partial<ImportListi
         if (isValidBuiltArea(num) && !out.usableArea) out.usableArea = num;
       } else if (/constru|edificad/i.test(low)) {
         if (isValidBuiltArea(num) && !out.builtArea) out.builtArea = num;
-      } else if (isValidBuiltArea(num) && !out.builtArea) {
+      } else if (
+        // m² "a secas" → superficie construida, PERO no si la string habla de
+        // terraza/balcón/jardín/trastero/garaje (esos m² no son la vivienda).
+        !/terraza|balc[oó]n|jard[ií]n|trastero|garaje|parcela/i.test(low) &&
+        isValidBuiltArea(num) &&
+        !out.builtArea
+      ) {
         out.builtArea = num;
       }
       continue;
@@ -183,30 +238,42 @@ function parseFeaturesArray(features: string[] | undefined): Partial<ImportListi
  * de cordura. Evita que un parser-error contamine la BBDD. Adicionalmente
  * intenta rellenar campos vacíos re-parseando el array `features`.
  */
-function sanitizePayload(p: ImportListingPayload): ImportListingPayload {
+export function sanitizePayload(p: ImportListingPayload): ImportListingPayload {
   const out = { ...p };
   // 1. Validar y nulear lo que no sea cuerdo
   if (!isValidPriceEur(out.price ?? null)) out.price = null;
   if (!isValidBuiltArea(out.builtArea ?? null)) out.builtArea = null;
   if (!isValidBuiltArea(out.usableArea ?? null)) out.usableArea = null;
+  if (out.plotArea != null && !isValidPlotArea(out.plotArea)) out.plotArea = null;
   if (out.rooms != null && (out.rooms < 0 || out.rooms > 50)) out.rooms = null;
   if (out.bathrooms != null && (out.bathrooms < 0 || out.bathrooms > 50)) out.bathrooms = null;
   if (!isValidYear(out.yearBuilt ?? null)) out.yearBuilt = null;
   if (out.latitude != null && (out.latitude < -90 || out.latitude > 90)) out.latitude = null;
   if (out.longitude != null && (out.longitude < -180 || out.longitude > 180)) out.longitude = null;
 
-  // 2. Si tras nulear quedan huecos, re-parsear array `features` como fallback
+  // 2. Si tras nulear quedan huecos, re-parsear array `features` como fallback.
+  //    Recupera m²/útiles/parcela/hab./baños/año/planta + eficiencia + amenidades
+  //    aunque el JSON del portal no los trajera (el cliente ahora SIEMPRE manda
+  //    el texto de las listas de características).
   const fromFeatures = parseFeaturesArray(out.features);
   if (out.builtArea == null && fromFeatures.builtArea != null) out.builtArea = fromFeatures.builtArea;
   if (out.usableArea == null && fromFeatures.usableArea != null) out.usableArea = fromFeatures.usableArea;
-  if (out.plotArea == null && fromFeatures.plotArea != null) {
-    // plotArea no está en ImportListingInput original; lo añadimos al any del schema
-    (out as unknown as Record<string, unknown>).plotArea = fromFeatures.plotArea;
-  }
+  if (out.plotArea == null && fromFeatures.plotArea != null) out.plotArea = fromFeatures.plotArea;
   if (out.rooms == null && fromFeatures.rooms != null) out.rooms = fromFeatures.rooms;
   if (out.bathrooms == null && fromFeatures.bathrooms != null) out.bathrooms = fromFeatures.bathrooms;
   if (out.yearBuilt == null && fromFeatures.yearBuilt != null) out.yearBuilt = fromFeatures.yearBuilt;
   if (!out.floor && fromFeatures.floor) out.floor = fromFeatures.floor;
+  if (out.energyRating == null && fromFeatures.energyRating != null) out.energyRating = fromFeatures.energyRating;
+  if (out.hasElevator == null && fromFeatures.hasElevator != null) out.hasElevator = fromFeatures.hasElevator;
+  if (out.hasGarage == null && fromFeatures.hasGarage != null) out.hasGarage = fromFeatures.hasGarage;
+  if (out.hasStorage == null && fromFeatures.hasStorage != null) out.hasStorage = fromFeatures.hasStorage;
+  if (out.hasTerrace == null && fromFeatures.hasTerrace != null) out.hasTerrace = fromFeatures.hasTerrace;
+  if (out.hasFireplace == null && fromFeatures.hasFireplace != null) out.hasFireplace = fromFeatures.hasFireplace;
+  if (out.hasGarden == null && fromFeatures.hasGarden != null) out.hasGarden = fromFeatures.hasGarden;
+  if (out.hasPool == null && fromFeatures.hasPool != null) out.hasPool = fromFeatures.hasPool;
+
+  // 3. Filtrar imágenes basura (logos/iconos/marcas/mapas), deduplicar y limitar.
+  out.images = filterImages(out.images);
 
   return out;
 }

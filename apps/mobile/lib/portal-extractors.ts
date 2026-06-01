@@ -6,6 +6,16 @@
  *   { type: 'extracted', data: ImportPayload }
  *   { type: 'challenge' }               — captcha/DataDome detectado
  *   { type: 'error', reason: string }
+ *
+ * Estrategia de robustez (todos los portales):
+ *  - IMÁGENES: nunca se prioriza og:image (suele ser una tarjeta con marca de
+ *    agua). Se filtran por tamaño real (naturalWidth/Height), ratio y patrón de
+ *    URL (logo/icon/watermark/mapa…). Las imágenes estructuradas del JSON del
+ *    portal son la fuente primaria; el barrido del DOM es el fallback.
+ *  - CAMPOS: además de los que cada portal expone en su JSON, SIEMPRE se manda
+ *    `features` (texto de las listas de características). El servidor lo
+ *    re-parsea para rellenar m²/hab./baños/año/planta/parcela/eficiencia y
+ *    amenidades aunque el JSON del portal no los traiga.
  */
 
 function detectPortal(url: string): string {
@@ -49,23 +59,90 @@ var __price = function(v) {
   return isNaN(n) ? null : Math.round(n);
 };
 
+// Resuelve a URL absoluta. keepQuery=true conserva la query (URLs firmadas de CDN).
+var __abs = function(src, keepQuery) {
+  if (!src) return '';
+  try { var u = new URL(src, location.href).href; return keepQuery ? u : u.split('?')[0]; }
+  catch(e) { return keepQuery ? String(src) : String(src).split('?')[0]; }
+};
+
+// Patrón de imágenes basura: logos, iconos, marcas de agua, banderas, mapas, sellos…
+var __junk = /(logo|sprite|icono?s?|favicon|placeholder|avatar|watermark|marca|blank|pixel|spacer|loading|banner|badge|flag|bandera|sello|googleapis|gstatic|maps\\.|staticmap|facebook|whatsapp|instagram|\\/static\\/|\\/assets\\/|\\/icons?\\/)/i;
+
+var __goodImg = function(path) {
+  if (!path || !/^https?:/i.test(path)) return false;
+  if (/\\.(svg|gif)(\\?|$)/i.test(path)) return false;
+  if (__junk.test(path)) return false;
+  return true;
+};
+
+// Imágenes REALES del inmueble desde el DOM, filtrando por tamaño, ratio y
+// patrón de URL. NO prioriza og:image (solo último recurso).
 var __imgs = function(max) {
-  var seen = {};
-  var result = [];
-  // Check meta og:image first
-  var og = document.querySelector('meta[property="og:image"]');
-  if (og && og.content) { seen[og.content] = 1; result.push(og.content); }
-  // DOM images
-  var imgs = document.querySelectorAll('img[src], img[data-src], img[data-lazy]');
-  for (var i = 0; i < imgs.length && result.length < (max || 60); i++) {
-    var src = imgs[i].src || imgs[i].dataset.src || imgs[i].dataset.lazy || '';
-    src = src.split('?')[0];
-    if (src && /\\.(jpe?g|png|webp)/i.test(src) && src.length > 20 && !seen[src]) {
-      seen[src] = 1;
-      result.push(src);
+  var seen = {}; var result = []; var lim = max || 40;
+  var imgs = document.querySelectorAll('img');
+  for (var i = 0; i < imgs.length && result.length < lim; i++) {
+    var el = imgs[i];
+    var raw = el.currentSrc || el.src || el.getAttribute('data-src') ||
+              el.getAttribute('data-lazy') || el.getAttribute('data-original') ||
+              el.getAttribute('data-srcset') || '';
+    if (raw && raw.indexOf(' ') > -1) raw = raw.split(' ')[0]; // srcset → primera URL
+    var full = __abs(raw, true);
+    var path = full.split('?')[0];
+    if (!__goodImg(path) || seen[path]) continue;
+    var w = el.naturalWidth || el.width || 0;
+    var h = el.naturalHeight || el.height || 0;
+    if (w && h) {
+      if (w < 300 || h < 200) continue;          // icono/miniatura
+      var r = w / h;
+      if (r > 4 || r < 0.25) continue;           // banner/columna (logo/anuncio)
     }
+    seen[path] = 1; result.push(full);
+  }
+  if (!result.length) {                          // último recurso: og:image
+    var og = document.querySelector('meta[property="og:image"]');
+    if (og && og.content) { var o = __abs(og.content, true); if (__goodImg(o.split('?')[0])) result.push(o); }
   }
   return result;
+};
+
+// Filtra/normaliza una lista de URLs estructuradas (multimedia del JSON),
+// conservando la query (URLs firmadas) y descartando basura/duplicados.
+var __cleanImgs = function(arr, max) {
+  var seen = {}; var out = []; var lim = max || 40;
+  for (var i = 0; i < (arr || []).length && out.length < lim; i++) {
+    var full = __abs(arr[i], true); if (!full) continue;
+    var path = full.split('?')[0];
+    if (!__goodImg(path) || seen[path]) continue;
+    seen[path] = 1; out.push(full);
+  }
+  return out;
+};
+
+// Texto de las listas de características del anuncio (portal-agnóstico). El
+// servidor lo re-parsea para rellenar campos que el JSON del portal no trae.
+var __features = function() {
+  var out = []; var seen = {};
+  var add = function(s) {
+    if (!s) return; s = String(s).replace(/\\s+/g, ' ').trim();
+    if (s.length < 2 || s.length > 120) return;
+    var k = s.toLowerCase(); if (seen[k]) return; seen[k] = 1; out.push(s);
+  };
+  var sels = ['[class*="detail" i] li','[class*="feature" i] li','[class*="caracteristic" i] li',
+    '[class*="characteristic" i] li','[class*="equipment" i] li','[class*="amenit" i] li',
+    'ul[class*="info" i] li','[class*="property-features" i] li','.adProps li','[class*="basic" i] li'];
+  for (var s = 0; s < sels.length && out.length < 60; s++) {
+    var n; try { n = document.querySelectorAll(sels[s]); } catch(e) { continue; }
+    for (var i = 0; i < n.length && out.length < 60; i++) add(n[i].innerText || n[i].textContent);
+  }
+  var dts = document.querySelectorAll('dt');
+  for (var d = 0; d < dts.length && out.length < 60; d++) {
+    var dd = dts[d].nextElementSibling;
+    if (dd) add((dts[d].innerText || '') + ': ' + (dd.innerText || ''));
+  }
+  var en; try { en = document.querySelectorAll('[class*="energ" i],[class*="certific" i]'); } catch(e) { en = []; }
+  for (var e = 0; e < en.length && out.length < 60; e++) add(en[e].innerText || en[e].textContent);
+  return out;
 };
 
 var __challenge = function() {
@@ -83,13 +160,15 @@ var nd = window.__NEXT_DATA__;
 var pp = nd && nd.props && nd.props.pageProps;
 var ad = pp && (pp.ad || pp.realEstate || pp.listing);
 if (ad) {
-  var imgs = [];
+  var rawImgs = [];
   if (ad.multimedia && ad.multimedia.images) {
-    for (var i = 0; i < Math.min(ad.multimedia.images.length, 60); i++) {
+    for (var i = 0; i < ad.multimedia.images.length; i++) {
       var im = ad.multimedia.images[i];
-      if (im && (im.url || im.src)) imgs.push(im.url || im.src);
+      if (im) rawImgs.push(im.url || im.src || '');
     }
   }
+  var imgs = __cleanImgs(rawImgs, 40);
+  if (!imgs.length) imgs = __imgs(40);
   __post({ type: 'extracted', data: {
     url: ${JSON.stringify(url)}, portal: 'FOTOCASA',
     title: ad.title || ad.name || '',
@@ -106,7 +185,8 @@ if (ad) {
     postalCode: (ad.ubication && ad.ubication.postalCode) || null,
     latitude: (ad.ubication && ad.ubication.latitude) || null,
     longitude: (ad.ubication && ad.ubication.longitude) || null,
-    images: imgs.length ? imgs : __imgs(60)
+    images: imgs,
+    features: __features()
   }});
   return;
 }
@@ -117,11 +197,13 @@ if (ld) {
     title: ld.name || document.title,
     price: __price(ld.offers && ld.offers.price),
     rooms: ld.numberOfRooms || null,
-    images: __imgs(60)
+    description: (ld.description || '').slice(0, 2000) || null,
+    images: __imgs(40),
+    features: __features()
   }});
   return;
 }
-__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'FOTOCASA', title: document.title, images: __imgs(60) }});
+__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'FOTOCASA', title: document.title, images: __imgs(40), features: __features() }});
 `;
 
 const PISOS_SCRIPT = (url: string) => `
@@ -129,13 +211,14 @@ var nd = window.__NEXT_DATA__;
 var pp = nd && nd.props && nd.props.pageProps;
 var pr = pp && (pp.property || pp.ad || pp.listing || pp.detail);
 if (pr) {
-  var imgs = [];
   var imgSrc = pr.images || pr.photos || pr.multimedia || [];
-  for (var i = 0; i < Math.min(imgSrc.length, 60); i++) {
+  var rawImgs = [];
+  for (var i = 0; i < imgSrc.length; i++) {
     var im = imgSrc[i];
-    imgs.push(typeof im === 'string' ? im : (im.url || im.src || ''));
+    rawImgs.push(typeof im === 'string' ? im : (im.url || im.src || ''));
   }
-  imgs = imgs.filter(Boolean);
+  var imgs = __cleanImgs(rawImgs, 40);
+  if (!imgs.length) imgs = __imgs(40);
   __post({ type: 'extracted', data: {
     url: ${JSON.stringify(url)}, portal: 'PISOS_COM',
     title: pr.title || pr.name || document.title,
@@ -143,10 +226,12 @@ if (pr) {
     rooms: pr.rooms || pr.bedrooms || null,
     bathrooms: pr.bathrooms || null,
     builtArea: pr.area || pr.builtArea || pr.constructedArea || null,
+    usableArea: pr.usableArea || null,
     city: pr.city || (pr.location && pr.location.city) || null,
     province: pr.province || (pr.location && pr.location.province) || null,
     description: (pr.description || '').slice(0, 2000) || null,
-    images: imgs.length ? imgs : __imgs(60)
+    images: imgs,
+    features: __features()
   }});
   return;
 }
@@ -156,11 +241,12 @@ if (ld) {
     url: ${JSON.stringify(url)}, portal: 'PISOS_COM',
     title: ld.name || document.title,
     price: __price(ld.offers && ld.offers.price),
-    images: __imgs(60)
+    images: __imgs(40),
+    features: __features()
   }});
   return;
 }
-__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'PISOS_COM', title: document.title, images: __imgs(60) }});
+__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'PISOS_COM', title: document.title, images: __imgs(40), features: __features() }});
 `;
 
 const HABITACLIA_SCRIPT = (url: string) => `
@@ -168,14 +254,15 @@ var nd = window.__NEXT_DATA__;
 var pp = nd && nd.props && nd.props.pageProps;
 var ad = pp && (pp.ad || pp.property || pp.listing);
 if (ad) {
-  var imgs = [];
+  var rawImgs = [];
   if (ad.multimedia && ad.multimedia.images) {
-    for (var i = 0; i < Math.min(ad.multimedia.images.length, 60); i++) {
+    for (var i = 0; i < ad.multimedia.images.length; i++) {
       var im = ad.multimedia.images[i];
-      if (im) imgs.push(im.url || im.src || '');
+      if (im) rawImgs.push(im.url || im.src || '');
     }
-    imgs = imgs.filter(Boolean);
   }
+  var imgs = __cleanImgs(rawImgs, 40);
+  if (!imgs.length) imgs = __imgs(40);
   __post({ type: 'extracted', data: {
     url: ${JSON.stringify(url)}, portal: 'HABITACLIA',
     title: ad.title || ad.name || document.title,
@@ -183,29 +270,32 @@ if (ad) {
     rooms: ad.rooms || null,
     bathrooms: ad.bathrooms || null,
     builtArea: ad.constructedArea || ad.surface || null,
+    usableArea: ad.usableArea || null,
     city: (ad.ubication && (ad.ubication.municipality || ad.ubication.city)) || null,
     province: (ad.ubication && ad.ubication.province) || null,
-    images: imgs.length ? imgs : __imgs(60)
+    description: (ad.description || '').slice(0, 2000) || null,
+    images: imgs,
+    features: __features()
   }});
   return;
 }
-__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'HABITACLIA', title: document.title, images: __imgs(60) }});
+__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'HABITACLIA', title: document.title, images: __imgs(40), features: __features() }});
 `;
 
 const IDEALISTA_SCRIPT = (url: string) => `
 if (__challenge()) { __post({ type: 'challenge' }); return; }
 var ld = __jsonLd('RealEstateListing');
 if (ld) {
-  var imgs = [];
+  var imgArr = [];
   if (ld.image) {
-    var imgArr = Array.isArray(ld.image) ? ld.image : [ld.image];
-    for (var i = 0; i < imgArr.length; i++) {
-      var im = imgArr[i];
-      imgs.push(typeof im === 'string' ? im : (im.url || im.contentUrl || ''));
+    var src = Array.isArray(ld.image) ? ld.image : [ld.image];
+    for (var i = 0; i < src.length; i++) {
+      var im = src[i];
+      imgArr.push(typeof im === 'string' ? im : (im.url || im.contentUrl || ''));
     }
-    imgs = imgs.filter(Boolean);
   }
-  if (!imgs.length) imgs = __imgs(60);
+  var imgs = __cleanImgs(imgArr, 40);
+  if (!imgs.length) imgs = __imgs(40);
   __post({ type: 'extracted', data: {
     url: ${JSON.stringify(url)}, portal: 'IDEALISTA',
     title: ld.name || document.title,
@@ -219,7 +309,8 @@ if (ld) {
     postalCode: (ld.address && ld.address.postalCode) || null,
     latitude: (ld.geo && ld.geo.latitude) || null,
     longitude: (ld.geo && ld.geo.longitude) || null,
-    images: imgs
+    images: imgs,
+    features: __features()
   }});
   return;
 }
@@ -229,7 +320,8 @@ __post({ type: 'extracted', data: {
   url: ${JSON.stringify(url)}, portal: 'IDEALISTA',
   title: (titleEl && titleEl.innerText && titleEl.innerText.trim()) || document.title,
   price: priceEl ? __price(priceEl.innerText) : null,
-  images: __imgs(60)
+  images: __imgs(40),
+  features: __features()
 }});
 `;
 
@@ -237,12 +329,18 @@ const MILANUNCIOS_SCRIPT = (url: string) => `
 if (__challenge()) { __post({ type: 'challenge' }); return; }
 var ld = __jsonLd('Product') || __jsonLd('RealEstateListing');
 if (ld) {
+  var imgArr = [];
+  if (ld.image) { var src = Array.isArray(ld.image) ? ld.image : [ld.image];
+    for (var i = 0; i < src.length; i++) { var im = src[i]; imgArr.push(typeof im === 'string' ? im : (im.url || im.contentUrl || '')); } }
+  var imgs = __cleanImgs(imgArr, 40);
+  if (!imgs.length) imgs = __imgs(40);
   __post({ type: 'extracted', data: {
     url: ${JSON.stringify(url)}, portal: 'MILANUNCIOS',
     title: ld.name || document.title,
     price: __price(ld.offers && ld.offers.price),
     description: (ld.description || '').slice(0, 2000) || null,
-    images: __imgs(60)
+    images: imgs,
+    features: __features()
   }});
   return;
 }
@@ -252,7 +350,8 @@ __post({ type: 'extracted', data: {
   url: ${JSON.stringify(url)}, portal: 'MILANUNCIOS',
   title: (titleEl && titleEl.innerText && titleEl.innerText.trim()) || document.title,
   price: priceEl ? __price(priceEl.innerText) : null,
-  images: __imgs(60)
+  images: __imgs(40),
+  features: __features()
 }});
 `;
 
@@ -261,6 +360,11 @@ var nd = window.__NEXT_DATA__;
 var pp = nd && nd.props && nd.props.pageProps;
 var pr = pp && (pp.property || pp.ad || pp.listing || pp.detail);
 if (pr) {
+  var imgSrc = pr.images || pr.photos || pr.multimedia || [];
+  var rawImgs = [];
+  for (var i = 0; i < imgSrc.length; i++) { var im = imgSrc[i]; rawImgs.push(typeof im === 'string' ? im : (im.url || im.src || '')); }
+  var imgs = __cleanImgs(rawImgs, 40);
+  if (!imgs.length) imgs = __imgs(40);
   __post({ type: 'extracted', data: {
     url: ${JSON.stringify(url)}, portal: 'YAENCONTRE',
     title: pr.title || pr.name || document.title,
@@ -269,7 +373,9 @@ if (pr) {
     bathrooms: pr.bathrooms || null,
     builtArea: pr.area || pr.constructedArea || null,
     city: pr.city || (pr.location && pr.location.city) || null,
-    images: __imgs(60)
+    description: (pr.description || '').slice(0, 2000) || null,
+    images: imgs,
+    features: __features()
   }});
   return;
 }
@@ -279,16 +385,22 @@ if (ld) {
     url: ${JSON.stringify(url)}, portal: 'YAENCONTRE',
     title: ld.name || document.title,
     price: __price(ld.offers && ld.offers.price),
-    images: __imgs(60)
+    images: __imgs(40),
+    features: __features()
   }});
   return;
 }
-__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'YAENCONTRE', title: document.title, images: __imgs(60) }});
+__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'YAENCONTRE', title: document.title, images: __imgs(40), features: __features() }});
 `;
 
 const GENERIC_SCRIPT = (url: string, portal: string) => `
 var ld = __jsonLd('RealEstateListing') || __jsonLd('Apartment') || __jsonLd('House') || __jsonLd('Product');
 if (ld) {
+  var imgArr = [];
+  if (ld.image) { var src = Array.isArray(ld.image) ? ld.image : [ld.image];
+    for (var i = 0; i < src.length; i++) { var im = src[i]; imgArr.push(typeof im === 'string' ? im : (im.url || im.contentUrl || '')); } }
+  var imgs = __cleanImgs(imgArr, 40);
+  if (!imgs.length) imgs = __imgs(40);
   __post({ type: 'extracted', data: {
     url: ${JSON.stringify(url)}, portal: ${JSON.stringify(portal)},
     title: ld.name || document.title,
@@ -297,11 +409,12 @@ if (ld) {
     builtArea: (ld.floorSize && ld.floorSize.value) ? Math.round(ld.floorSize.value) : null,
     city: (ld.address && ld.address.addressLocality) || null,
     description: (ld.description || '').slice(0, 2000) || null,
-    images: __imgs(60)
+    images: imgs,
+    features: __features()
   }});
   return;
 }
-__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: ${JSON.stringify(portal)}, title: document.title, images: __imgs(60) }});
+__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: ${JSON.stringify(portal)}, title: document.title, images: __imgs(40), features: __features() }});
 `;
 
 // ─── Public API ───────────────────────────────────────────────────────────────
