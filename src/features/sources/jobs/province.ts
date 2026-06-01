@@ -28,7 +28,7 @@ function norm(s: string): string {
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
-    .replace(/['’]/g, " ")
+    .replace(/['’-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -62,6 +62,10 @@ const CITY_TO_PROVINCE: Record<string, string> = {
   "dos hermanas": "Sevilla",
   "merida": "Badajoz",
   "reus": "Tarragona",
+  "castello de la plana": "Castellón",
+  "castellon de la plana": "Castellón",
+  "castello": "Castellón",
+  "a coruna": "A Coruña",
 };
 
 /**
@@ -70,9 +74,15 @@ const CITY_TO_PROVINCE: Record<string, string> = {
  */
 export function resolveInfoJobsProvince(input?: string): string | undefined {
   if (!input) return undefined;
-  const n = norm(input);
-  if (!n) return undefined;
-  return PROVINCE_BY_NORM.get(n) ?? CITY_TO_PROVINCE[n] ?? undefined;
+  // Prueba la cadena completa y cada parte separada por comas: LinkedIn da
+  // "Bilbao, Basque Country, Spain"; InfoJobs da "Vitoria-Gasteiz".
+  for (const part of [input, ...input.split(",")]) {
+    const n = norm(part);
+    if (!n) continue;
+    const hit = PROVINCE_BY_NORM.get(n) ?? CITY_TO_PROVINCE[n];
+    if (hit) return hit;
+  }
+  return undefined;
 }
 
 /** Añade ", Spain" a una ubicación libre (LinkedIn) si no menciona país. */

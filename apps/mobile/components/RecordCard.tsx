@@ -8,6 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { type BaseRecord, metaField } from "@nidokey/shared";
 import { useTheme } from "@/lib/theme";
 import { recordTypeConfig } from "@/lib/records/config";
+import { provinceImage } from "@/lib/records/province-images";
 
 /**
  * Tarjeta de registro. Genérica para la mayoría de tipos; con un layout
@@ -103,7 +104,7 @@ function CryptoCard({ record, editing, onLongPress, onDelete }: CardProps) {
         )}
         <Text style={[styles.periodLabel, { color: th.textSubtle }]}>7 días</Text>
       </View>
-      <PriceChart price={spark} color={trendColor} />
+      <PriceChart price={spark} color={trendColor} height={36} />
 
       <View style={[styles.cryptoFooter, { borderTopColor: th.border }]}>
         <View>
@@ -274,15 +275,13 @@ function DefaultCard({ record, editing, onLongPress, onDelete }: CardProps) {
       )}
 
       <View style={styles.info}>
-        <View>
-          <Text style={[styles.title, { color: th.accent }]} numberOfLines={2}>{record.title}</Text>
-          {record.subtitle && (
-            <Text style={[styles.sub, { color: th.textMuted }]} numberOfLines={1}>{record.subtitle}</Text>
-          )}
-          {footnote && (
-            <Text style={[styles.foot, { color: th.textSubtle }]} numberOfLines={1}>{footnote}</Text>
-          )}
-        </View>
+        <Text style={[styles.title, { color: th.accent }]} numberOfLines={2}>{record.title}</Text>
+        {record.subtitle && (
+          <Text style={[styles.sub, { color: th.textMuted }]} numberOfLines={1}>{record.subtitle}</Text>
+        )}
+        {footnote && (
+          <Text style={[styles.foot, { color: th.textSubtle }]} numberOfLines={1}>{footnote}</Text>
+        )}
         <View style={styles.priceRow}>
           <Text style={[styles.cardPrice, { color: th.accent }]} numberOfLines={1}>{record.primaryValue ?? "—"}</Text>
           {status && (
@@ -298,7 +297,7 @@ function DefaultCard({ record, editing, onLongPress, onDelete }: CardProps) {
   );
 }
 
-// ── Empleo (sin imagen; datos clave; abre nuestra ficha propia) ───────────
+// ── Empleo (miniatura = capital de la provincia; estilo inmuebles, compacto) ─
 function JobCard({ record, editing, onLongPress, onDelete }: CardProps) {
   const { th } = useTheme();
   const company = metaField<string | null>(record, "company", null);
@@ -307,6 +306,7 @@ function JobCard({ record, editing, onLongPress, onDelete }: CardProps) {
   const contract = metaField<string | null>(record, "contractType", null);
   const remote = metaField<boolean | null>(record, "remote", null);
   const platform = metaField<string | null>(record, "platform", null);
+  const thumb = provinceImage(metaField<string | null>(record, "province", null));
   const sub = [company, location].filter(Boolean).join(" · ") || record.subtitle || null;
   // Pie compacto: contrato · sueldo (· remoto) a la izquierda; fuente a la derecha.
   const footerLeft = [contract, salary, remote ? "Remoto" : null].filter(Boolean).join(" · ");
@@ -319,23 +319,39 @@ function JobCard({ record, editing, onLongPress, onDelete }: CardProps) {
       delayLongPress={300}
       style={({ pressed }) => [
         styles.card,
-        styles.jobCard,
+        styles.narrowCard,
         { backgroundColor: th.surface, borderColor: th.border },
         pressed && !editing && { opacity: 0.7 },
       ]}
     >
-      <Text style={[styles.jobTitle, { color: th.accent }]} numberOfLines={2}>{record.title}</Text>
-      {sub && <Text style={[styles.jobSub, { color: th.textMuted }]} numberOfLines={1}>{sub}</Text>}
-      {(footerLeft || platformLabel) && (
-        <View style={styles.jobFooter}>
-          <Text style={[styles.jobFooterLeft, { color: th.textMuted }]} numberOfLines={1}>
-            {footerLeft || "—"}
-          </Text>
-          {platformLabel && (
-            <Text style={[styles.jobFooterRight, { color: th.textSubtle }]}>{platformLabel}</Text>
-          )}
+      {thumb ? (
+        <Image
+          source={{ uri: thumb }}
+          style={[styles.thumb, { backgroundColor: th.imagePlaceholder }]}
+          contentFit="cover"
+          transition={150}
+        />
+      ) : (
+        <View style={[styles.thumb, styles.thumbPlaceholder, { backgroundColor: th.imagePlaceholder }]}>
+          <Ionicons name="briefcase-outline" size={24} color={th.textSubtle} />
         </View>
       )}
+
+      <View style={styles.info}>
+        <Text style={[styles.title, { color: th.accent }]} numberOfLines={2}>{record.title}</Text>
+        {sub && <Text style={[styles.sub, { color: th.textMuted }]} numberOfLines={1}>{sub}</Text>}
+        {(footerLeft || platformLabel) && (
+          <View style={styles.jobFooter}>
+            <Text style={[styles.jobFooterLeft, { color: th.textMuted }]} numberOfLines={1}>
+              {footerLeft || "—"}
+            </Text>
+            {platformLabel && (
+              <Text style={[styles.jobFooterRight, { color: th.textSubtle }]}>{platformLabel}</Text>
+            )}
+          </View>
+        )}
+      </View>
+
       {editing && onDelete && <DeleteBadge onPress={() => onDelete(record)} />}
     </Pressable>
   );
@@ -388,7 +404,7 @@ function compactNumber(n: number | null): string {
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 10, borderWidth: 1, marginBottom: 12 },
+  card: { borderRadius: 10, borderWidth: 1, marginBottom: 8 },
   deleteBadge: {
     position: "absolute",
     top: -7,
@@ -407,7 +423,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
   },
   // crypto
-  cryptoCard: { padding: 14 },
+  cryptoCard: { padding: 12 },
   row: { flexDirection: "row", alignItems: "flex-start" },
   flex: { flex: 1 },
   alignEnd: { alignItems: "flex-end" },
@@ -417,41 +433,38 @@ const styles = StyleSheet.create({
   changeRow: { flexDirection: "row", alignItems: "baseline", gap: 4, marginTop: 1 },
   change: { fontSize: 13, fontWeight: "600" },
   periodLabel: { fontSize: 10, fontWeight: "500" },
-  sparkHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 10 },
+  sparkHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8 },
   chart: { position: "relative", marginTop: 4 },
   barsRow: { flexDirection: "row", alignItems: "flex-end", height: "100%" },
   cryptoFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 12,
-    paddingTop: 8,
+    marginTop: 8,
+    paddingTop: 6,
     borderTopWidth: 1,
   },
   statLabel: { fontSize: 11 },
   statValue: { fontSize: 12, fontWeight: "500", marginTop: 1 },
-  // empleo (sin imagen, compacto)
-  jobCard: { padding: 12 },
-  jobTitle: { fontSize: 14.5, fontWeight: "600" },
-  jobSub: { fontSize: 12, marginTop: 2 },
-  jobFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 8 },
+  // empleo: pie compacto (contrato·sueldo | fuente)
+  jobFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 4 },
   jobFooterLeft: { flex: 1, fontSize: 12, fontWeight: "500" },
   jobFooterRight: { fontSize: 11 },
-  // default (tarjeta estrecha: miniatura izquierda + info derecha)
-  narrowCard: { flexDirection: "row", padding: 10, gap: 12, alignItems: "stretch" },
-  thumb: { width: 88, height: 88, borderRadius: 8 },
+  // tarjeta estrecha (miniatura izquierda + info derecha) — compacta
+  narrowCard: { flexDirection: "row", padding: 8, gap: 10, alignItems: "center" },
+  thumb: { width: 64, height: 64, borderRadius: 8 },
   thumbPlaceholder: { alignItems: "center", justifyContent: "center" },
-  info: { flex: 1, justifyContent: "space-between", minHeight: 88 },
+  info: { flex: 1, gap: 2 },
   title: { fontSize: 14, fontWeight: "600" },
-  sub: { fontSize: 12, marginTop: 2 },
-  foot: { fontSize: 11, marginTop: 2 },
+  sub: { fontSize: 12 },
+  foot: { fontSize: 11 },
   priceRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 6,
+    marginTop: 2,
     gap: 8,
   },
-  cardPrice: { fontSize: 16, fontWeight: "700", flexShrink: 1 },
+  cardPrice: { fontSize: 15, fontWeight: "700", flexShrink: 1 },
   statusChip: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 4 },
   statusText: { fontSize: 10, fontWeight: "600" },
 });
