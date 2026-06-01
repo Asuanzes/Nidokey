@@ -1,0 +1,33 @@
+name: refresh-records
+
+# Reloj de refresco de datos en vivo. Vercel es serverless: sin algo que dispare
+# el endpoint, los precios de cripto (CoinGecko) y mercado/bolsa (Yahoo) quedan
+# congelados en el último import. Este workflow llama cada pocos minutos a
+# GET /api/cron/refresh?type=all, que es lo único que consulta las APIs y guarda
+# en BD. El secreto va como secret del repo `CRON_SECRET` y DEBE coincidir con el
+# env `CRON_SECRET` de Vercel (Production). No toca /api/auth.
+#
+# Notas: el mínimo real de GitHub Actions es ~5 min y puede retrasarse bajo carga;
+# los workflows programados se desactivan tras 60 días sin actividad en el repo.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *" # cada 5 min
+  workflow_dispatch: {} # botón de ejecución manual (pestaña Actions)
+
+# Evita solapar ejecuciones si una tarda.
+concurrency:
+  group: refresh-records
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping cron refresh (cripto + mercado)
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS --max-time 70 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://nidokey.es/api/cron/refresh?type=all"

@@ -62,6 +62,9 @@ export function cryptoToBaseRecord(c: CryptoHolding): BaseRecord {
       quantity: c.quantity != null ? c.quantity.toString() : null,
       source: c.source,
       externalId: c.externalId,
+      // Hora del último refresco real (no del último UPDATE de fila): la UI la
+      // usa para mostrar "Actualizado hace X" y detectar datos congelados.
+      lastCheckedAt: c.lastCheckedAt?.toISOString() ?? null,
       ...((c.meta as Record<string, unknown> | null) ?? {}),
     },
   };
@@ -86,6 +89,8 @@ export function marketToBaseRecord(m: MarketInstrument): BaseRecord {
       quantity: m.quantity != null ? m.quantity.toString() : null,
       source: m.source,
       externalId: m.externalId,
+      // Hora del último refresco real (ver cryptoToBaseRecord).
+      lastCheckedAt: m.lastCheckedAt?.toISOString() ?? null,
       ...((m.meta as Record<string, unknown> | null) ?? {}),
     },
   };

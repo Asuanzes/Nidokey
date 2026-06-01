@@ -16,6 +16,7 @@ import { recordTypeConfig } from "@/lib/records/config";
 
 const UP = "#15803D";
 const DOWN = "#B91C1C";
+const STALE = "#A86A17"; // ámbar: datos rancios (el refresco no está corriendo)
 
 type CardProps = {
   record: BaseRecord;
@@ -62,6 +63,7 @@ function CryptoCard({ record, editing, onLongPress, onDelete }: CardProps) {
   const marketCap = metaField<number | null>(record, "marketCap", null);
   const quote = metaField<string>(record, "quoteCurrency", "EUR");
   const spark = metaField<number[]>(record, "sparkline", []);
+  const ago = fmtAgo(metaField<string | null>(record, "lastCheckedAt", null));
   const isMarket = record.type === "market";
   const exchange = metaField<string | null>(record, "exchange", null);
   // El % grande va por el cambio de 24h; el gráfico por la tendencia de 7 días
@@ -91,6 +93,13 @@ function CryptoCard({ record, editing, onLongPress, onDelete }: CardProps) {
       </View>
 
       <View style={styles.sparkHeader}>
+        {ago ? (
+          <Text style={[styles.periodLabel, { color: ago.stale ? STALE : th.textSubtle }]}>
+            {ago.text}
+          </Text>
+        ) : (
+          <View />
+        )}
         <Text style={[styles.periodLabel, { color: th.textSubtle }]}>7 días</Text>
       </View>
       <PriceChart price={spark} color={trendColor} />
@@ -295,6 +304,23 @@ function fmtChange(p: number | null): { text: string; up: boolean } {
   return { text: `${up ? "+" : ""}${p.toFixed(2).replace(".", ",")}%`, up };
 }
 
+/**
+ * "Actualizado hace X" a partir de la hora del último refresco real
+ * (`lastCheckedAt`). `stale` (≥30 min) lo pinta en ámbar para avisar de que el
+ * reloj de refresco no está corriendo. Devuelve null si no hay dato.
+ */
+function fmtAgo(iso: string | null): { text: string; stale: boolean } | null {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return null;
+  const mins = Math.floor((Date.now() - t) / 60000);
+  if (mins < 1) return { text: "Actualizado ahora", stale: false };
+  if (mins < 60) return { text: `Actualizado hace ${mins} min`, stale: mins >= 30 };
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return { text: `Actualizado hace ${hrs} h`, stale: true };
+  return { text: `Actualizado hace ${Math.floor(hrs / 24)} d`, stale: true };
+}
+
 function compactMoney(n: number | null, currency = "EUR"): string {
   if (n == null) return "—";
   const sym = currency.toUpperCase() === "EUR" ? "€" : currency.toUpperCase();
@@ -347,7 +373,7 @@ const styles = StyleSheet.create({
   changeRow: { flexDirection: "row", alignItems: "baseline", gap: 4, marginTop: 1 },
   change: { fontSize: 13, fontWeight: "600" },
   periodLabel: { fontSize: 10, fontWeight: "500" },
-  sparkHeader: { alignItems: "flex-end", marginTop: 10 },
+  sparkHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 10 },
   chart: { position: "relative", marginTop: 4 },
   barsRow: { flexDirection: "row", alignItems: "flex-end", height: "100%" },
   cryptoFooter: {
