@@ -85,6 +85,16 @@ export function resolveInfoJobsProvince(input?: string): string | undefined {
   return undefined;
 }
 
+/** Normaliza una ubicación (sin acentos/guiones, minúsculas) para comparar. */
+export function normLocation(s: string): string {
+  return norm(s);
+}
+
+/** ¿El texto es el NOMBRE de una provincia entera (no una ciudad concreta)? */
+export function isProvinceName(input: string): boolean {
+  return PROVINCE_BY_NORM.has(norm(input));
+}
+
 /** Añade ", Spain" a una ubicación libre (LinkedIn) si no menciona país. */
 export function withCountry(loc?: string): string {
   const l = (loc ?? "").trim();

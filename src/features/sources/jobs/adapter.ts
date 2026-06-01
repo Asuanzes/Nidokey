@@ -8,6 +8,7 @@ import type {
 } from "@/features/sources/types";
 import { ingestInfoJobsOffers } from "@/features/sources/jobs/ingest-infojobs";
 import { ingestLinkedInOffers } from "@/features/sources/jobs/ingest-linkedin";
+import { isProvinceName, normLocation } from "@/features/sources/jobs/province";
 import { jobOfferToNormalized, type JobOffer } from "@/features/sources/jobs/types";
 
 /**
@@ -88,6 +89,20 @@ export const apifyJobsAdapter: SourceAdapter = {
       seen.add(k);
       return true;
     });
-    return deduped.slice(0, 30).map(hitFor);
+
+    // Búsqueda EXPLÍCITA por ciudad: si la zona es una ciudad concreta (no una
+    // provincia entera), mostrar solo ofertas de ESA ciudad (InfoJobs busca por
+    // provincia y LinkedIn por geo amplia, así que filtramos aquí). Si no queda
+    // ninguna, se cae a la provincia para no dejar la pantalla vacía.
+    const loc = opts?.location?.trim();
+    let result = deduped;
+    if (loc && !isProvinceName(loc)) {
+      const term = normLocation(loc.split(",")[0]);
+      if (term) {
+        const city = deduped.filter((o) => normLocation(o.location ?? "").includes(term));
+        if (city.length > 0) result = city;
+      }
+    }
+    return result.slice(0, 30).map(hitFor);
   },
 };
