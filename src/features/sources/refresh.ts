@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import type { RecordType } from "@nidokey/shared";
 import { marketData, type CoinMarket } from "@/features/sources/adapters/coingecko";
-import { tdQuote } from "@/features/sources/providers/twelvedata";
+import { yahooQuote } from "@/features/sources/providers/yahoo";
 import { logImportEvent } from "@/lib/import-log";
 
 /**
@@ -95,14 +95,14 @@ async function refreshCrypto(): Promise<RefreshSummary> {
 }
 
 /**
- * Refresh de mercados (Twelve Data). El free tier es 1 símbolo/llamada, así que
- * iteramos (con el throttle del provider) en vez de batch. Actualiza precio,
- * %día y volumen; el sparkline se fija al añadir (cambia poco) para ahorrar
- * créditos. `take` acota por ejecución para no agotar la cuota.
+ * Refresh de mercados (Yahoo Finance, no oficial). Una llamada por símbolo trae
+ * precio, %día, volumen y serie → iteramos con el throttle del provider (sin
+ * cuota dura, pero educados para evitar 429). Refrescamos también el sparkline
+ * porque ya viene en la misma llamada. `take` acota por ejecución.
  */
 async function refreshMarket(): Promise<RefreshSummary> {
   const instruments = await prisma.marketInstrument.findMany({
-    where: { source: "twelvedata", externalId: { not: null } },
+    where: { source: "yahoo", externalId: { not: null } },
     orderBy: { lastCheckedAt: { sort: "asc", nulls: "first" } },
     take: 20,
   });
@@ -115,19 +115,17 @@ async function refreshMarket(): Promise<RefreshSummary> {
   for (const inst of instruments) {
     checked++;
     try {
-      const q = await tdQuote(inst.symbol);
-      if (q.status === "error" || !q.close) {
+      const q = await yahooQuote(inst.symbol);
+      if (!q) {
         errors++;
         continue;
       }
-      const cents = Math.round(Number(q.close) * 100);
+      const cents = Math.round(q.price * 100);
       if (!Number.isFinite(cents)) {
         errors++;
         continue;
       }
       const changed = cents !== inst.currentValue;
-      const pct = q.percent_change != null ? Number(q.percent_change) : NaN;
-      const vol = q.volume != null ? Number(q.volume) : NaN;
       await prisma.marketInstrument.update({
         where: { id: inst.id },
         data: {
@@ -135,11 +133,12 @@ async function refreshMarket(): Promise<RefreshSummary> {
           lastCheckedAt: now,
           meta: {
             ...((inst.meta as Record<string, unknown>) ?? {}),
-            change24h: Number.isFinite(pct) ? pct : null,
-            volume: Number.isFinite(vol) ? vol : null,
+            change24h: q.changePercent,
+            volume: q.volume,
+            sparkline: q.sparkline,
           },
           ...(changed
-            ? { snapshots: { create: [{ value: cents, source: "twelvedata", observedAt: now }] } }
+            ? { snapshots: { create: [{ value: cents, source: "yahoo", observedAt: now }] } }
             : {}),
         },
       });
