@@ -308,7 +308,8 @@ function JobCard({ record, editing, onLongPress, onDelete }: CardProps) {
   const remote = metaField<boolean | null>(record, "remote", null);
   const platform = metaField<string | null>(record, "platform", null);
   const sub = [company, location].filter(Boolean).join(" · ") || record.subtitle || null;
-  const chips = [salary, contract, remote ? "Remoto" : null].filter(Boolean) as string[];
+  // Pie compacto: contrato · sueldo (· remoto) a la izquierda; fuente a la derecha.
+  const footerLeft = [contract, salary, remote ? "Remoto" : null].filter(Boolean).join(" · ");
   const platformLabel = platform === "linkedin" ? "LinkedIn" : platform === "infojobs" ? "InfoJobs" : null;
 
   return (
@@ -325,17 +326,15 @@ function JobCard({ record, editing, onLongPress, onDelete }: CardProps) {
     >
       <Text style={[styles.jobTitle, { color: th.accent }]} numberOfLines={2}>{record.title}</Text>
       {sub && <Text style={[styles.jobSub, { color: th.textMuted }]} numberOfLines={1}>{sub}</Text>}
-      {chips.length > 0 && (
-        <View style={styles.jobChips}>
-          {chips.map((c, i) => (
-            <View key={i} style={[styles.jobChip, { backgroundColor: th.accentSoft }]}>
-              <Text style={[styles.jobChipText, { color: th.accent }]} numberOfLines={1}>{c}</Text>
-            </View>
-          ))}
+      {(footerLeft || platformLabel) && (
+        <View style={styles.jobFooter}>
+          <Text style={[styles.jobFooterLeft, { color: th.textMuted }]} numberOfLines={1}>
+            {footerLeft || "—"}
+          </Text>
+          {platformLabel && (
+            <Text style={[styles.jobFooterRight, { color: th.textSubtle }]}>{platformLabel}</Text>
+          )}
         </View>
-      )}
-      {platformLabel && (
-        <Text style={[styles.jobPlatform, { color: th.textSubtle }]}>{platformLabel}</Text>
       )}
       {editing && onDelete && <DeleteBadge onPress={() => onDelete(record)} />}
     </Pressable>
@@ -430,14 +429,13 @@ const styles = StyleSheet.create({
   },
   statLabel: { fontSize: 11 },
   statValue: { fontSize: 12, fontWeight: "500", marginTop: 1 },
-  // empleo (sin imagen)
-  jobCard: { padding: 14 },
-  jobTitle: { fontSize: 15, fontWeight: "600" },
-  jobSub: { fontSize: 12.5, marginTop: 3 },
-  jobChips: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 },
-  jobChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  jobChipText: { fontSize: 12, fontWeight: "600" },
-  jobPlatform: { fontSize: 11, marginTop: 10 },
+  // empleo (sin imagen, compacto)
+  jobCard: { padding: 12 },
+  jobTitle: { fontSize: 14.5, fontWeight: "600" },
+  jobSub: { fontSize: 12, marginTop: 2 },
+  jobFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 8 },
+  jobFooterLeft: { flex: 1, fontSize: 12, fontWeight: "500" },
+  jobFooterRight: { fontSize: 11 },
   // default (tarjeta estrecha: miniatura izquierda + info derecha)
   narrowCard: { flexDirection: "row", padding: 10, gap: 12, alignItems: "stretch" },
   thumb: { width: 88, height: 88, borderRadius: 8 },

@@ -12,6 +12,10 @@ import { adaptersFor } from "@/features/sources/registry";
  * (hoy: mercados vía Yahoo). Requiere sesión; no toca la lógica de /api/auth.
  */
 export const dynamic = "force-dynamic";
+// Empleo consulta dos actores de Apify en paralelo; InfoJobs (arranque en frío)
+// puede tardar más que el timeout por defecto (~10s) → sin esto, sus resultados
+// se pierden y solo salía LinkedIn. 60s da margen a ambos.
+export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   const userId = await getUserId();

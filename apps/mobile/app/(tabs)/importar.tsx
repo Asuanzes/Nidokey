@@ -372,6 +372,7 @@ export default function ImportarScreen() {
                 </Text>
               )}
               {results.map((hit, i) => {
+                const jm = type === "job" ? jobMetaOf(hit) : null;
                 const meta = [hit.symbol, hit.exchange, hit.type].filter(Boolean).join(" · ");
                 const added = addedKeys.has(i);
                 const adding = addingIndex === i;
@@ -391,10 +392,25 @@ export default function ImportarScreen() {
                       <Text style={[styles.resultName, { color: th.text }]} numberOfLines={2}>
                         {hit.name ?? hit.symbol}
                       </Text>
-                      {meta.length > 0 && (
-                        <Text style={[styles.resultMeta, { color: th.textSubtle }]} numberOfLines={1}>
-                          {meta}
-                        </Text>
+                      {jm ? (
+                        <>
+                          {jm.line2 && (
+                            <Text style={[styles.resultMeta, { color: th.textSubtle }]} numberOfLines={1}>
+                              {jm.line2}
+                            </Text>
+                          )}
+                          {jm.line3 && (
+                            <Text style={[styles.resultMeta, { color: th.textMuted }]} numberOfLines={1}>
+                              {jm.line3}
+                            </Text>
+                          )}
+                        </>
+                      ) : (
+                        meta.length > 0 && (
+                          <Text style={[styles.resultMeta, { color: th.textSubtle }]} numberOfLines={1}>
+                            {meta}
+                          </Text>
+                        )
                       )}
                     </View>
                     {added ? (
@@ -503,6 +519,19 @@ export default function ImportarScreen() {
       )}
     </Screen>
   );
+}
+
+/** Datos de empleo embebidos en el candidato (para mostrar sueldo/contrato). */
+function jobMetaOf(hit: SearchHit): { line2?: string; line3?: string } | null {
+  const rec = hit.record as { meta?: Record<string, unknown> } | undefined;
+  const m = rec?.meta;
+  if (!m) return null;
+  const s = (k: string) => (typeof m[k] === "string" && m[k] ? (m[k] as string) : undefined);
+  const platform = s("platform");
+  const platformLabel = platform === "linkedin" ? "LinkedIn" : platform === "infojobs" ? "InfoJobs" : undefined;
+  const line2 = [s("company"), s("location")].filter(Boolean).join(" · ") || undefined;
+  const line3 = [s("contractType"), s("salaryLabel"), platformLabel].filter(Boolean).join(" · ") || undefined;
+  return { line2, line3 };
 }
 
 function errMsg(e: unknown, fallback: string): string {
