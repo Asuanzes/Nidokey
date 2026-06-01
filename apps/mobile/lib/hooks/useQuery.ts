@@ -49,19 +49,28 @@ export function useQuery<T>(
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
   const hasData = useRef(false);
+  // Guarda de secuencia: al cambiar `deps` (p. ej. el tipo de registro) se
+  // lanzan varios fetches; solo el ÚLTIMO puede escribir el estado. Evita que
+  // una respuesta lenta y obsoleta (inmuebles) pise a la nueva (cripto).
+  const runIdRef = useRef(0);
 
   const run = useCallback(async () => {
+    const myId = ++runIdRef.current;
     if (hasData.current) setRefreshing(true);
     try {
       const result = await fetcherRef.current();
+      if (myId !== runIdRef.current) return; // respuesta obsoleta: descartar
       setData(result);
       setError(null);
       hasData.current = true;
     } catch (e) {
+      if (myId !== runIdRef.current) return;
       setError(e instanceof Error ? e : new Error(String(e)));
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (myId === runIdRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

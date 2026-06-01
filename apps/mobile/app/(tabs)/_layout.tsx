@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 import { api, ApiError } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
+import { RecordCategoryProvider } from "@/lib/records/category-context";
 
 /**
  * Navegación principal: una sola barra de pestañas con los 5 destinos clave.
@@ -62,6 +63,7 @@ export default function TabsLayout() {
   ];
 
   return (
+    <RecordCategoryProvider>
     <SafeAreaView style={[styles.frame, { backgroundColor: th.bg }]} edges={["top", "left", "right"]}>
       <View style={styles.content}>
         <Slot />
@@ -117,6 +119,7 @@ export default function TabsLayout() {
         })}
       </View>
     </SafeAreaView>
+    </RecordCategoryProvider>
   );
 }
 

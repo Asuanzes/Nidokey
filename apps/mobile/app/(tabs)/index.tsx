@@ -9,9 +9,8 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams } from "expo-router";
-
-import { RECORD_TYPES, type BaseRecord, type RecordType } from "@nidokey/shared";
+import { RECORD_TYPES, type BaseRecord } from "@nidokey/shared";
+import { useRecordCategory } from "@/lib/records/category-context";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme";
 import { useRecords } from "@/lib/hooks/useRecords";
@@ -30,15 +29,9 @@ import { EmptyState, Screen } from "@/components/ui";
 export default function RecordsScreen() {
   const { state } = useAuth();
   const { th } = useTheme();
-  const [type, setType] = useState<RecordType>("property");
-
-  // Permite preseleccionar el tipo desde otra pantalla (p. ej. "Ver Criptos"
-  // tras añadir un registro): navegar a "/?type=crypto".
-  const params = useLocalSearchParams<{ type?: string }>();
-  useEffect(() => {
-    const t = params.type;
-    if (t && (RECORD_TYPES as string[]).includes(t)) setType(t as RecordType);
-  }, [params.type]);
+  // Categoría activa COMPARTIDA con Importar (contexto), no estado local: así
+  // Importar abre la categoría en la que estás y "Ver {categoría}" vuelve a ella.
+  const { category: type, setCategory: setType } = useRecordCategory();
 
   const { data: records, error, loading, refreshing, refetch } = useRecords({ type });
 

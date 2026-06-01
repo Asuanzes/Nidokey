@@ -12,7 +12,8 @@ import { Ionicons } from "@expo/vector-icons";
 import ShareMenu, { type ShareData } from "react-native-share-menu";
 import { router } from "expo-router";
 
-import { RECORD_TYPES, type RecordType } from "@nidokey/shared";
+import { RECORD_TYPES } from "@nidokey/shared";
+import { useRecordCategory } from "@/lib/records/category-context";
 import { useTheme } from "@/lib/theme";
 import { api, ApiError } from "@/lib/api";
 import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
@@ -61,7 +62,9 @@ type Status = "idle" | "extracting" | "sending" | "ok" | "error";
 
 export default function ImportarScreen() {
   const { th } = useTheme();
-  const [type, setType] = useState<RecordType>("property");
+  // Categoría COMPARTIDA con la lista (contexto): al abrir Importar desde una
+  // categoría (p. ej. Criptos) se abre directamente en ella.
+  const { category: type, setCategory: setType } = useRecordCategory();
   const [value, setValue] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [okMsg, setOkMsg] = useState<string | null>(null);
@@ -311,7 +314,7 @@ export default function ImportarScreen() {
               variant="ghost"
               size="sm"
               fullWidth={false}
-              onPress={() => router.push(`/?type=${type}` as never)}
+              onPress={() => router.push("/" as never)}
               style={styles.retry}
             />
           )}
