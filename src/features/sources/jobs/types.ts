@@ -1,4 +1,5 @@
 import type { NormalizedRecord } from "@/features/sources/types";
+import { resolveInfoJobsProvince } from "@/features/sources/jobs/province";
 
 /**
  * Modelo interno de OFERTA DE EMPLEO (DTO) para Nidokey.
@@ -123,6 +124,9 @@ export function jobOfferToNormalized(o: JobOffer): NormalizedRecord {
       salaryMax: o.salaryMax ?? null,
       salaryLabel: salaryLabel(o),
       description: o.description ?? null, // para la ficha propia (sin redirigir)
+      // Provincia (resuelta desde la ciudad del empleo) → imagen de su capital en
+      // la ficha, aunque el empleo sea de otra ciudad de la misma provincia.
+      province: resolveInfoJobsProvince(o.location) ?? null,
       postedAt: o.postedAt ? o.postedAt.toISOString() : null,
       footnote,
     },

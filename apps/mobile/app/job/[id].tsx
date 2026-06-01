@@ -10,10 +10,12 @@ import {
 } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 
 import { type BaseRecord, metaField } from "@nidokey/shared";
 import { api } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
+import { provinceImage } from "@/lib/records/province-images";
 
 /**
  * Ficha propia de un empleo guardado. Muestra los datos scrapeados (lugar,
@@ -73,6 +75,8 @@ export default function JobDetail() {
   const url = metaField<string | null>(record, "url", null);
   const applyUrl = metaField<string | null>(record, "applyUrl", null);
   const postedAt = metaField<string | null>(record, "postedAt", null);
+  const province = metaField<string | null>(record, "province", null);
+  const banner = provinceImage(province);
   const platformLabel = platform === "linkedin" ? "LinkedIn" : platform === "infojobs" ? "InfoJobs" : "la web";
 
   const rows: [string, string][] = (
@@ -92,6 +96,12 @@ export default function JobDetail() {
     <>
       <Stack.Screen options={{ title: "Empleo" }} />
       <ScrollView style={{ backgroundColor: th.bg }} contentContainerStyle={styles.content}>
+        {banner && (
+          <Image source={{ uri: banner }} style={styles.banner} contentFit="cover" transition={200} />
+        )}
+        {banner && province && (
+          <Text style={[styles.bannerCaption, { color: th.textSubtle }]}>{province} · Wikimedia</Text>
+        )}
         <Text style={[styles.title, { color: th.text }]}>{record.title}</Text>
         {(company || location) && (
           <Text style={[styles.sub, { color: th.textMuted }]}>
@@ -135,6 +145,8 @@ export default function JobDetail() {
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   content: { padding: 16, gap: 6, paddingBottom: 40 },
+  banner: { width: "100%", height: 150, borderRadius: 12 },
+  bannerCaption: { fontSize: 10, textAlign: "right", marginTop: -2 },
   title: { fontSize: 20, fontWeight: "700" },
   sub: { fontSize: 14, marginTop: 2 },
   salary: { fontSize: 18, fontWeight: "700", marginTop: 8 },

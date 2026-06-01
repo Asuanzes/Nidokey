@@ -25,6 +25,7 @@
     "refresh": "tsx scripts/refresh-type.ts",
     "test-ingest": "tsx scripts/test-property-ingest.ts",
     "test-jobs": "tsx scripts/test-jobs-ingestion.ts",
+    "gen-province-images": "tsx scripts/gen-province-images.ts",
     "mobile": "npm --workspace @nidokey/mobile run start"
   },
   "prisma": {
