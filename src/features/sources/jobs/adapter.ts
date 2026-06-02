@@ -8,6 +8,7 @@ import type {
 } from "@/features/sources/types";
 import { ingestInfoJobsOffers } from "@/features/sources/jobs/ingest-infojobs";
 import { ingestLinkedInOffers } from "@/features/sources/jobs/ingest-linkedin";
+import { ingestIndeedOffers } from "@/features/sources/jobs/ingest-indeed";
 import { isProvinceName, normLocation } from "@/features/sources/jobs/province";
 import { jobOfferToNormalized, type JobOffer } from "@/features/sources/jobs/types";
 
@@ -28,7 +29,20 @@ const SOURCE = "apify";
 function platformLabel(p: JobOffer["platform"]): string {
   if (p === "linkedin") return "LinkedIn";
   if (p === "infojobs") return "InfoJobs";
+  if (p === "indeed") return "Indeed";
   return "";
+}
+
+/** Fuentes de empleo disponibles, en orden de intercalado (InfoJobs primero). */
+const ALL_SOURCES = ["infojobs", "linkedin", "indeed"] as const;
+type JobSource = (typeof ALL_SOURCES)[number];
+
+function wantedSources(sources?: string[]): Set<JobSource> {
+  const sel = (sources ?? []).filter((s): s is JobSource =>
+    (ALL_SOURCES as readonly string[]).includes(s)
+  );
+  // Sin selección válida → todas (comportamiento por defecto).
+  return new Set(sel.length > 0 ? sel : ALL_SOURCES);
 }
 
 /** Candidato para el buscador: muestra título/empresa/plataforma/ubicación y lleva el record. */
@@ -66,21 +80,30 @@ export const apifyJobsAdapter: SourceAdapter = {
 
   async search(query: string, opts?: SearchOpts): Promise<SearchHit[]> {
     const base = { keywords: query, location: opts?.location, remote: opts?.remote };
-    // InfoJobs necesita palabra clave (sin ella devuelve 0); LinkedIn sí busca
-    // solo por zona. Si no hay puesto → solo LinkedIn (por ubicación).
+    const want = wantedSources(opts?.sources);
+    // InfoJobs necesita palabra clave (sin ella devuelve 0); LinkedIn e Indeed sí
+    // buscan solo por zona. Cada fuente solo se ejecuta si está elegida → coste 0
+    // por las no seleccionadas.
     const hasKeyword = query.trim().length >= 2;
-    const [infojobs, linkedin] = await Promise.all([
-      hasKeyword
+    const none = Promise.resolve([] as JobOffer[]);
+    const [infojobs, linkedin, indeed] = await Promise.all([
+      want.has("infojobs") && hasKeyword
         ? ingestInfoJobsOffers({ ...base, maxItems: 20 }).catch(() => [] as JobOffer[])
-        : Promise.resolve([] as JobOffer[]),
-      ingestLinkedInOffers({ ...base, maxItems: 15 }).catch(() => [] as JobOffer[]),
+        : none,
+      want.has("linkedin")
+        ? ingestLinkedInOffers({ ...base, maxItems: 15 }).catch(() => [] as JobOffer[])
+        : none,
+      want.has("indeed")
+        ? ingestIndeedOffers({ ...base, maxItems: 15 }).catch(() => [] as JobOffer[])
+        : none,
     ]);
-    // Intercala para que se vean ambas fuentes arriba; dedup por URL.
+    // Intercala (InfoJobs, LinkedIn, Indeed) para que se vean todas arriba; dedup.
     const merged: JobOffer[] = [];
-    const max = Math.max(infojobs.length, linkedin.length);
+    const max = Math.max(infojobs.length, linkedin.length, indeed.length);
     for (let i = 0; i < max; i++) {
       if (infojobs[i]) merged.push(infojobs[i]);
       if (linkedin[i]) merged.push(linkedin[i]);
+      if (indeed[i]) merged.push(indeed[i]);
     }
     const seen = new Set<string>();
     const deduped = merged.filter((o) => {

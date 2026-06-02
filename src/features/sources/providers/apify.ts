@@ -38,6 +38,13 @@ export type RunActorOpts = {
   timeoutSecs?: number;
   /** Memoria del actor en MB (potencia de 2). Por defecto, la del actor. */
   memoryMbytes?: number;
+  /**
+   * Omite `maxItems`/`maxTotalChargeUsd` de la query. Algunos actores (p. ej.
+   * `valig/indeed-jobs-scraper`) ABORTAN el run si reciben `maxItems` en la
+   * query; en ellos el tope se pone por el campo `limit` del INPUT. El gasto
+   * sigue acotado porque `limit` limita los resultados (pay-per-result barato).
+   */
+  omitChargeGuards?: boolean;
 };
 
 /**
@@ -57,15 +64,18 @@ export async function runActorGetItems(
     maxTotalChargeUsd = 0.1,
     timeoutSecs = 120,
     memoryMbytes,
+    omitChargeGuards = false,
   } = opts;
 
   const id = actorId.trim().replace("/", "~");
   const qs = new URLSearchParams({
     token: apifyToken(),
-    maxItems: String(maxItems),
-    maxTotalChargeUsd: String(maxTotalChargeUsd),
     timeout: String(timeoutSecs),
   });
+  if (!omitChargeGuards) {
+    qs.set("maxItems", String(maxItems));
+    qs.set("maxTotalChargeUsd", String(maxTotalChargeUsd));
+  }
   if (memoryMbytes) qs.set("memory", String(memoryMbytes));
 
   const url = `${BASE}/acts/${id}/run-sync-get-dataset-items?${qs.toString()}`;

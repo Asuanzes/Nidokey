@@ -77,7 +77,14 @@ export default function JobDetail() {
   const postedAt = metaField<string | null>(record, "postedAt", null);
   const province = metaField<string | null>(record, "province", null);
   const banner = provinceImage(province);
-  const platformLabel = platform === "linkedin" ? "LinkedIn" : platform === "infojobs" ? "InfoJobs" : "la web";
+  const platformLabel =
+    platform === "linkedin"
+      ? "LinkedIn"
+      : platform === "infojobs"
+      ? "InfoJobs"
+      : platform === "indeed"
+      ? "Indeed"
+      : "la web";
 
   const rows: [string, string][] = (
     [

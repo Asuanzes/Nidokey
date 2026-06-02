@@ -55,6 +55,12 @@ export type LinkedInSearchParams = JobSearchParams & {
   /** Filtro temporal de LinkedIn: "r86400" (24h), "r604800" (semana), etc. */
   datePosted?: string;
 };
+export type IndeedSearchParams = JobSearchParams & {
+  /** País Indeed (ISO 3166-1 alpha-2; default "es"). Cubre 50+ países. */
+  country?: string;
+  /** Días desde publicación: "1", "3", "7", "14" (default "7"). */
+  datePosted?: string;
+};
 
 /**
  * Extrae salario (en céntimos) de un texto libre tipo "20.000€ - 25.000€

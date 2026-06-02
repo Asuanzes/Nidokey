@@ -72,4 +72,9 @@ export interface SourceAdapter {
 }
 
 /** Filtros opcionales del buscador (los usa quien los soporte; ej. empleo). */
-export type SearchOpts = { location?: string; remote?: boolean };
+export type SearchOpts = {
+  location?: string;
+  remote?: boolean;
+  /** Empleo: fuentes a consultar ("infojobs"|"linkedin"|"indeed"). Vacío = todas. */
+  sources?: string[];
+};

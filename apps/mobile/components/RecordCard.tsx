@@ -362,7 +362,14 @@ function JobCard({ record, editing, onLongPress, onDelete }: CardProps) {
   const sub = [company, location].filter(Boolean).join(" · ") || record.subtitle || null;
   // Pie compacto: contrato (· remoto) en gris, sueldo en BRONCE; fuente a la derecha.
   const contractRemote = [contract, remote ? "Remoto" : null].filter(Boolean).join(" · ");
-  const platformLabel = platform === "linkedin" ? "LinkedIn" : platform === "infojobs" ? "InfoJobs" : null;
+  const platformLabel =
+    platform === "linkedin"
+      ? "LinkedIn"
+      : platform === "infojobs"
+      ? "InfoJobs"
+      : platform === "indeed"
+      ? "Indeed"
+      : null;
 
   return (
     <Pressable

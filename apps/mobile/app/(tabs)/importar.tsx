@@ -55,9 +55,11 @@ export default function ImportarScreen() {
   const [results, setResults] = useState<SearchHit[]>([]);
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  // Empleo: filtros extra de búsqueda (ciudad/zona + remoto).
+  // Empleo: filtros extra de búsqueda (ciudad/zona + remoto + fuentes).
   const [searchLocation, setSearchLocation] = useState("");
   const [searchRemote, setSearchRemote] = useState(false);
+  // Portales a consultar (elige 1–3). InfoJobs (España), LinkedIn, Indeed.
+  const [jobSources, setJobSources] = useState({ infojobs: true, linkedin: true, indeed: true });
   // Confirmación por fila al elegir un resultado (check verde estilo WhatsApp).
   const [addedKeys, setAddedKeys] = useState<Set<number>>(new Set());
   const [addingIndex, setAddingIndex] = useState<number | null>(null);
@@ -116,6 +118,8 @@ export default function ImportarScreen() {
         if (type === "job") {
           if (searchLocation.trim()) url += `&location=${encodeURIComponent(searchLocation.trim())}`;
           if (searchRemote) url += `&remote=1`;
+          const sel = (["infojobs", "linkedin", "indeed"] as const).filter((k) => jobSources[k]);
+          if (sel.length > 0) url += `&sources=${sel.join(",")}`;
         }
         const res = await api<{ results: SearchHit[] }>(url);
         if (myId === searchRunId.current) setResults(res.results ?? []);
@@ -128,7 +132,7 @@ export default function ImportarScreen() {
         }
       }
     },
-    [type, searchLocation, searchRemote]
+    [type, searchLocation, searchRemote, jobSources]
   );
 
   // Mercados (Yahoo, gratis): búsqueda EN VIVO con debounce. Empleo (Apify, de
@@ -260,6 +264,7 @@ export default function ImportarScreen() {
                 setHasSearched(false);
                 setSearchLocation("");
                 setSearchRemote(false);
+                setJobSources({ infojobs: true, linkedin: true, indeed: true });
                 setAddedKeys(new Set());
                 setAddingIndex(null);
                 reset();
@@ -316,6 +321,50 @@ export default function ImportarScreen() {
 
           {type === "job" && (
             <>
+              <View style={styles.sourcesRow}>
+                {(
+                  [
+                    ["infojobs", "InfoJobs"],
+                    ["linkedin", "LinkedIn"],
+                    ["indeed", "Indeed"],
+                  ] as const
+                ).map(([k, label]) => {
+                  const on = jobSources[k];
+                  return (
+                    <Pressable
+                      key={k}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: on }}
+                      accessibilityLabel={label}
+                      onPress={() => {
+                        setJobSources((s) => {
+                          const n = { ...s, [k]: !s[k] };
+                          // Al menos una fuente activa.
+                          if (!n.infojobs && !n.linkedin && !n.indeed) return s;
+                          return n;
+                        });
+                        if (cfg.searchOnSubmit) setHasSearched(false);
+                      }}
+                      style={[
+                        styles.sourceChip,
+                        {
+                          borderColor: on ? th.accent : th.border,
+                          backgroundColor: on ? th.accentSoft : th.surface,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name={on ? "checkmark-circle" : "ellipse-outline"}
+                        size={16}
+                        color={on ? th.accent : th.textSubtle}
+                      />
+                      <Text style={[styles.sourceChipText, { color: on ? th.accent : th.textMuted }]}>
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
               <TextInput
                 value={searchLocation}
                 onChangeText={(t) => {
@@ -507,7 +556,7 @@ export default function ImportarScreen() {
           <Text style={[styles.hintTitle, { color: th.textMuted }]}>Cómo añadir {cfg.label.toLowerCase()}</Text>
           <Text style={[styles.hintText, { color: th.textSubtle }]}>
             {type === "job"
-              ? "Escribe el puesto y/o la ciudad o zona. Puedes dejar el puesto vacío y buscar todo lo que haya en esa zona. Pulsa Buscar y elige una oferta para guardarla en tus Empleos."
+              ? "Elige las fuentes (InfoJobs, LinkedIn, Indeed) y escribe el puesto y/o la ciudad o zona. Puedes dejar el puesto vacío y buscar todo lo que haya en esa zona. Pulsa Buscar y elige una oferta para guardarla en tus Empleos."
               : "Escribe el nombre o el ticker (p. ej. “sxr8”, “apple”, “vaneck space”) y elige el correcto de la lista — con su bolsa. Sin sufijos ni colisiones."}
           </Text>
         </Card>
@@ -541,7 +590,14 @@ function jobMetaOf(
     line2: [s("company"), s("location")].filter(Boolean).join(" · ") || undefined,
     contract: s("contractType"),
     salary: s("salaryLabel"),
-    platform: platform === "linkedin" ? "LinkedIn" : platform === "infojobs" ? "InfoJobs" : undefined,
+    platform:
+      platform === "linkedin"
+        ? "LinkedIn"
+        : platform === "infojobs"
+        ? "InfoJobs"
+        : platform === "indeed"
+        ? "Indeed"
+        : undefined,
   };
 }
 
@@ -570,6 +626,18 @@ const styles = StyleSheet.create({
   resultText: { fontSize: 14, fontWeight: "500" },
   remoteToggle: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 2 },
   remoteLabel: { fontSize: 13, fontWeight: "500" },
+  sourcesRow: { flexDirection: "row", gap: 8 },
+  sourceChip: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  sourceChipText: { fontSize: 13, fontWeight: "600" },
   results: { gap: 8 },
   resultRow: {
     flexDirection: "row",
