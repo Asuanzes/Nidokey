@@ -13,6 +13,7 @@ import { auth } from "@/lib/auth-edge";
  *   - estáticos (_next, favicon, etc.)
  */
 const PUBLIC_PATHS = [
+  /^\/$/,                             // landing pública de presentación + descarga
   /^\/login(\/.*)?$/,
   /^\/api\/auth(\/.*)?$/,
   /^\/api\/listings\/import$/,        // validada por token Bearer

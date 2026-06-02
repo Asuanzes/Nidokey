@@ -100,8 +100,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, [email, pathname]);
 
-  // Páginas sin shell (login).
-  if (pathname === "/login" || pathname?.startsWith("/login/")) {
+  // Páginas sin shell de app: login y la landing pública (raíz).
+  if (pathname === "/" || pathname === "/login" || pathname?.startsWith("/login/")) {
     return <>{children}</>;
   }
 
