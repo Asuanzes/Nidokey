@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -9,8 +10,9 @@ const inter = Inter({
 });
 
 const DESCRIPTION =
-  "Guarda y sigue inmuebles, criptos, mercados y empleos en un solo panel: " +
-  "histórico de precios, deduplicación y datos oficiales del Catastro. App para Android e iOS.";
+  "Sigue inmuebles, inversiones, empleos y entrenamientos en un panel, con alertas " +
+  "de bajadas de precio y de cambios en las publicaciones, gestión de hipoteca y " +
+  "chat cifrado de extremo a extremo. Sin contraseñas. Android e iOS.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://nidokey.es"),
@@ -32,7 +34,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={inter.variable}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }

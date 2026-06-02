@@ -7,6 +7,9 @@ import {
   Briefcase,
   Dumbbell,
   ShieldCheck,
+  TrendingDown,
+  BellRing,
+  SlidersHorizontal,
 } from "lucide-react";
 import { IconKey } from "@/components/brand/icons";
 
@@ -61,13 +64,31 @@ const VERTICALS: { icon: IconType; title: string; body: string }[] = [
   },
 ];
 
+const ALERTS: { icon: IconType; title: string; body: string }[] = [
+  {
+    icon: TrendingDown,
+    title: "Bajadas de precio",
+    body: "Te avisamos en cuanto baja el precio de un inmueble o de un activo que sigues.",
+  },
+  {
+    icon: BellRing,
+    title: "Cambios en las publicaciones",
+    body: "Sabrás al momento si un anuncio cambia o si una oferta de empleo se retira.",
+  },
+  {
+    icon: SlidersHorizontal,
+    title: "Avisos a tu medida",
+    body: "Configura las alertas para lo que de verdad te importa.",
+  },
+];
+
 const FEATURES = [
+  "Gestión de la hipoteca",
+  "Inversiones actuales y futuras",
   "Histórico de precios",
-  "Deduplicación inteligente",
-  "Enriquecimiento con Catastro",
+  "Compras de entrenamiento",
   "Importar compartiendo una URL",
-  "Búsqueda global",
-  "Modo claro y oscuro",
+  "Sin contraseñas",
 ];
 
 export function Landing() {
@@ -103,8 +124,8 @@ export function Landing() {
             </h1>
             <p className="mt-5 max-w-xl text-lg leading-relaxed text-text-muted">
               {APP_NAME} reúne tus inmuebles, alquileres, viajes, inversiones,
-              empleos y entrenamientos —con su histórico y siempre a mano— en una
-              app sobria para tu móvil.
+              empleos y entrenamientos —con su histórico y con alertas cuando algo
+              cambia— en una app sobria para tu móvil.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -152,7 +173,35 @@ export function Landing() {
           })}
         </div>
 
-        {/* Chips de características */}
+      </section>
+
+      {/* ===== Alertas ===== */}
+      <section className="mx-auto max-w-5xl px-6 pb-14">
+        <h2 className="text-2xl font-semibold tracking-tight text-text">
+          Alertas que no se te escapan
+        </h2>
+        <p className="mt-2 max-w-2xl text-md text-text-muted">
+          Nidokey vigila por ti y te avisa en cuanto algo cambia.
+        </p>
+        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+          {ALERTS.map((a) => {
+            const Icon = a.icon;
+            return (
+              <div
+                key={a.title}
+                className="rounded-xl border border-border bg-surface p-5 shadow-xs"
+              >
+                <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary-soft text-primary ring-1 ring-inset ring-primary/15">
+                  <Icon size={22} />
+                </span>
+                <h3 className="mt-4 text-lg font-semibold text-text">{a.title}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-text-muted">{a.body}</p>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Chips de capacidades */}
         <div className="mt-8 flex flex-wrap gap-2.5">
           {FEATURES.map((f) => (
             <span
@@ -166,18 +215,21 @@ export function Landing() {
         </div>
       </section>
 
-      {/* ===== Chat (cifrado extremo a extremo) — banda destacada ===== */}
+      {/* ===== Privacidad (chat E2E + sin contraseñas) — banda destacada ===== */}
       <section className="mx-auto max-w-5xl px-6 pb-4">
         <div className="overflow-hidden rounded-2xl bg-primary px-8 py-10 text-primary-fg shadow-sm sm:px-12">
           <span className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-white/15 ring-1 ring-inset ring-white/20">
             <ShieldCheck size={24} />
           </span>
           <h2 className="mt-4 text-2xl font-semibold tracking-tight">
-            Chat cifrado de extremo a extremo
+            Privado, y solo tuyo
           </h2>
           <p className="mt-2 max-w-xl text-lg leading-relaxed text-primary-fg/85">
-            Comparte tus sueños, tus inversiones y tus deseos — desde donde los
-            guardas.
+            Comparte tus sueños, metas y objetivos en un chat incorporado y cifrado
+            de extremo a extremo.
+          </p>
+          <p className="mt-3 max-w-xl text-md text-primary-fg/80">
+            Y entras sin contraseñas: tus datos, siempre protegidos.
           </p>
         </div>
       </section>
