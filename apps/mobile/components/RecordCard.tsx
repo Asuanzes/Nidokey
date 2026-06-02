@@ -9,6 +9,7 @@ import { type BaseRecord, metaField } from "@nidokey/shared";
 import { useTheme } from "@/lib/theme";
 import { recordTypeConfig } from "@/lib/records/config";
 import { provinceImage } from "@/lib/records/province-images";
+import { marketLogoUrl } from "@/lib/records/market-logo";
 
 /**
  * Tarjeta de registro. Genérica para la mayoría de tipos; con un layout
@@ -54,11 +55,6 @@ function DeleteBadge({ onPress }: { onPress: () => void }) {
       <Ionicons name="close" size={15} color="#fff" />
     </Pressable>
   );
-}
-
-/** Logo de acción/ETF/fondo por ticker (Financial Modeling Prep, sin clave). */
-function fmpLogo(symbol: string): string {
-  return `https://financialmodelingprep.com/image-stock/${encodeURIComponent(symbol.toUpperCase())}.png`;
 }
 
 /**
@@ -113,9 +109,10 @@ function CryptoCard({ record, editing, onLongPress, onDelete }: CardProps) {
   const ago = fmtAgo(metaField<string | null>(record, "lastCheckedAt", null));
   const isMarket = record.type === "market";
   const exchange = metaField<string | null>(record, "exchange", null);
-  // Cripto: logo de CoinGecko (ya en imageUrl). Mercado: derivado del ticker vía
-  // FMP, así los registros ya guardados muestran logo sin reimportar.
-  const logoUri = record.imageUrl ?? (isMarket && symbol ? fmpLogo(symbol) : null);
+  // Cripto: logo de CoinGecko (ya en imageUrl). Mercado: emisor (ETF) vía CDN de
+  // Twelve Data o ticker vía FMP; derivado en cliente → registros ya guardados
+  // muestran logo sin reimportar.
+  const logoUri = isMarket ? marketLogoUrl({ title: record.title, symbol }) : record.imageUrl ?? null;
   // El % grande va por el cambio de 24h; el gráfico por la tendencia de 7 días
   // (precio actual vs. hace 7 días). Verde sube / rojo baja en ambos casos.
   const changeColor = change.up ? UP : DOWN;
