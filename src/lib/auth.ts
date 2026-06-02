@@ -69,8 +69,8 @@ export const authConfig: NextAuthConfig = {
   // (Prisma no funciona en Edge).
   session: { strategy: "jwt" },
   pages: {
-    signIn: "/login",
-    verifyRequest: "/login?check=email",
+    signIn: "/", // ya no hay app web; cualquier login lleva a la landing
+    verifyRequest: "/",
   },
   trustHost: true,
   callbacks: {

@@ -3,18 +3,20 @@ import type { NextRequest } from "next/server";
 import { auth } from "@/lib/auth-edge";
 
 /**
- * Middleware: redirige a /login cualquier ruta no pública.
+ * Middleware. La web es SOLO la landing pública (`/`) + la API (de la que vive la
+ * app móvil). Ya no hay subpáginas web → cualquier otra ruta de página redirige a
+ * la landing.
  *
  * Rutas públicas (no requieren sesión):
- *   - /login, /login?...
- *   - /api/auth/*               (NextAuth)
+ *   - /                         (landing de presentación + descarga)
+ *   - /api/auth/*               (NextAuth + OTP móvil)
  *   - /api/listings/import      (CORS abierto; validación por API token)
- *   - /api/bookmarklet/*        (userscripts dinámicos, usan ?token=)
+ *   - /api/records/import       (validada por requireUserId() en el handler)
+ *   - /api/cron/*               (validada por CRON_SECRET en el handler)
  *   - estáticos (_next, favicon, etc.)
  */
 const PUBLIC_PATHS = [
   /^\/$/,                             // landing pública de presentación + descarga
-  /^\/login(\/.*)?$/,
   /^\/api\/auth(\/.*)?$/,
   /^\/api\/listings\/import$/,        // validada por token Bearer
   /^\/api\/records\/import$/,         // ingesta unificada; validada por requireUserId() en el handler
@@ -22,7 +24,6 @@ const PUBLIC_PATHS = [
   /^\/_next(\/.*)?$/,
   /^\/favicon\./,
   /^\/icon\./,
-  // /api/bookmarklet/* SÍ requiere sesión (en él generamos token personal)
 ];
 
 function isPublic(pathname: string): boolean {
@@ -33,27 +34,21 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (isPublic(pathname)) return NextResponse.next();
 
-  // Si la request trae Authorization: Bearer ..., la dejamos pasar.
-  // La validación real del JWT móvil ocurre dentro de la API route (en Node
-  // runtime, ya que Edge no puede usar jose si depende de Buffer).
-  // Si el Bearer es falso, requireUserId() rechazará con 401 desde el handler.
-  const authHeader = req.headers.get("authorization");
-  if (authHeader?.startsWith("Bearer ") && pathname.startsWith("/api/")) {
+  // API (la consume la app móvil): si trae Authorization: Bearer la dejamos pasar
+  // —la validación real del JWT ocurre en el handler (Node runtime)—; si no, hace
+  // falta sesión web válida o devolvemos 401.
+  if (pathname.startsWith("/api/")) {
+    const authHeader = req.headers.get("authorization");
+    if (authHeader?.startsWith("Bearer ")) return NextResponse.next();
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+    }
     return NextResponse.next();
   }
 
-  const session = await auth();
-  if (!session?.user) {
-    // API → 401 JSON
-    if (pathname.startsWith("/api/")) {
-      return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-    }
-    // Web → redirect a login con callbackUrl
-    const loginUrl = new URL("/login", req.url);
-    loginUrl.searchParams.set("callbackUrl", pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-  return NextResponse.next();
+  // Cualquier otra página: ya no hay subpáginas web → siempre a la landing.
+  return NextResponse.redirect(new URL("/", req.url));
 }
 
 export const config = {

@@ -15,7 +15,7 @@ export const authEdgeConfig: NextAuthConfig = {
   session: { strategy: "jwt" },
   trustHost: true,
   pages: {
-    signIn: "/login",
+    signIn: "/", // ya no hay app web; cualquier login lleva a la landing
   },
   callbacks: {
     async session({ session, token }) {
