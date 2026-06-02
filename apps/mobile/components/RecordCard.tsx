@@ -68,23 +68,28 @@ function AssetLogo({
   iconColor,
   placeholderBg,
   borderColor,
+  square = false,
 }: {
   uri: string | null;
   icon: ComponentProps<typeof Ionicons>["name"];
   iconColor: string;
   placeholderBg: string;
   borderColor: string;
+  /** Cuadrado redondeado en vez de círculo: para logos de marca cuadrados
+   *  (mercado), que recortados en círculo quedan feos. Cripto = círculo. */
+  square?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
+  const shape = square ? styles.logoSquare : null;
   if (!uri || failed) {
     return (
-      <View style={[styles.logo, { backgroundColor: placeholderBg }]}>
+      <View style={[styles.logo, shape, { backgroundColor: placeholderBg }]}>
         <Ionicons name={icon} size={20} color={iconColor} />
       </View>
     );
   }
   return (
-    <View style={[styles.logo, styles.logoChip, { borderColor }]}>
+    <View style={[styles.logo, shape, styles.logoChip, { borderColor }]}>
       <Image
         source={{ uri }}
         style={styles.logoImg}
@@ -132,6 +137,7 @@ function CryptoCard({ record, editing, onLongPress, onDelete }: CardProps) {
           iconColor={th.textSubtle}
           placeholderBg={th.imagePlaceholder}
           borderColor={th.border}
+          square={isMarket}
         />
         <View style={styles.flex}>
           <Text style={[styles.symbol, { color: th.text }]}>{symbol}</Text>
@@ -501,6 +507,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginRight: 10,
   },
+  logoSquare: { borderRadius: 8 }, // cuadrado redondeado (logos de marca de mercado)
   logoChip: { backgroundColor: "#fff", borderWidth: 1 },
   logoImg: { width: 30, height: 30 },
   flex: { flex: 1 },
