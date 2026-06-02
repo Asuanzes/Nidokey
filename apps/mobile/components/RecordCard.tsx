@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, type ComponentProps, type ReactNode } from "react";
 import { Image } from "expo-image";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
@@ -56,9 +56,54 @@ function DeleteBadge({ onPress }: { onPress: () => void }) {
   );
 }
 
-// ── Cripto (estilo finanzas, sin imagen) ──────────────────────────────────
+/** Logo de acción/ETF/fondo por ticker (Financial Modeling Prep, sin clave). */
+function fmpLogo(symbol: string): string {
+  return `https://financialmodelingprep.com/image-stock/${encodeURIComponent(symbol.toUpperCase())}.png`;
+}
+
+/**
+ * Logo del activo a la izquierda del nombre (cripto/acción/ETF). Chip circular
+ * blanco para que se lean tanto los logos transparentes claros como oscuros. Si
+ * no hay logo o la carga falla (p. ej. 404 de FMP), cae al icono del tipo.
+ */
+function AssetLogo({
+  uri,
+  icon,
+  iconColor,
+  placeholderBg,
+  borderColor,
+}: {
+  uri: string | null;
+  icon: ComponentProps<typeof Ionicons>["name"];
+  iconColor: string;
+  placeholderBg: string;
+  borderColor: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (!uri || failed) {
+    return (
+      <View style={[styles.logo, { backgroundColor: placeholderBg }]}>
+        <Ionicons name={icon} size={20} color={iconColor} />
+      </View>
+    );
+  }
+  return (
+    <View style={[styles.logo, styles.logoChip, { borderColor }]}>
+      <Image
+        source={{ uri }}
+        style={styles.logoImg}
+        contentFit="contain"
+        transition={150}
+        onError={() => setFailed(true)}
+      />
+    </View>
+  );
+}
+
+// ── Cripto (estilo finanzas, con logo del activo) ─────────────────────────
 function CryptoCard({ record, editing, onLongPress, onDelete }: CardProps) {
   const { th } = useTheme();
+  const cfg = recordTypeConfig(record.type);
   const symbol = metaField<string>(record, "symbol", record.title);
   const change = fmtChange(metaField<number | null>(record, "change24h", null));
   const volume = metaField<number | null>(record, "volume", null);
@@ -68,6 +113,9 @@ function CryptoCard({ record, editing, onLongPress, onDelete }: CardProps) {
   const ago = fmtAgo(metaField<string | null>(record, "lastCheckedAt", null));
   const isMarket = record.type === "market";
   const exchange = metaField<string | null>(record, "exchange", null);
+  // Cripto: logo de CoinGecko (ya en imageUrl). Mercado: derivado del ticker vía
+  // FMP, así los registros ya guardados muestran logo sin reimportar.
+  const logoUri = record.imageUrl ?? (isMarket && symbol ? fmpLogo(symbol) : null);
   // El % grande va por el cambio de 24h; el gráfico por la tendencia de 7 días
   // (precio actual vs. hace 7 días). Verde sube / rojo baja en ambos casos.
   const changeColor = change.up ? UP : DOWN;
@@ -81,6 +129,13 @@ function CryptoCard({ record, editing, onLongPress, onDelete }: CardProps) {
       style={[styles.card, styles.cryptoCard, { backgroundColor: th.surface, borderColor: th.border }]}
     >
       <View style={styles.row}>
+        <AssetLogo
+          uri={logoUri}
+          icon={cfg.icon}
+          iconColor={th.textSubtle}
+          placeholderBg={th.imagePlaceholder}
+          borderColor={th.border}
+        />
         <View style={styles.flex}>
           <Text style={[styles.symbol, { color: th.text }]}>{symbol}</Text>
           <Text style={[styles.coinName, { color: th.textMuted }]} numberOfLines={1}>{record.title}</Text>
@@ -433,6 +488,17 @@ const styles = StyleSheet.create({
   // crypto
   cryptoCard: { padding: 12 },
   row: { flexDirection: "row", alignItems: "flex-start" },
+  logo: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    marginRight: 10,
+  },
+  logoChip: { backgroundColor: "#fff", borderWidth: 1 },
+  logoImg: { width: 30, height: 30 },
   flex: { flex: 1 },
   alignEnd: { alignItems: "flex-end" },
   symbol: { fontSize: 16, fontWeight: "700" },
