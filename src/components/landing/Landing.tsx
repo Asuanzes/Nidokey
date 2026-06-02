@@ -1,47 +1,63 @@
-import Link from "next/link";
+import type { ComponentType } from "react";
 import {
-  IconKey,
-  IconPortfolio,
-  IconAscenso,
-  IconFoco,
-  IconHorreo,
-  IconPicos,
-} from "@/components/brand/icons";
+  Building2,
+  KeyRound,
+  Plane,
+  TrendingUp,
+  Briefcase,
+  Dumbbell,
+  ShieldCheck,
+} from "lucide-react";
+import { IconKey } from "@/components/brand/icons";
 
 /**
- * Landing pública (raíz `/`). Presentación + descarga de Nidokey. Server
- * Component estático: sin auth, sin el chrome de la app (AppShell hace bypass
+ * Landing pública (raíz `/`). UNA sola página: presentación de Nidokey + enlaces
+ * de descarga para Android e iOS. Pensada para navegador de PC y móvil. Server
+ * Component estático (sin auth, sin el chrome de la app — AppShell hace bypass
  * para `/`). Reutiliza los tokens de marca (steel `--primary` + bronce
- * `--brand-accent`) y los iconos de `components/brand`.
+ * `--brand-accent`) y los iconos lucide que ya usa la web.
  *
  * Los botones de descarga van como "Próximamente" porque la app aún no está
- * publicada en tiendas; al publicar, basta sustituir `href`/estado en StoreBadge.
+ * publicada en tiendas; al publicar, basta cambiar `StoreBadge` por un `Link`.
  */
 
 const APP_NAME = "Nidokey";
 
-const VERTICALS: {
-  icon: typeof IconKey;
-  title: string;
-  body: string;
-}[] = [
+type IconType = ComponentType<{ size?: number; className?: string }>;
+
+const VERTICALS: { icon: IconType; title: string; body: string }[] = [
   {
-    icon: IconPortfolio,
+    icon: Building2,
     title: "Inmuebles",
     body:
-      "Guarda anuncios de varios portales como una sola ficha: histórico de precios, deduplicación automática y datos oficiales del Catastro.",
+      "Guarda anuncios de varios portales como una sola ficha: histórico de precios, deduplicación automática y datos del Catastro.",
   },
   {
-    icon: IconAscenso,
+    icon: KeyRound,
+    title: "Alquiler",
+    body: "Sigue pisos y habitaciones en alquiler con su histórico, todo en una ficha.",
+  },
+  {
+    icon: Plane,
+    title: "Viajes",
+    body: "Guarda vuelos, alojamientos y destinos para tus próximos viajes.",
+  },
+  {
+    icon: TrendingUp,
     title: "Cripto y mercado",
     body:
       "Sigue criptomonedas, acciones, ETF y fondos con su cotización, gráfico de 7 días y el logo de cada activo.",
   },
   {
-    icon: IconFoco,
+    icon: Briefcase,
     title: "Empleos",
     body:
       "Busca ofertas en InfoJobs, LinkedIn e Indeed a la vez, filtra por zona y guarda las que te interesen.",
+  },
+  {
+    icon: Dumbbell,
+    title: "Workout",
+    body: "Registra tus entrenamientos y sigue tu progreso.",
   },
 ];
 
@@ -57,23 +73,14 @@ const FEATURES = [
 export function Landing() {
   return (
     <div className="min-h-screen bg-bg text-text">
-      {/* ===== Top bar ===== */}
-      <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
+      {/* ===== Top bar (solo logo) ===== */}
+      <header className="mx-auto flex max-w-5xl items-center px-6 py-5">
         <div className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-soft text-primary ring-1 ring-inset ring-primary/15">
             <IconKey size={22} />
           </span>
-          <div className="leading-tight">
-            <div className="text-md font-semibold text-accent">{APP_NAME}</div>
-            <div className="text-[11px] text-text-subtle">Asturias</div>
-          </div>
+          <div className="text-md font-semibold text-accent">{APP_NAME}</div>
         </div>
-        <Link
-          href="/login"
-          className="rounded-md px-3 py-1.5 text-sm font-medium text-text-muted transition-colors hover:bg-surface-muted hover:text-text"
-        >
-          Acceder
-        </Link>
       </header>
 
       {/* ===== Hero ===== */}
@@ -89,18 +96,14 @@ export function Landing() {
         />
         <div className="relative mx-auto grid max-w-5xl items-center gap-12 px-6 pb-8 pt-8 lg:grid-cols-[1.05fr_0.95fr] lg:pt-14">
           <div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-text-muted shadow-xs">
-              <IconHorreo size={14} className="text-accent" />
-              Hecho en Asturias
-            </span>
-            <h1 className="mt-5 text-[34px] font-bold leading-[1.1] tracking-tight text-text sm:text-[44px]">
-              Inmuebles, mercados y empleos.
+            <h1 className="text-[34px] font-bold leading-[1.1] tracking-tight text-text sm:text-[44px]">
+              Todo lo que sigues
               <br />
-              <span className="text-primary">En un solo sitio.</span>
+              <span className="text-primary">en un solo sitio.</span>
             </h1>
             <p className="mt-5 max-w-xl text-lg leading-relaxed text-text-muted">
-              {APP_NAME} reúne tus anuncios, cotizaciones y ofertas de empleo —
-              con histórico de precios, deduplicación y datos oficiales— en una
+              {APP_NAME} reúne tus inmuebles, alquileres, viajes, inversiones,
+              empleos y entrenamientos —con su histórico y siempre a mano— en una
               app sobria para tu móvil.
             </p>
 
@@ -126,10 +129,10 @@ export function Landing() {
           Todo lo que sigues, en un panel
         </h2>
         <p className="mt-2 max-w-2xl text-md text-text-muted">
-          Tres mundos en la misma app, con el mismo cuidado por el dato y el
+          Varios mundos en la misma app, con el mismo cuidado por el dato y el
           histórico.
         </p>
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {VERTICALS.map((v) => {
             const Icon = v.icon;
             return (
@@ -138,7 +141,7 @@ export function Landing() {
                 className="rounded-xl border border-border bg-surface p-5 shadow-xs"
               >
                 <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary-soft text-primary ring-1 ring-inset ring-primary/15">
-                  <Icon size={24} />
+                  <Icon size={22} />
                 </span>
                 <h3 className="mt-4 text-lg font-semibold text-text">{v.title}</h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-text-muted">
@@ -163,8 +166,24 @@ export function Landing() {
         </div>
       </section>
 
+      {/* ===== Chat (cifrado extremo a extremo) — banda destacada ===== */}
+      <section className="mx-auto max-w-5xl px-6 pb-4">
+        <div className="overflow-hidden rounded-2xl bg-primary px-8 py-10 text-primary-fg shadow-sm sm:px-12">
+          <span className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-white/15 ring-1 ring-inset ring-white/20">
+            <ShieldCheck size={24} />
+          </span>
+          <h2 className="mt-4 text-2xl font-semibold tracking-tight">
+            Chat cifrado de extremo a extremo
+          </h2>
+          <p className="mt-2 max-w-xl text-lg leading-relaxed text-primary-fg/85">
+            Comparte tus sueños, tus inversiones y tus deseos — desde donde los
+            guardas.
+          </p>
+        </div>
+      </section>
+
       {/* ===== Descarga ===== */}
-      <section className="mx-auto max-w-5xl px-6 pb-16">
+      <section className="mx-auto max-w-5xl px-6 py-16">
         <div className="overflow-hidden rounded-2xl border border-border bg-surface p-8 text-center shadow-sm sm:p-12">
           <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary-soft text-primary ring-1 ring-inset ring-primary/15">
             <IconKey size={26} />
@@ -185,19 +204,12 @@ export function Landing() {
 
       {/* ===== Footer ===== */}
       <footer className="border-t border-border">
-        <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-4 px-6 py-8 sm:flex-row">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-8">
           <div className="flex items-center gap-2 text-sm text-text-muted">
             <IconKey size={18} className="text-primary" />
             <span className="font-semibold text-accent">{APP_NAME}</span>
-            <span className="text-text-subtle">· Hecho en Asturias</span>
-            <IconPicos size={16} className="text-text-subtle" />
           </div>
-          <div className="flex items-center gap-4 text-sm text-text-subtle">
-            <span>© {new Date().getFullYear()}</span>
-            <Link href="/login" className="hover:text-text-muted">
-              Acceder
-            </Link>
-          </div>
+          <span className="text-sm text-text-subtle">© {new Date().getFullYear()}</span>
         </div>
       </footer>
     </div>
@@ -291,7 +303,8 @@ function MockPropertyRow() {
 
 /**
  * Badge estilo tienda, marcado "Próximamente" (no clicable). Al publicar:
- * cambiar a `<Link href=...>` y quitar el ribbon. iOS y Android comparten estilo.
+ * cambiar a `<Link href=...>` y quitar el "Próximamente en". iOS y Android
+ * comparten estilo.
  */
 function StoreBadge({ store }: { store: "android" | "ios" }) {
   const label = store === "android" ? "Google Play" : "App Store";
