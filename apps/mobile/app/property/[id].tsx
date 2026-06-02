@@ -322,9 +322,10 @@ const styles = StyleSheet.create({
     fontSize: 11, fontWeight: "600",
     textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12,
   },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  spec: { width: "47%" },
-  specLabel: { fontSize: 11 },
+  // 4 columnas × 2 filas (antes 2 col × 4 filas): gana mucho espacio vertical.
+  grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 14 },
+  spec: { width: "23%" },
+  specLabel: { fontSize: 10 },
   specValue: { fontSize: 14, fontWeight: "500", marginTop: 2 },
   tags: {
     flexDirection: "row", flexWrap: "wrap", gap: 6,
