@@ -40,13 +40,7 @@ export function ComingSoon() {
         </h1>
 
         <p className="mt-6 max-w-md text-lg leading-relaxed text-text-muted">
-          Estamos puliendo las apps de Android e iOS. Muy pronto podrás seguir
-          todo lo que te importa —inmuebles, inversiones, empleos y más— en un
-          solo sitio.
-        </p>
-
-        <p className="mt-8 text-xs uppercase tracking-wider text-text-subtle">
-          Google Play · App Store
+          Estamos puliendo las apps de Android e iOS.
         </p>
       </div>
     </main>
