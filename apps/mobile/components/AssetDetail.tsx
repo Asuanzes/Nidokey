@@ -3,10 +3,12 @@ import {
   ActivityIndicator,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
@@ -47,6 +49,7 @@ const RANGES: { key: string; label: string; days: number | null }[] = [
 export function AssetDetail({ type }: { type: "crypto" | "market" }) {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { th } = useTheme();
+  const insets = useSafeAreaInsets();
   const [record, setRecord] = useState<BaseRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -183,20 +186,30 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
     ["Moneda", quoteCur],
   ];
 
+  // Mensaje a compartir: símbolo · nombre · precio actual · cambio del rango.
+  const priceStr = record.primaryValue ?? (lastPrice != null ? formatPrice(lastPrice, quoteCur) : "");
+  const pctStr = rangePct != null ? `${up ? "+" : ""}${rangePct.toFixed(2).replace(".", ",")} %` : "";
+  const shareMessage =
+    `${symbol} · ${record.title}\n${priceStr}${pctStr ? `  (${pctStr} · ${range.label})` : ""}`.trim() +
+    "\n\nSeguido con Nidokey";
+
+  async function onShare() {
+    try {
+      await Share.share({ message: shareMessage });
+    } catch (e) {
+      // Cancelar NO lanza (resuelve con dismissedAction); aquí solo llegan
+      // errores reales. Log para depurar si el diálogo "no sale".
+      console.warn("[share]", e instanceof Error ? e.message : e);
+    }
+  }
+
   return (
     <View style={[styles.flex, { backgroundColor: th.bg }]}>
-      {/* ── Barra superior: cerrar / compartir ── */}
-      <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} hitSlop={10} style={[styles.iconBtn, { backgroundColor: th.surface, borderColor: th.border }]}>
-          <Ionicons name="close" size={20} color={th.text} />
-        </Pressable>
-        <View style={{ flex: 1 }} />
-        <Pressable onPress={() => router.back()} hitSlop={10} style={[styles.iconBtn, { backgroundColor: th.surface, borderColor: th.border }]}>
-          <Ionicons name="share-outline" size={18} color={th.text} />
-        </Pressable>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.flex}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
+        showsVerticalScrollIndicator={false}
+      >
         {/* ── Cabecera ── */}
         <View style={styles.headerRow}>
           {logoUri ? (
@@ -304,6 +317,33 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
           ))}
         </View>
       </ScrollView>
+
+      {/* ── Barra inferior: cerrar (izq) · compartir (der, más grande) ── */}
+      <View
+        style={[
+          styles.bottomBar,
+          { backgroundColor: th.surface, borderTopColor: th.border, paddingBottom: insets.bottom + 10 },
+        ]}
+      >
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={10}
+          style={[styles.iconBtn, { backgroundColor: th.bg, borderColor: th.border }]}
+          accessibilityRole="button"
+          accessibilityLabel="Cerrar"
+        >
+          <Ionicons name="close" size={22} color={th.text} />
+        </Pressable>
+        <Pressable
+          onPress={onShare}
+          hitSlop={10}
+          style={({ pressed }) => [styles.shareBtn, { backgroundColor: th.primary }, pressed && { opacity: 0.85 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Compartir"
+        >
+          <Ionicons name="share-social-outline" size={24} color="#fff" />
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -333,9 +373,23 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   backLink: { padding: 8 },
-  topBar: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
-  iconBtn: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-  content: { paddingHorizontal: 16, paddingBottom: 48 },
+  iconBtn: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  content: { paddingHorizontal: 16, paddingBottom: 24 },
+  bottomBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  shareBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   headerRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 8 },
   logoChip: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, backgroundColor: "#fff", alignItems: "center", justifyContent: "center", overflow: "hidden" },
   logoSquare: { borderRadius: 10 },
