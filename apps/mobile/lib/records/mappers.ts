@@ -22,6 +22,8 @@ export type RawPropertyListItem = {
   createdAt?: string | null;
   updatedAt?: string | null;
   media?: { url: string }[];
+  /** Listing más antiguo (portal de origen del inmueble). */
+  listings?: { portal: string }[];
 };
 
 export function propertyToRecord(p: RawPropertyListItem): BaseRecord {
@@ -53,6 +55,7 @@ export function propertyToRecord(p: RawPropertyListItem): BaseRecord {
       bathrooms: p.bathrooms ?? null,
       builtArea: p.builtArea ?? null,
       footnote,
+      portal: p.listings?.[0]?.portal ?? null,
     },
   };
 }

@@ -11,7 +11,11 @@ export async function GET(req: NextRequest) {
   const properties = await prisma.property.findMany({
     where,
     orderBy: { updatedAt: "desc" },
-    include: { media: { take: 1, orderBy: { order: "asc" } } },
+    include: {
+      media: { take: 1, orderBy: { order: "asc" } },
+      // Portal de origen: el listing más antiguo = de dónde lo importamos.
+      listings: { select: { portal: true }, orderBy: { createdAt: "asc" }, take: 1 },
+    },
     take: 100,
   });
   return NextResponse.json(properties);

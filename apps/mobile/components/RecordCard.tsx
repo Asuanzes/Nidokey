@@ -307,11 +307,27 @@ const STATUS_LABEL: Record<string, { text: string; color: string; bg: string }> 
   WITHDRAWN: { text: "Retirado", color: "#666", bg: "#f3f3f3" },
 };
 
+// Etiqueta del portal de origen (bajo la miniatura, en azul). Solo portales
+// reales; MANUAL/OTHER no tienen fuente → no se muestra etiqueta.
+const PORTAL_LABEL: Record<string, string> = {
+  IDEALISTA: "Idealista",
+  FOTOCASA: "Fotocasa",
+  PISOS_COM: "Pisos.com",
+  MILANUNCIOS: "Milanuncios",
+  HABITACLIA: "Habitaclia",
+  YAENCONTRE: "Yaencontre",
+  THINKSPAIN: "ThinkSpain",
+  INDOMIO: "Indomio",
+};
+
 function DefaultCard({ record, editing, onLongPress, onDelete }: CardProps) {
   const { th } = useTheme();
   const cfg = recordTypeConfig(record.type);
   const status = record.status ? STATUS_LABEL[record.status] : undefined;
   const footnote = metaField<string | null>(record, "footnote", null);
+  // Portal de origen del inmueble (de qué web lo importamos), bajo la miniatura.
+  const portal = metaField<string | null>(record, "portal", null);
+  const portalLabel = portal ? PORTAL_LABEL[portal] ?? null : null;
 
   return (
     <Pressable
@@ -321,22 +337,30 @@ function DefaultCard({ record, editing, onLongPress, onDelete }: CardProps) {
       style={({ pressed }) => [
         styles.card,
         styles.narrowCard,
+        styles.propCard,
         { backgroundColor: th.surface, borderColor: th.border },
         pressed && !editing && { opacity: 0.7 },
       ]}
     >
-      {record.imageUrl ? (
-        <Image
-          source={{ uri: record.imageUrl }}
-          style={[styles.thumb, { backgroundColor: th.imagePlaceholder }]}
-          contentFit="cover"
-          transition={150}
-        />
-      ) : (
-        <View style={[styles.thumb, styles.thumbPlaceholder, { backgroundColor: th.imagePlaceholder }]}>
-          <Ionicons name={cfg.icon} size={26} color={th.textSubtle} />
-        </View>
-      )}
+      <View style={styles.thumbCol}>
+        {record.imageUrl ? (
+          <Image
+            source={{ uri: record.imageUrl }}
+            style={[styles.thumb, { backgroundColor: th.imagePlaceholder }]}
+            contentFit="cover"
+            transition={150}
+          />
+        ) : (
+          <View style={[styles.thumb, styles.thumbPlaceholder, { backgroundColor: th.imagePlaceholder }]}>
+            <Ionicons name={cfg.icon} size={26} color={th.textSubtle} />
+          </View>
+        )}
+        {portalLabel && (
+          <Text style={[styles.portalLabel, { color: th.primary }]} numberOfLines={1}>
+            {portalLabel}
+          </Text>
+        )}
+      </View>
 
       <View style={styles.info}>
         <Text style={[styles.title, { color: th.text }]} numberOfLines={2}>{record.title}</Text>
@@ -542,6 +566,11 @@ const styles = StyleSheet.create({
   jobFooterRight: { fontSize: 11 },
   // tarjeta estrecha (miniatura izquierda + info derecha) — compacta
   narrowCard: { flexDirection: "row", padding: 8, gap: 10, alignItems: "center" },
+  // inmueble: columna [miniatura + portal] alineada por ABAJO, así el portal
+  // queda a la altura del precio y la imagen no sube tanto.
+  propCard: { alignItems: "flex-end" },
+  thumbCol: { alignItems: "center" },
+  portalLabel: { fontSize: 11, fontWeight: "600", marginTop: 4, maxWidth: 72, textAlign: "center" },
   thumb: { width: 64, height: 64, borderRadius: 8 },
   thumbPlaceholder: { alignItems: "center", justifyContent: "center" },
   info: { flex: 1, gap: 2 },
