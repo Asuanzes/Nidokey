@@ -33,6 +33,13 @@ export async function mergeProperties(sourceId: string, targetId: string): Promi
   if (!source) return { movedListings: 0, movedSnapshots: 0, movedMedia: 0, skippedDuplicateMedia: 0 };
   if (!target) throw new Error(`mergeProperties: target ${targetId} no existe`);
 
+  // Seguridad: nunca fusionar fichas de usuarios distintos (defensa en
+  // profundidad; los handlers ya validan ownership, esto cubre cualquier otro
+  // llamador, p. ej. el auto-merge del pipeline de import).
+  if (source.ownerId !== target.ownerId) {
+    throw new Error("mergeProperties: source y target pertenecen a usuarios distintos");
+  }
+
   // 1. Mover Listings (URL es @unique, no debería haber colisión real)
   const movedListings = await prisma.listing.updateMany({
     where: { propertyId: sourceId },

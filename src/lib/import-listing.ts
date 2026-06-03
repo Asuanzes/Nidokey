@@ -280,6 +280,18 @@ export function sanitizePayload(p: ImportListingPayload): ImportListingPayload {
   return out;
 }
 
+/**
+ * Se lanza cuando un import intenta tocar (update path) una ficha cuyo Property
+ * pertenece a OTRO usuario (colisión de `Listing.url`, que es @unique global).
+ * Los route handlers lo mapean a 403 sin filtrar existencia del recurso ajeno.
+ */
+export class CrossOwnerError extends Error {
+  constructor(message = "Recurso de otro usuario") {
+    super(message);
+    this.name = "CrossOwnerError";
+  }
+}
+
 export async function importListing(
   rawPayload: ImportListingPayload,
   opts: { ownerId?: string | null } = {}
@@ -296,6 +308,13 @@ export async function importListing(
 
   // ---------- Update path ----------
   if (existing) {
+    // Seguridad: Listing.url es @unique GLOBAL. Si la URL ya existe pero su
+    // Property es de OTRO usuario, NO tocamos su ficha (sería un IDOR de
+    // secuestro por colisión de URL). Solo el dueño re-importa su propia URL.
+    if (ownerId && existing.property.ownerId !== ownerId) {
+      throw new CrossOwnerError("Este anuncio ya pertenece a otra cuenta");
+    }
+
     const previousPrice = existing.lastPrice ?? null;
 
     // Sanity check: si el cambio es brutal (>5x o <0.2x), NO escribimos

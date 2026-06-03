@@ -58,6 +58,7 @@ export async function findSimilar(propertyId: string): Promise<Candidate[]> {
   const candidates = await prisma.property.findMany({
     where: {
       id: { not: propertyId },
+      ownerId: me.ownerId, // mismo dueño: nunca devolver fichas de otros usuarios (cierra IDOR de /similar y el auto-merge cross-owner)
       OR: orFilters,
     },
     include: {

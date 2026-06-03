@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ImportListingInput, importListing } from "@/lib/import-listing";
+import { ImportListingInput, importListing, CrossOwnerError } from "@/lib/import-listing";
 import { extractTokenFromRequest, resolveUserFromToken } from "@/lib/api-token";
 import { getUserId } from "@/lib/auth-helpers";
 
@@ -50,6 +50,9 @@ export async function POST(req: NextRequest) {
     const result = await importListing(parsed.data, { ownerId });
     return NextResponse.json(result, { status: result.created ? 201 : 200, headers: CORS_HEADERS });
   } catch (err) {
+    if (err instanceof CrossOwnerError) {
+      return NextResponse.json({ error: err.message }, { status: 403, headers: CORS_HEADERS });
+    }
     const e = err as Error & { code?: string; meta?: unknown };
     console.error("[import-listing] error:", err);
     return NextResponse.json(

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { mergeProperties } from "@/features/matching/merge";
+import { requireUserId } from "@/lib/auth-helpers";
+import { ensurePropertyOwner } from "@/lib/ownership";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -14,6 +16,16 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const parsed = Body.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "intoId requerido" }, { status: 400 });
+  }
+  const ownerId = await requireUserId();
+  // El usuario debe ser dueño TANTO del origen (id) como del destino (intoId).
+  // Cierra el IDOR: antes no se validaba ninguno de los dos.
+  const [ownsSource, ownsTarget] = await Promise.all([
+    ensurePropertyOwner(id, ownerId),
+    ensurePropertyOwner(parsed.data.intoId, ownerId),
+  ]);
+  if (!ownsSource || !ownsTarget) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   try {
     const result = await mergeProperties(id, parsed.data.intoId);

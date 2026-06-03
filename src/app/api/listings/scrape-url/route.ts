@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getUserId } from "@/lib/auth-helpers";
 import { pickAdapter } from "@/features/scraping/runner";
-import { importListing } from "@/lib/import-listing";
+import { importListing, CrossOwnerError } from "@/lib/import-listing";
 import type { ImportListingPayload } from "@/lib/import-listing";
 import type { ScrapeResult } from "@/features/scraping/types";
 
@@ -93,6 +93,9 @@ export async function POST(req: NextRequest) {
         const result = await importListing(payload, { ownerId });
         return NextResponse.json(result, { status: result.created ? 201 : 200 });
       } catch (e) {
+        if (e instanceof CrossOwnerError) {
+          return NextResponse.json({ error: "cross_owner", message: e.message }, { status: 403 });
+        }
         const msg = e instanceof Error ? e.message : "Error al importar";
         return NextResponse.json({ error: "import_error", message: msg }, { status: 500 });
       }

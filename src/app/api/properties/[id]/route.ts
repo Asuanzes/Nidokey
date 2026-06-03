@@ -2,14 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { PropertyInput } from "@/lib/validators";
 import { requireUserId } from "@/lib/auth-helpers";
+import { ensurePropertyOwner } from "@/lib/ownership";
 
 type Ctx = { params: Promise<{ id: string }> };
-
-/** Verifica que el property pertenece al usuario. Devuelve 404 si no es suyo. */
-async function ensureOwner(id: string, ownerId: string) {
-  const exists = await prisma.property.findFirst({ where: { id, ownerId }, select: { id: true } });
-  return !!exists;
-}
 
 export async function GET(_req: NextRequest, { params }: Ctx) {
   const { id } = await params;
@@ -29,7 +24,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   const { id } = await params;
   const ownerId = await requireUserId();
-  if (!(await ensureOwner(id, ownerId))) {
+  if (!(await ensurePropertyOwner(id, ownerId))) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   const body = await req.json();
@@ -44,7 +39,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 export async function DELETE(_req: NextRequest, { params }: Ctx) {
   const { id } = await params;
   const ownerId = await requireUserId();
-  if (!(await ensureOwner(id, ownerId))) {
+  if (!(await ensurePropertyOwner(id, ownerId))) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   await prisma.property.delete({ where: { id } });
