@@ -126,9 +126,15 @@ function CryptoCard({ record, editing, onLongPress, onDelete }: CardProps) {
 
   return (
     <Pressable
+      onPress={() => { if (!editing) router.push(`/${record.type}/${record.id}` as never); }}
       onLongPress={onLongPress ? () => fireLongPress(onLongPress) : undefined}
       delayLongPress={300}
-      style={[styles.card, styles.cryptoCard, { backgroundColor: th.surface, borderColor: th.border }]}
+      style={({ pressed }) => [
+        styles.card,
+        styles.cryptoCard,
+        { backgroundColor: th.surface, borderColor: th.border },
+        pressed && !editing && { opacity: 0.7 },
+      ]}
     >
       <View style={styles.row}>
         <AssetLogo

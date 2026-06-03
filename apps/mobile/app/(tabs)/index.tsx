@@ -19,6 +19,7 @@ import { ReorderableRecordList } from "@/components/ReorderableRecordList";
 import { deleteRecord } from "@/lib/data/records-repository";
 import { getSavedOrder, saveOrder, applySavedOrder } from "@/lib/local-order";
 import { EmptyState, Screen } from "@/components/ui";
+import { NewsSheet } from "@/components/NewsSheet";
 
 /**
  * Lista unificada de registros. El filtro de tipo es un rail VERTICAL en el
@@ -170,6 +171,10 @@ export default function RecordsScreen() {
           })}
         </ScrollView>
       </View>
+
+      {/* Sheet de noticias (estilo Bolsa de Apple): solo en categorías financieras,
+          con noticias de los activos registrados del usuario. */}
+      {(type === "crypto" || type === "market") && <NewsSheet type={type} />}
     </Screen>
   );
 }
