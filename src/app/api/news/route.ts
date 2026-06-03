@@ -43,8 +43,11 @@ export async function GET(req: NextRequest) {
       where: { ownerId },
       select: { symbol: true },
     });
-    // Mercado: el símbolo ya es el ticker de Yahoo (SXRV.DE, AAPL…).
-    symbols = instruments.map((i) => i.symbol);
+    // Mercado: el símbolo ya es el ticker de Yahoo (SXRV.DE, AAPL…). Anteponemos
+    // índices de referencia con economía generalista en español, porque muchos
+    // ETFs de nicho no tienen noticias propias en Yahoo y el sheet quedaría
+    // vacío (igual que en cripto, donde los feeds ya traen generalista).
+    symbols = ["^IBEX", "^STOXX50E", "^GSPC", ...instruments.map((i) => i.symbol)];
   }
   symbols = [...new Set(symbols)].slice(0, 15);
 
