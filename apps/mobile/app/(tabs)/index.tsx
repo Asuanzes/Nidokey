@@ -9,11 +9,12 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { RECORD_TYPES, type BaseRecord } from "@nidokey/shared";
+import { RECORD_TYPES, metaField, type BaseRecord } from "@nidokey/shared";
 import { useRecordCategory } from "@/lib/records/category-context";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme";
 import { useRecords } from "@/lib/hooks/useRecords";
+import { useBoot } from "@/lib/boot-context";
 import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
 import { ReorderableRecordList } from "@/components/ReorderableRecordList";
 import { deleteRecord } from "@/lib/data/records-repository";
@@ -35,6 +36,14 @@ export default function RecordsScreen() {
   const { category: type, setCategory: setType } = useRecordCategory();
 
   const { data: records, error, loading, refreshing, refetch } = useRecords({ type });
+
+  // Avisa al arranque cuando la primera carga de registros termina (datos o
+  // error) → el loader de bolitas se retira. Tapamos así el spinner propio de la
+  // lista: una sola carga, no dos.
+  const { markFirstScreenReady } = useBoot();
+  useEffect(() => {
+    if (!loading) markFirstScreenReady();
+  }, [loading, markFirstScreenReady]);
 
   // Modo edición (pulsación larga): muestra ✕ para borrar. Sale al cambiar de
   // tipo o si la lista queda vacía.
@@ -174,7 +183,15 @@ export default function RecordsScreen() {
 
       {/* Sheet de noticias (estilo Bolsa de Apple): solo en categorías financieras,
           con noticias de los activos registrados del usuario. */}
-      {(type === "crypto" || type === "market") && <NewsSheet type={type} />}
+      {(type === "crypto" || type === "market") && (
+        <NewsSheet
+          type={type}
+          assets={(records ?? []).map((r) => ({
+            symbol: metaField<string>(r, "symbol", r.title),
+            name: r.title,
+          }))}
+        />
+      )}
     </Screen>
   );
 }

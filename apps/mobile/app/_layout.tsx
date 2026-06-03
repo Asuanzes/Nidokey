@@ -1,12 +1,14 @@
+import "@/lib/logbox"; // PRIMERO: silencia el warning de share-menu antes de importarlo
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import "react-native-reanimated";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as SecureStore from "expo-secure-store";
 import * as Linking from "expo-linking";
+import * as SplashScreen from "expo-splash-screen";
 import ShareMenu from "react-native-share-menu";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -14,6 +16,12 @@ import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { ThemeContext, T, TD, useTheme } from "@/lib/theme";
 import { isPortalUrl, extractSharedUrl } from "@/lib/portal-url";
 import { PendingImportProvider, usePendingImport } from "@/lib/pending-import";
+import { BrandLoading } from "@/components/BrandLoading";
+import { BootProvider, useBoot } from "@/lib/boot-context";
+
+// Mantener el splash nativo hasta que la sesión esté resuelta: evita el
+// "cuadrado blanco" y el flash blanco entre el splash y el primer render.
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -23,6 +31,12 @@ export default function RootLayout() {
     SecureStore.getItemAsync("nidokey.theme")
       .then((v) => { if (v === "dark") setDark(true); })
       .catch(() => {});
+  }, []);
+
+  // Red de seguridad: si la sesión tardara demasiado, no dejar el splash colgado.
+  useEffect(() => {
+    const t = setTimeout(() => SplashScreen.hideAsync().catch(() => {}), 3000);
+    return () => clearTimeout(t);
   }, []);
 
   const toggleTheme = () => {
@@ -39,7 +53,9 @@ export default function RootLayout() {
         <ThemeContext.Provider value={{ dark, th, toggleTheme }}>
           <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
             <PendingImportProvider>
-              <AuthGate />
+              <BootProvider>
+                <AuthGate />
+              </BootProvider>
               <StatusBar style="auto" />
             </PendingImportProvider>
           </ThemeProvider>
@@ -56,15 +72,48 @@ function AuthGate() {
   const router = useRouter();
   const { setUrl } = usePendingImport();
 
+  // El loader (bolitas) se queda hasta que: la sesión está resuelta + (si está
+  // logueado) los REGISTROS de la primera pantalla (Inmuebles) ya cargaron + un
+  // mínimo de 1 s para que se vean girar. Así las bolitas tapan también la
+  // precarga de los registros → UNA sola carga, no dos.
+  const { firstScreenReady } = useBoot();
+  const authResolved = state.kind !== "loading";
+
+  const [minElapsed, setMinElapsed] = useState(false);
   useEffect(() => {
-    if (state.kind === "loading") return;
+    const t = setTimeout(() => setMinElapsed(true), 1000);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Red de seguridad: nunca dejar el loader colgado más de 8 s si los registros
+  // tardaran o fallaran sin avisar.
+  const [bootTimedOut, setBootTimedOut] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setBootTimedOut(true), 8000);
+    return () => clearTimeout(t);
+  }, []);
+
+  const dataReady = state.kind !== "authed" || firstScreenReady || bootTimedOut;
+  const showLoader = !(authResolved && dataReady && minElapsed);
+
+  // El redirect se dispara en cuanto la sesión resuelve (el Stack ya está montado
+  // debajo del overlay), así la pantalla de registros monta y empieza a cargar.
+  useEffect(() => {
+    if (!authResolved) return;
     const onLogin = segments[0] === "login";
     if (state.kind === "unauthed" && !onLogin) {
       router.replace("/login");
     } else if (state.kind === "authed" && onLogin) {
       router.replace("/(tabs)");
     }
-  }, [state, segments, router]);
+  }, [authResolved, state, segments, router]);
+
+  // Ocultar el splash nativo en cuanto monta el JS, para que SÍ se vea la
+  // pantalla de carga (BrandLoading) mientras se resuelve la sesión, en vez de
+  // saltar del splash directo a la app. Mismo fondo que el splash → sin saltos.
+  useEffect(() => {
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
 
   // Share intent (react-native-share-menu) + deep links (expo-linking): estés en
   // la pantalla que estés, si llega una URL de portal la guardamos y navegamos a
@@ -98,59 +147,60 @@ function AuthGate() {
     };
   }, [state.kind, router, setUrl]);
 
-  if (state.kind === "loading") {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#FAFAF7" }}>
-        <ActivityIndicator size="large" color="#B87333" />
-      </View>
-    );
-  }
-
   return (
-    <Stack>
-      <Stack.Screen name="login" options={{ headerShown: false }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen
-        name="property/[id]"
-        options={{
-          headerShown: true,
-          headerBackTitle: "Atrás",
-          headerTintColor: "#B87333",
-          headerStyle: { backgroundColor: "#fff" },
-          title: "",
-        }}
-      />
-      <Stack.Screen
-        name="job/[id]"
-        options={{
-          headerShown: true,
-          headerBackTitle: "Atrás",
-          headerTintColor: "#B87333",
-          headerStyle: { backgroundColor: "#fff" },
-          title: "Empleo",
-        }}
-      />
-      <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
-      <Stack.Screen
-        name="tools/mortgage"
-        options={{
-          headerShown: true,
-          headerBackTitle: "Atrás",
-          headerTintColor: th.primary,
-          headerStyle: { backgroundColor: th.surface },
-          headerTitleStyle: { color: th.text },
-        }}
-      />
-      <Stack.Screen
-        name="tools/[tool]"
-        options={{
-          headerShown: true,
-          headerBackTitle: "Atrás",
-          headerTintColor: th.primary,
-          headerStyle: { backgroundColor: th.surface },
-          headerTitleStyle: { color: th.text },
-        }}
-      />
-    </Stack>
+    <>
+      {authResolved ? (
+        <Stack>
+          <Stack.Screen name="login" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="property/[id]"
+            options={{
+              headerShown: true,
+              headerBackTitle: "Atrás",
+              headerTintColor: "#B87333",
+              headerStyle: { backgroundColor: "#fff" },
+              title: "",
+            }}
+          />
+          <Stack.Screen
+            name="job/[id]"
+            options={{
+              headerShown: true,
+              headerBackTitle: "Atrás",
+              headerTintColor: "#B87333",
+              headerStyle: { backgroundColor: "#fff" },
+              title: "Empleo",
+            }}
+          />
+          <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
+          <Stack.Screen
+            name="tools/mortgage"
+            options={{
+              headerShown: true,
+              headerBackTitle: "Atrás",
+              headerTintColor: th.primary,
+              headerStyle: { backgroundColor: th.surface },
+              headerTitleStyle: { color: th.text },
+            }}
+          />
+          <Stack.Screen
+            name="tools/[tool]"
+            options={{
+              headerShown: true,
+              headerBackTitle: "Atrás",
+              headerTintColor: th.primary,
+              headerStyle: { backgroundColor: th.surface },
+              headerTitleStyle: { color: th.text },
+            }}
+          />
+        </Stack>
+      ) : null}
+      {showLoader ? (
+        <View style={StyleSheet.absoluteFill}>
+          <BrandLoading />
+        </View>
+      ) : null}
+    </>
   );
 }
