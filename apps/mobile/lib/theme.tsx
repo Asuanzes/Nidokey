@@ -12,6 +12,9 @@ export const T = {
   primary: "#B87333",
   primarySoft: "#F5EDE3",
   primaryFg: "#FAFAF7",
+  // Azul SOLO para la fuente del registro (portal inmobiliario / plataforma de
+  // empleo) como atribución. El resto del azul sigue reservado al FAB.
+  sourceBlue: "#3A5F8A",
   accent: "#B87333",
   accentSoft: "#F5EDE3",
   dangerFg: "#A23E3E",
@@ -31,6 +34,8 @@ export const TD = {
   primary: "#CC8844",
   primarySoft: "#2A1A08",
   primaryFg: "#F0EFEA",
+  // Azul aclarado para que la fuente del registro se lea sobre fondo oscuro.
+  sourceBlue: "#7AA6D8",
   accent: "#CC8844",
   accentSoft: "#2A1A08",
   dangerFg: "#D06868",

@@ -356,7 +356,7 @@ function DefaultCard({ record, editing, onLongPress, onDelete }: CardProps) {
           </View>
         )}
         {portalLabel && (
-          <Text style={[styles.portalLabel, { color: th.primary }]} numberOfLines={1}>
+          <Text style={[styles.portalLabel, { color: th.sourceBlue }]} numberOfLines={1}>
             {portalLabel}
           </Text>
         )}
@@ -449,7 +449,7 @@ function JobCard({ record, editing, onLongPress, onDelete }: CardProps) {
               ) : null}
             </Text>
             {platformLabel && (
-              <Text style={[styles.jobFooterRight, { color: th.textSubtle }]}>{platformLabel}</Text>
+              <Text style={[styles.jobFooterRight, { color: th.sourceBlue }]}>{platformLabel}</Text>
             )}
           </View>
         )}
