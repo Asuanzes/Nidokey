@@ -9,6 +9,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
+      "bundleIdentifier": "es.nidokey.app",
       "supportsTablet": true
     },
     "android": {
