@@ -59,6 +59,7 @@
           "resizeMode": "contain",
           "backgroundColor": "#FAFAF7",
           "dark": {
+            "image": "./assets/images/splash-blank.png",
             "backgroundColor": "#141413"
           }
         }

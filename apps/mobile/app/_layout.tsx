@@ -3,7 +3,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { Appearance, StyleSheet, View } from "react-native";
 import "react-native-reanimated";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as SecureStore from "expo-secure-store";
@@ -25,11 +25,21 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const [dark, setDark] = useState(false);
+  // Sembrar el tema desde el modo del SO de forma SÍNCRONA en el primer frame:
+  // si arrancáramos siempre en claro (false), un usuario en modo oscuro vería
+  // unos frames con fondo claro (#FAFAF7) sobre negro — el "cuadrado claro" del
+  // arranque (visible en dev Y en release). SecureStore (async) luego respeta la
+  // preferencia guardada del usuario si la hay.
+  const [dark, setDark] = useState(() => Appearance.getColorScheme() === "dark");
 
   useEffect(() => {
     SecureStore.getItemAsync("nidokey.theme")
-      .then((v) => { if (v === "dark") setDark(true); })
+      .then((v) => {
+        // La preferencia guardada manda; el seed del SO (arriba) solo gobierna el
+        // primer frame y el caso "sin preferencia guardada".
+        if (v === "dark") setDark(true);
+        else if (v === "light") setDark(false);
+      })
       .catch(() => {});
   }, []);
 
@@ -48,7 +58,7 @@ export default function RootLayout() {
   const th = dark ? TD : T;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: th.bg }}>
       <AuthProvider>
         <ThemeContext.Provider value={{ dark, th, toggleTheme }}>
           <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
