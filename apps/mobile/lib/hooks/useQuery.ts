@@ -22,6 +22,13 @@ export type UseQueryOptions = {
   refreshInterval?: number;
   /** Si false, no ejecuta el fetch (p. ej. query vacía en búsqueda). */
   enabled?: boolean;
+  /**
+   * Si true, al cambiar `deps` (p. ej. el tipo de registro) se vacía `data` a
+   * null para que la pantalla muestre el estado de carga en vez de los datos
+   * obsoletos del tipo anterior (que provocan un parpadeo del estado vacío).
+   * No afecta a las revalidaciones por foco/intervalo (conservan los datos).
+   */
+  resetOnDepsChange?: boolean;
 };
 
 export type UseQueryResult<T> = {
@@ -38,7 +45,12 @@ export function useQuery<T>(
   deps: ReadonlyArray<unknown> = [],
   options: UseQueryOptions = {}
 ): UseQueryResult<T> {
-  const { revalidateOnFocus = true, refreshInterval = 0, enabled = true } = options;
+  const {
+    revalidateOnFocus = true,
+    refreshInterval = 0,
+    enabled = true,
+    resetOnDepsChange = false,
+  } = options;
 
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -81,10 +93,17 @@ export function useQuery<T>(
       setLoading(false);
       return;
     }
+    if (resetOnDepsChange) {
+      // Vaciar datos del tipo anterior: la pantalla mostrará carga, no el
+      // estado vacío con datos obsoletos.
+      setData(null);
+      setError(null);
+      hasData.current = false;
+    }
     setLoading(true);
     void run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, run, ...deps]);
+  }, [enabled, run, resetOnDepsChange, ...deps]);
 
   // Revalidación al volver a primer plano.
   useEffect(() => {

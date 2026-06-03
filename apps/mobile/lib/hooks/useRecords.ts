@@ -18,5 +18,7 @@ export function useRecords(params: RecordListParams = {}): UseQueryResult<BaseRe
   return useQuery(fetcher, [type, query, limit], {
     revalidateOnFocus: true,
     refreshInterval: 60_000,
+    // Al cambiar de categoría, mostrar carga en vez del "Sin … todavía" obsoleto.
+    resetOnDepsChange: true,
   });
 }
