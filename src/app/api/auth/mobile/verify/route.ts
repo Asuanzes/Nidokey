@@ -18,6 +18,10 @@ const Body = z.object({
   code: z.string().regex(/^\d{6}$/, "Código debe ser 6 dígitos"),
 });
 
+// Máximo de intentos fallidos por OTP emitido. Al alcanzarlo, el código se
+// invalida (anti fuerza bruta sobre el espacio de 1.000.000 de combinaciones).
+const MAX_ATTEMPTS = 5;
+
 /**
  * POST /api/auth/mobile/verify
  * Body: { email, code }
@@ -38,8 +42,11 @@ export async function POST(req: NextRequest) {
   const email = parsed.data.email.trim().toLowerCase();
   const code = parsed.data.code;
 
+  // Buscamos el OTP pendiente por EMAIL (no por el código tecleado): así
+  // podemos contar intentos fallidos aunque el código no coincida. request/
+  // borra los anteriores, por lo que hay como mucho uno por email.
   const vt = await prisma.verificationToken.findFirst({
-    where: { identifier: email, token: `mobile:${code}` },
+    where: { identifier: email, token: { startsWith: "mobile:" } },
   });
   if (!vt) {
     return NextResponse.json({ error: "Código incorrecto" }, { status: 401, headers: CORS_HEADERS });
@@ -50,8 +57,26 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ error: "Código caducado" }, { status: 401, headers: CORS_HEADERS });
   }
+  // Demasiados intentos → invalidamos el código y obligamos a pedir uno nuevo.
+  if (vt.attempts >= MAX_ATTEMPTS) {
+    await prisma.verificationToken.delete({
+      where: { identifier_token: { identifier: email, token: vt.token } },
+    });
+    return NextResponse.json(
+      { error: "Demasiados intentos. Pide un código nuevo." },
+      { status: 429, headers: CORS_HEADERS }
+    );
+  }
+  // Código incorrecto → sumamos un intento y rechazamos (sin consumir el OTP).
+  if (vt.token !== `mobile:${code}`) {
+    await prisma.verificationToken.update({
+      where: { identifier_token: { identifier: email, token: vt.token } },
+      data: { attempts: { increment: 1 } },
+    });
+    return NextResponse.json({ error: "Código incorrecto" }, { status: 401, headers: CORS_HEADERS });
+  }
 
-  // Consumir el código (one-time use)
+  // Correcto → consumir el código (one-time use)
   await prisma.verificationToken.delete({
     where: { identifier_token: { identifier: email, token: vt.token } },
   });

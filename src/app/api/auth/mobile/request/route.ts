@@ -21,6 +21,9 @@ const Body = z.object({
 const RESEND_FROM = process.env.RESEND_FROM ?? "Nidokey <onboarding@resend.dev>";
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
+const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutos de validez
+const MIN_RESEND_MS = 60 * 1000; // máximo 1 código por minuto y email
+
 /**
  * POST /api/auth/mobile/request
  * Body: { email }
@@ -36,6 +39,19 @@ export async function POST(req: NextRequest) {
   }
   const email = parsed.data.email.trim().toLowerCase();
 
+  // Throttle: no emitimos un OTP nuevo si se pidió uno hace < 60s. Evita que el
+  // límite de 5 intentos de /verify se eluda pidiendo códigos en bucle y frena
+  // el email-bombing. Heurística por `expires` (no requiere columna extra).
+  const pending = await prisma.verificationToken.findFirst({
+    where: { identifier: email, token: { startsWith: "mobile:" } },
+  });
+  if (pending && pending.expires.getTime() > Date.now() + OTP_TTL_MS - MIN_RESEND_MS) {
+    return NextResponse.json(
+      { error: "Espera un momento antes de pedir otro código." },
+      { status: 429, headers: CORS_HEADERS }
+    );
+  }
+
   await prisma.user.upsert({
     where: { email },
     create: { email },
@@ -50,7 +66,7 @@ export async function POST(req: NextRequest) {
     data: {
       identifier: email,
       token: `mobile:${code}`,
-      expires: new Date(Date.now() + 10 * 60 * 1000), // 10 minutos
+      expires: new Date(Date.now() + OTP_TTL_MS),
     },
   });
 
