@@ -152,3 +152,94 @@ export async function yahooSearch(query: string): Promise<YahooSearchHit[]> {
       type: x.quoteType ?? null,
     }));
 }
+
+// ── Serie histórica por rango (para el detalle estilo Yahoo Finanzas) ──
+export type ChartRange = "1D" | "1S" | "1M" | "3M" | "6M" | "1A" | "MAX";
+export type ChartPoint = { t: number; v: number }; // t = ms epoch · v = precio
+
+export type YahooSeries = {
+  points: ChartPoint[];
+  previousClose: number | null; // cierre anterior al inicio del rango
+  currency: string | null;
+};
+
+// Pill → (range, interval) válidos de Yahoo. Intradía (5m/30m) solo cabe en
+// rangos cortos; diario/semanal en los largos. Esto hace que CADA rango pida
+// datos distintos (antes el detalle solo filtraba snapshots locales = ventana
+// corta, por eso todos los tramos se veían casi iguales).
+const RANGE_MAP: Record<ChartRange, { range: string; interval: string }> = {
+  "1D": { range: "1d", interval: "5m" },
+  "1S": { range: "5d", interval: "30m" },
+  "1M": { range: "1mo", interval: "1d" },
+  "3M": { range: "3mo", interval: "1d" },
+  "6M": { range: "6mo", interval: "1d" },
+  "1A": { range: "1y", interval: "1d" },
+  MAX: { range: "max", interval: "1wk" },
+};
+
+/** Reduce una serie de puntos a ~max conservando el último. */
+function downsamplePoints(pts: ChartPoint[], max = 320): ChartPoint[] {
+  if (pts.length <= max) return pts;
+  const step = (pts.length - 1) / (max - 1);
+  const out: ChartPoint[] = [];
+  for (let i = 0; i < max; i++) out.push(pts[Math.round(i * step)]);
+  const last = pts[pts.length - 1];
+  if (out[out.length - 1] !== last) out.push(last);
+  return out;
+}
+
+type ChartSeriesResponse = {
+  chart?: {
+    result?: Array<{
+      meta?: { currency?: string; chartPreviousClose?: number; previousClose?: number };
+      timestamp?: number[];
+      indicators?: { quote?: Array<{ close?: (number | null)[] }> };
+    }>;
+  };
+};
+
+/**
+ * Serie histórica real por rango (1D…MAX) desde Yahoo v8/chart. UNA llamada por
+ * (símbolo, rango). Sirve igual para acciones/ETFs (AAPL, SXRV.DE) y para cripto
+ * en formato `BTC-EUR`. Devuelve puntos vacíos ante cualquier fallo (el caller
+ * hace fallback a los snapshots locales).
+ */
+export async function yahooChartSeries(symbol: string, range: ChartRange): Promise<YahooSeries> {
+  const map = RANGE_MAP[range] ?? RANGE_MAP["1S"];
+  await throttle();
+  const url = `${CHART}/${encodeURIComponent(symbol)}?interval=${map.interval}&range=${map.range}`;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: { "User-Agent": UA, Accept: "application/json" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(9000),
+    });
+  } catch {
+    return { points: [], previousClose: null, currency: null };
+  }
+  if (!res.ok) return { points: [], previousClose: null, currency: null };
+
+  let json: ChartSeriesResponse;
+  try {
+    json = (await res.json()) as ChartSeriesResponse;
+  } catch {
+    return { points: [], previousClose: null, currency: null };
+  }
+
+  const r = json.chart?.result?.[0];
+  const ts = r?.timestamp ?? [];
+  const closes = r?.indicators?.quote?.[0]?.close ?? [];
+  const points: ChartPoint[] = [];
+  for (let i = 0; i < ts.length; i++) {
+    const v = closes[i];
+    if (typeof v !== "number" || !Number.isFinite(v)) continue;
+    points.push({ t: ts[i] * 1000, v: round2(v) });
+  }
+  const prev = r?.meta?.chartPreviousClose ?? r?.meta?.previousClose ?? null;
+  return {
+    points: downsamplePoints(points),
+    previousClose: typeof prev === "number" && Number.isFinite(prev) ? prev : null,
+    currency: r?.meta?.currency ?? null,
+  };
+}

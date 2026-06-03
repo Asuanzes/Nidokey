@@ -22,10 +22,10 @@ import { marketLogoUrl } from "@/lib/records/market-logo";
  * cabecera (logo · símbolo · nombre · precio · cambio · bolsa/moneda) +
  * selector de rangos + gráfico interactivo (scrub con el dedo) + grid de stats.
  *
- * v1: el gráfico usa el histórico ya guardado (`meta.detail.snapshots`) con
- * fallback al `sparkline`. Los rangos filtran ese histórico. v2 (pendiente):
- * endpoint `/api/records/[id]/chart?range=` con histórico real de Yahoo/CoinGecko
- * y stats extra (Apertura/Máx/Mín/52S).
+ * El gráfico pide histórico REAL por rango a `/api/records/[id]/chart?range=`
+ * (Yahoo: una serie distinta por 1D/1S/1M/…). Mientras carga o si la red falla,
+ * usa de fallback los snapshots locales (`meta.detail.snapshots`) o el sparkline.
+ * El % mostrado es el cambio DEL RANGO (primer→último), estilo Yahoo.
  */
 
 const UP = "#15803D";
@@ -70,6 +70,43 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
     };
   }, [id, type]);
 
+  // ── Histórico real por rango (Yahoo): esto hace que cada pill muestre datos
+  // distintos. Antes solo se filtraban los snapshots locales (ventana corta de
+  // seguimiento), por eso todos los tramos largos se veían casi iguales. ──
+  const [chart, setChart] = useState<{
+    points: Point[];
+    previousClose: number | null;
+    currency: string | null;
+  } | null>(null);
+  const [chartLoading, setChartLoading] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    let alive = true;
+    setChartLoading(true);
+    (async () => {
+      try {
+        const r = await api<{
+          points: { t: number; v: number }[];
+          previousClose: number | null;
+          currency: string | null;
+        }>(`/api/records/${id}/chart?type=${type}&range=${rangeKey}`);
+        if (!alive) return;
+        const pts: Point[] = (r.points ?? [])
+          .map((p) => ({ timestamp: p.t, value: p.v }))
+          .filter((p) => Number.isFinite(p.timestamp) && Number.isFinite(p.value));
+        setChart({ points: pts, previousClose: r.previousClose, currency: r.currency });
+      } catch {
+        if (alive) setChart(null); // fallback a snapshots locales
+      } finally {
+        if (alive) setChartLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [id, type, rangeKey]);
+
   // ── Serie de precios (histórico de snapshots, en unidades de precio) ──
   const fullSeries = useMemo<Point[]>(() => {
     if (!record) return [];
@@ -90,12 +127,15 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
   }, [record]);
 
   const range = RANGES.find((r) => r.key === rangeKey) ?? RANGES[1];
-  const series = useMemo<Point[]>(() => {
+  // Fallback local (snapshots) mientras carga el histórico real o si Yahoo falla.
+  const localSeries = useMemo<Point[]>(() => {
     if (range.days == null) return fullSeries;
     const cutoff = Date.now() - range.days * 24 * 3600 * 1000;
     const filtered = fullSeries.filter((p) => p.timestamp >= cutoff);
-    return filtered.length >= 2 ? filtered : fullSeries; // si no hay datos en el rango, muestra todo
+    return filtered.length >= 2 ? filtered : fullSeries;
   }, [fullSeries, range]);
+  // Serie a dibujar: histórico real de Yahoo por rango si lo hay; si no, local.
+  const series = chart && chart.points.length >= 2 ? chart.points : localSeries;
 
   if (loading) {
     return (
@@ -118,25 +158,29 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
   const isMarket = type === "market";
   const symbol = metaField<string>(record, "symbol", record.title);
   const quote = metaField<string>(record, "quoteCurrency", "EUR");
-  const change = metaField<number | null>(record, "change24h", null);
+  const quoteCur = (chart?.currency ?? quote).toUpperCase();
+  const change24h = metaField<number | null>(record, "change24h", null);
   const volume = metaField<number | null>(record, "volume", null);
   const marketCap = metaField<number | null>(record, "marketCap", null);
   const exchange = metaField<string | null>(record, "exchange", null);
   const logoUri = isMarket ? marketLogoUrl({ title: record.title, symbol }) : record.imageUrl ?? null;
 
-  // Precio actual (de la serie si existe; si no, no podemos parsear primaryValue de forma fiable).
+  // Cambio del RANGO seleccionado (primer→último de la serie), estilo Yahoo: el %
+  // es coherente con el tramo elegido, no un 24h fijo. Si aún no hay serie del
+  // rango, cae al change24h del registro.
   const lastPrice = series.length ? series[series.length - 1].value : null;
-  const up = (change ?? 0) >= 0;
-  const trendColor = series.length >= 2 ? (series[series.length - 1].value >= series[0].value ? UP : DOWN) : up ? UP : DOWN;
-  // Cambio absoluto estimado a partir del % de 24h (Yahoo lo muestra así).
-  const absChange =
-    lastPrice != null && change != null ? lastPrice - lastPrice / (1 + change / 100) : null;
+  const firstPrice = series.length ? series[0].value : null;
+  const rangeAbs = firstPrice != null && lastPrice != null ? lastPrice - firstPrice : null;
+  const rangePct =
+    firstPrice && lastPrice != null ? ((lastPrice - firstPrice) / firstPrice) * 100 : change24h;
+  const up = (rangePct ?? 0) >= 0;
+  const trendColor = up ? UP : DOWN;
 
   const stats: [string, string][] = [
-    ["Cambio", change != null ? `${up ? "+" : ""}${change.toFixed(2).replace(".", ",")} %` : "—"],
-    [isMarket ? "Volumen" : "Vol. 24h", compactNumber(volume, isMarket ? "" : quote)],
-    [isMarket ? "Bolsa" : "Cap. mercado", isMarket ? exchange ?? "—" : compactNumber(marketCap, quote)],
-    ["Moneda", quote],
+    [`Cambio (${range.label})`, rangePct != null ? `${up ? "+" : ""}${rangePct.toFixed(2).replace(".", ",")} %` : "—"],
+    [isMarket ? "Volumen" : "Vol. 24h", compactNumber(volume, isMarket ? "" : quoteCur)],
+    [isMarket ? "Bolsa" : "Cap. mercado", isMarket ? exchange ?? "—" : compactNumber(marketCap, quoteCur)],
+    ["Moneda", quoteCur],
   ];
 
   return (
@@ -173,17 +217,17 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
         {/* ── Precio + cambio ── */}
         <View style={styles.priceBlock}>
           <Text style={[styles.price, { color: th.text }]}>
-            {record.primaryValue ?? (lastPrice != null ? formatPrice(lastPrice, quote) : "—")}
+            {record.primaryValue ?? (lastPrice != null ? formatPrice(lastPrice, quoteCur) : "—")}
           </Text>
           <Text style={[styles.changeBig, { color: up ? UP : DOWN }]}>
-            {change != null
-              ? `${up ? "+" : ""}${absChange != null ? formatNum(absChange) + "  " : ""}(${up ? "+" : ""}${change
+            {rangePct != null
+              ? `${up ? "+" : ""}${rangeAbs != null ? formatNum(rangeAbs) + "  " : ""}(${up ? "+" : ""}${rangePct
                   .toFixed(2)
                   .replace(".", ",")} %)`
               : "—"}
           </Text>
           <Text style={[styles.subMuted, { color: th.textSubtle }]}>
-            {[isMarket ? exchange : null, quote].filter(Boolean).join(" · ")}
+            {[range.label, isMarket ? exchange : null, quoteCur].filter(Boolean).join(" · ")}
           </Text>
         </View>
 
@@ -204,40 +248,51 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
         </ScrollView>
 
         {/* ── Gráfico interactivo ── */}
-        {series.length >= 2 ? (
-          <LineChart.Provider data={series}>
-            <LineChart height={CHART_H}>
-              <LineChart.Path color={trendColor} width={2}>
-                <LineChart.Gradient color={trendColor} />
-              </LineChart.Path>
-              <LineChart.CursorCrosshair color={trendColor}>
-                <LineChart.Tooltip
-                  textStyle={{ backgroundColor: th.surface, color: th.text, borderRadius: 6, fontSize: 12, padding: 4 }}
+        <View>
+          {series.length >= 2 ? (
+            <LineChart.Provider data={series}>
+              <LineChart height={CHART_H}>
+                <LineChart.Path color={trendColor} width={2}>
+                  <LineChart.Gradient color={trendColor} />
+                </LineChart.Path>
+                <LineChart.CursorCrosshair color={trendColor}>
+                  <LineChart.Tooltip
+                    textStyle={{ backgroundColor: th.surface, color: th.text, borderRadius: 6, fontSize: 12, padding: 4 }}
+                  />
+                </LineChart.CursorCrosshair>
+              </LineChart>
+              <View style={styles.scrubRow}>
+                <LineChart.DatetimeText
+                  style={[styles.scrubDate, { color: th.textSubtle }]}
+                  locale="es-ES"
+                  options={{ day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }}
                 />
-              </LineChart.CursorCrosshair>
-            </LineChart>
-            <View style={styles.scrubRow}>
-              <LineChart.DatetimeText
-                style={[styles.scrubDate, { color: th.textSubtle }]}
-                locale="es-ES"
-                options={{ day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }}
-              />
-              <LineChart.PriceText
-                style={[styles.scrubPrice, { color: th.textMuted }]}
-                format={({ value }) => {
-                  "worklet";
-                  const n = Number(value);
-                  const sym = quote === "EUR" ? "€" : quote === "USD" ? "$" : quote;
-                  return `${n.toFixed(2).replace(".", ",")} ${sym}`;
-                }}
-              />
+                <LineChart.PriceText
+                  style={[styles.scrubPrice, { color: th.textMuted }]}
+                  format={({ value }) => {
+                    "worklet";
+                    const n = Number(value);
+                    const sym = quoteCur === "EUR" ? "€" : quoteCur === "USD" ? "$" : quoteCur;
+                    return `${n.toFixed(2).replace(".", ",")} ${sym}`;
+                  }}
+                />
+              </View>
+            </LineChart.Provider>
+          ) : (
+            <View style={[styles.noChart, { height: CHART_H }]}>
+              {chartLoading ? (
+                <ActivityIndicator size="small" color={th.primary} />
+              ) : (
+                <Text style={{ color: th.textSubtle, fontSize: 12 }}>Aún no hay histórico para el gráfico.</Text>
+              )}
             </View>
-          </LineChart.Provider>
-        ) : (
-          <View style={[styles.noChart, { height: CHART_H }]}>
-            <Text style={{ color: th.textSubtle, fontSize: 12 }}>Aún no hay histórico para el gráfico.</Text>
-          </View>
-        )}
+          )}
+          {chartLoading && series.length >= 2 && (
+            <View style={styles.chartSpinner} pointerEvents="none">
+              <ActivityIndicator size="small" color={th.primary} />
+            </View>
+          )}
+        </View>
 
         {/* ── Stats ── */}
         <View style={[styles.statsCard, { backgroundColor: th.surface, borderColor: th.border }]}>
@@ -299,6 +354,7 @@ const styles = StyleSheet.create({
   scrubDate: { fontSize: 11 },
   scrubPrice: { fontSize: 13, fontWeight: "600" },
   noChart: { alignItems: "center", justifyContent: "center" },
+  chartSpinner: { position: "absolute", top: 6, right: 6 },
   statsCard: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 4, marginTop: 20 },
   statRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 11 },
   statKey: { fontSize: 13 },
