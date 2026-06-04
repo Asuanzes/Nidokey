@@ -15,7 +15,7 @@ import { RECORD_TYPES } from "@nidokey/shared";
 import { useRecordCategory } from "@/lib/records/category-context";
 import { usePendingImport } from "@/lib/pending-import";
 import { isPortalUrl } from "@/lib/portal-url";
-import { bookShareQuery } from "@/lib/book-url";
+import { bookShareQuery, firstShareUrl } from "@/lib/book-url";
 import { useTheme } from "@/lib/theme";
 import { api, ApiError } from "@/lib/api";
 import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
@@ -79,45 +79,52 @@ export default function ImportarScreen() {
   // que elijas. Reutiliza la búsqueda + el import existentes.
   const importBookShare = useCallback(
     async (sharedText: string) => {
-      const parsed = bookShareQuery(sharedText);
-      console.log("[bookshare] sharedText=", JSON.stringify(sharedText), "parsed=", JSON.stringify(parsed)); // TEMP DEBUG
       setType("book");
       setOkMsg(null);
       setErrorMsg(null);
       setStatus("idle");
-      if (!parsed) {
-        setValue("");
-        setErrorMsg("No reconocí ese enlace de libro. Búscalo por título, autor o ISBN.");
-        return;
-      }
-      setValue(parsed.query);
       setResults([]);
       setAddedKeys(new Set());
       setHasSearched(false);
+
+      const parsed = bookShareQuery(sharedText);
+      const url = firstShareUrl(sharedText);
+      console.log("[bookshare] sharedText=", JSON.stringify(sharedText), "parsed=", JSON.stringify(parsed), "url=", url); // TEMP DEBUG
+      setValue(parsed?.query ?? "");
       setSearching(true);
+
       let hits: SearchHit[] = [];
       try {
-        // ISBN → qualifier `isbn:` de Google Books = match EXACTO (0/1 resultado).
-        const q = parsed.isbn ? `isbn:${parsed.query}` : parsed.query;
-        const res = await api<{ results: SearchHit[] }>(
-          `/api/records/search?type=book&q=${encodeURIComponent(q)}`
-        );
-        hits = res.results ?? [];
-        console.log("[bookshare] hits=", hits.length, JSON.stringify(hits.slice(0, 3).map((h) => h.name))); // TEMP DEBUG
-        setResults(hits);
+        // Tier 1+2 (cliente): ISBN o título sacados de la cadena/slug compartidos.
+        if (parsed) {
+          const q = parsed.isbn ? `isbn:${parsed.query}` : parsed.query;
+          const res = await api<{ results: SearchHit[] }>(
+            `/api/records/search?type=book&q=${encodeURIComponent(q)}`
+          );
+          hits = res.results ?? [];
+          console.log("[bookshare] client hits=", hits.length); // TEMP DEBUG
+        }
+        // Tier 3 (servidor): si el cliente no sacó nada y hay URL, que el backend
+        // abra la página de la tienda y lea el ISBN/título de sus metadatos.
+        if (hits.length === 0 && url) {
+          const res = await api<{
+            results: SearchHit[];
+            extracted?: { isbn?: string | null; title?: string | null };
+          }>("/api/books/resolve", { method: "POST", body: JSON.stringify({ url }) });
+          hits = res.results ?? [];
+          console.log("[bookshare] resolver hits=", hits.length, "extracted=", JSON.stringify(res.extracted)); // TEMP DEBUG
+          if (!parsed?.query && res.extracted?.title) setValue(res.extracted.title);
+        }
       } catch (e) {
-        console.log("[bookshare] search ERROR=", e instanceof Error ? e.message : String(e)); // TEMP DEBUG
-        setResults([]);
+        console.log("[bookshare] ERROR=", e instanceof Error ? e.message : String(e)); // TEMP DEBUG
       } finally {
         setSearching(false);
         setHasSearched(true);
       }
-      // Compartiste un libro concreto → añade el MEJOR resultado (el primero de
-      // Google Books para ese título suele ser el correcto). Antes solo se
-      // auto-añadía con ISBN, pero los enlaces de Amazon/Fnac no lo llevan, así
-      // que se quedaban en "elige de la lista". La lista sigue visible por si el
-      // primero no es la edición que quieres.
-      console.log("[bookshare] willAutoImport=", hits.length > 0 && !!hits[0]?.record, "isbn=", parsed.isbn); // TEMP DEBUG
+      setResults(hits);
+      // Decisión: hay match → añade el MEJOR resultado (el primero por ISBN/título
+      // suele ser el correcto; la lista queda visible por si quieres otra edición).
+      // Nada → mensaje + alta manual.
       if (hits.length > 0 && hits[0].record) {
         setStatus("sending");
         try {
@@ -133,8 +140,8 @@ export default function ImportarScreen() {
           setErrorMsg(errMsg(e, "No se pudo añadir el libro"));
           setStatus("error");
         }
-      } else if (hits.length === 0) {
-        setErrorMsg("No encontré ese libro. Prueba a buscarlo por título o autor.");
+      } else {
+        setErrorMsg("No pude identificar el libro. Búscalo abajo por título/autor/ISBN o añádelo a mano.");
       }
     },
     [setType]

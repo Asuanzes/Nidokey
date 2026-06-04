@@ -89,6 +89,11 @@ function firstUrl(text: string): string | null {
   return m ? m[0] : null;
 }
 
+/** Primera URL del texto compartido (para el resolver del servidor /api/books/resolve). */
+export function firstShareUrl(text: string): string | null {
+  return firstUrl((text ?? "").trim());
+}
+
 function isBookHost(url: string): boolean {
   const low = url.toLowerCase();
   return BOOK_HOSTS.some((h) => low.includes(h));
