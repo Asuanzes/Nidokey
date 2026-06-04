@@ -124,6 +124,33 @@ export function bookShareQuery(text: string): { query: string; isbn: boolean } |
     const main = title.split(":")[0].trim();
     if (main.length >= 3) title = main;
     if (title.length >= 3) return { query: title, isbn: false };
+    // Sin título en el TEXTO (p. ej. Fnac comparte solo la URL): sácalo del SLUG
+    // de la ruta (fnac.es/a<id>/<Autor-Título-con-guiones>, Casa del Libro…).
+    const fromSlug = titleFromSlug(url);
+    if (fromSlug && fromSlug.length >= 3) return { query: fromSlug, isbn: false };
+  }
+  return null;
+}
+
+/** Título buscable a partir del SLUG de la ruta (último segmento con guiones y
+ *  letras). Cubre tiendas que comparten SOLO la URL (Fnac, Casa del Libro…)
+ *  cuando no hay título en el texto. Descarta ids tipo "a12900214". */
+function titleFromSlug(u: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(u);
+  } catch {
+    return null;
+  }
+  const known = titleFromUrl(parsed); // Google Books /edition/, Goodreads /show/
+  if (known) return known;
+  const segs = parsed.pathname.split("/").map(safeDecode).filter(Boolean);
+  for (let i = segs.length - 1; i >= 0; i--) {
+    const s = segs[i];
+    if (s.includes("-") && /[a-zA-Záéíóúñ]/i.test(s)) {
+      const words = slug(s).trim();
+      if (words.length >= 3) return words;
+    }
   }
   return null;
 }

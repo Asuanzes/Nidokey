@@ -190,8 +190,13 @@ function AuthGate() {
 
   return (
     <>
-      {authResolved ? (
-        <Stack>
+      {/* Stack SIEMPRE montado (no `authResolved ? <Stack> : null`): así ninguna
+          navegación (redirect, share, deep-link) corre antes de montar el Root
+          Layout — la causa real del "Attempted to navigate before mounting". El
+          loader se superpone encima; api() lee el token de SecureStore en cada
+          llamada, así que las pantallas no fallan por montar antes de que el
+          AuthProvider resuelva la sesión. */}
+      <Stack>
           <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen
@@ -257,8 +262,7 @@ function AuthGate() {
               headerTitleStyle: { color: th.text },
             }}
           />
-        </Stack>
-      ) : null}
+      </Stack>
       {showLoader ? (
         <View style={StyleSheet.absoluteFill}>
           <BrandLoading />

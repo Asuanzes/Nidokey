@@ -80,6 +80,7 @@ export default function ImportarScreen() {
   const importBookShare = useCallback(
     async (sharedText: string) => {
       const parsed = bookShareQuery(sharedText);
+      console.log("[bookshare] sharedText=", JSON.stringify(sharedText), "parsed=", JSON.stringify(parsed)); // TEMP DEBUG
       setType("book");
       setOkMsg(null);
       setErrorMsg(null);
@@ -96,32 +97,44 @@ export default function ImportarScreen() {
       setSearching(true);
       let hits: SearchHit[] = [];
       try {
+        // ISBN → qualifier `isbn:` de Google Books = match EXACTO (0/1 resultado).
+        const q = parsed.isbn ? `isbn:${parsed.query}` : parsed.query;
         const res = await api<{ results: SearchHit[] }>(
-          `/api/records/search?type=book&q=${encodeURIComponent(parsed.query)}`
+          `/api/records/search?type=book&q=${encodeURIComponent(q)}`
         );
         hits = res.results ?? [];
+        console.log("[bookshare] hits=", hits.length, JSON.stringify(hits.slice(0, 3).map((h) => h.name))); // TEMP DEBUG
         setResults(hits);
-      } catch {
+      } catch (e) {
+        console.log("[bookshare] search ERROR=", e instanceof Error ? e.message : String(e)); // TEMP DEBUG
         setResults([]);
       } finally {
         setSearching(false);
         setHasSearched(true);
       }
-      // ISBN = coincidencia fiable → añade el primero automáticamente.
-      if (parsed.isbn && hits.length > 0 && hits[0].record) {
+      // Compartiste un libro concreto → añade el MEJOR resultado (el primero de
+      // Google Books para ese título suele ser el correcto). Antes solo se
+      // auto-añadía con ISBN, pero los enlaces de Amazon/Fnac no lo llevan, así
+      // que se quedaban en "elige de la lista". La lista sigue visible por si el
+      // primero no es la edición que quieres.
+      console.log("[bookshare] willAutoImport=", hits.length > 0 && !!hits[0]?.record, "isbn=", parsed.isbn); // TEMP DEBUG
+      if (hits.length > 0 && hits[0].record) {
         setStatus("sending");
         try {
           const r = await api<RecordImportResult>("/api/records/import", {
             method: "POST",
             body: JSON.stringify({ type: "book", input: { kind: "record", record: hits[0].record } }),
           });
-          setOkMsg(`✅ ${r.record?.title ?? hits[0].name ?? "Libro"} añadido en Libros`);
+          setOkMsg(`✅ ${r.record?.title ?? hits[0].name ?? "Libro"} añadido. ¿No es ese? elige abajo.`);
           setStatus("ok");
           setAddedKeys(new Set([0]));
         } catch (e) {
+          console.log("[bookshare] import ERROR=", e instanceof Error ? e.message : String(e)); // TEMP DEBUG
           setErrorMsg(errMsg(e, "No se pudo añadir el libro"));
           setStatus("error");
         }
+      } else if (hits.length === 0) {
+        setErrorMsg("No encontré ese libro. Prueba a buscarlo por título o autor.");
       }
     },
     [setType]
