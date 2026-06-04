@@ -331,7 +331,7 @@ function DefaultCard({ record, editing, onLongPress, onDelete }: CardProps) {
 
   return (
     <Pressable
-      onPress={() => { if (!editing) router.push(`/property/${record.id}` as never); }}
+      onPress={() => { if (!editing) router.push(`/${record.type}/${record.id}` as never); }}
       onLongPress={onLongPress ? () => fireLongPress(onLongPress) : undefined}
       delayLongPress={300}
       style={({ pressed }) => [

@@ -92,6 +92,7 @@ model User {
   cryptoHoldings    CryptoHolding[]
   marketInstruments MarketInstrument[]
   jobListings       JobListing[]
+  bookRecords       BookRecord[]
 }
 
 // Tablas estándar de NextAuth / Auth.js (Prisma adapter).
@@ -459,4 +460,38 @@ model JobSnapshot {
   meta       Json?
 
   @@index([listingId, observedAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// BookRecord — libro seguido (Google Books, fuente primaria; Open Library como
+// fallback futuro). Mismo contrato común que las demás verticales, pero SIN
+// *Snapshot: un libro no tiene serie temporal de valor. `currentValue` = rating
+// medio * 100 (0–500) cuando se conoce. El modelo de dominio Book completo
+// (packages/shared/src/book.ts) viaja en `meta.book`. Dedup por
+// (ownerId, externalId=volumeId, source).
+// ─────────────────────────────────────────────────────────────────────────
+model BookRecord {
+  id            String   @id @default(cuid())
+  ownerId       String?
+  owner         User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  recordType    String   @default("book")
+
+  title         String              // título del libro
+  subtitle      String?             // "Autor · 2017"
+  status        String?             // libre: "WISHLIST" | "READING" | "READ"
+  authors       String?             // autores unidos (denormalizado para orden/búsqueda)
+  isbn13        String?
+  currentValue  Int?                // rating medio * 100 (0–500), opcional
+  currency      String?
+  imageUrl      String?             // portada (thumbnail)
+  source        String?             // "google_books"
+  externalId    String?             // volumeId de Google Books
+  lastCheckedAt DateTime?
+  meta          Json?               // { book: Book, authors, isbn13 }
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([ownerId, externalId, source])
+  @@index([recordType])
 }

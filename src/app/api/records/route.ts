@@ -3,7 +3,7 @@ import type { RecordType } from "@nidokey/shared";
 
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth-helpers";
-import { propertyToBaseRecord, cryptoToBaseRecord, marketToBaseRecord, jobToBaseRecord } from "@/lib/records/mapper";
+import { propertyToBaseRecord, cryptoToBaseRecord, marketToBaseRecord, jobToBaseRecord, bookToBaseRecord } from "@/lib/records/mapper";
 
 /**
  * GET /api/records?type=property
@@ -55,6 +55,15 @@ export async function GET(req: NextRequest) {
       take: 100,
     });
     return NextResponse.json(jobs.map(jobToBaseRecord));
+  }
+
+  if (type === "book") {
+    const books = await prisma.bookRecord.findMany({
+      where: { ownerId },
+      orderBy: { updatedAt: "desc" },
+      take: 100,
+    });
+    return NextResponse.json(books.map(bookToBaseRecord));
   }
 
   // Tipos reservados (workout…): sin datos todavía.

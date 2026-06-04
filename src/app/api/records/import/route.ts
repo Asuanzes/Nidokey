@@ -4,8 +4,8 @@ import type { BaseRecord, RecordType } from "@nidokey/shared";
 
 import { getUserId } from "@/lib/auth-helpers";
 import { pickAdapter } from "@/features/sources/registry";
-import { upsertRecord, getCryptoById, getMarketById, getJobById } from "@/features/sources/upsert";
-import { cryptoToBaseRecord, marketToBaseRecord, jobToBaseRecord } from "@/lib/records/mapper";
+import { upsertRecord, getCryptoById, getMarketById, getJobById, getBookById } from "@/features/sources/upsert";
+import { cryptoToBaseRecord, marketToBaseRecord, jobToBaseRecord, bookToBaseRecord } from "@/lib/records/mapper";
 import type { NormalizedRecord } from "@/features/sources/types";
 
 /**
@@ -66,6 +66,10 @@ async function recordById(type: RecordType, id: string): Promise<BaseRecord | nu
   if (type === "job") {
     const r = await getJobById(id);
     return r ? jobToBaseRecord(r) : null;
+  }
+  if (type === "book") {
+    const r = await getBookById(id);
+    return r ? bookToBaseRecord(r) : null;
   }
   return null;
 }

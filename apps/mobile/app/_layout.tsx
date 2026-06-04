@@ -184,6 +184,17 @@ function AuthGate() {
             }}
           />
           <Stack.Screen
+            name="book/[id]"
+            options={{
+              headerShown: true,
+              headerBackTitle: "Atrás",
+              headerTintColor: th.primary,
+              headerStyle: { backgroundColor: th.surface },
+              headerTitleStyle: { color: th.text },
+              title: "Libro",
+            }}
+          />
+          <Stack.Screen
             name="article"
             options={{
               headerShown: true,

@@ -40,16 +40,26 @@ export async function GET(req: NextRequest) {
   // Se necesita texto (≥2) O una zona (empleo: buscar todo lo que haya en ella).
   if (q.length < 2 && !location) return NextResponse.json({ results: [] });
 
-  const adapter = adaptersFor(type).find((a) => typeof a.search === "function");
-  if (!adapter?.search) return NextResponse.json({ results: [] });
+  // Fallback en cadena: prueba los adaptadores con `search` en orden y devuelve
+  // el PRIMERO que dé resultados. Permite "fuente primaria + respaldo" sin tocar
+  // la UI (ej. libros: Google Books → Open Library si Google viene vacío/sin key).
+  const searchable = adaptersFor(type).filter((a) => typeof a.search === "function");
+  if (searchable.length === 0) return NextResponse.json({ results: [] });
 
-  try {
-    const results = await adapter.search(q, { location, remote, sources });
-    return NextResponse.json({ results });
-  } catch (e) {
+  let lastError: unknown = null;
+  for (const adapter of searchable) {
+    try {
+      const results = await adapter.search!(q, { location, remote, sources });
+      if (results.length > 0) return NextResponse.json({ results });
+    } catch (e) {
+      lastError = e; // fuente caída → prueba la siguiente
+    }
+  }
+  if (lastError) {
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Error de búsqueda", results: [] },
+      { error: lastError instanceof Error ? lastError.message : "Error de búsqueda", results: [] },
       { status: 502 }
     );
   }
+  return NextResponse.json({ results: [] });
 }

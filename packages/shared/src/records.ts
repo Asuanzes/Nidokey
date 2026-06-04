@@ -16,6 +16,7 @@
  * reservado para que añadir un tipo = añadir un valor aquí + su config.
  * El orden define el del menú de filtros en la app móvil. */
 export type RecordType =
+  | "chat"
   | "property"
   | "renting"
   | "holiday"
@@ -23,9 +24,10 @@ export type RecordType =
   | "market"
   | "job"
   | "workout"
-  | "chat";
+  | "book";
 
 export const RECORD_TYPES: RecordType[] = [
+  "chat",
   "property",
   "renting",
   "holiday",
@@ -33,7 +35,7 @@ export const RECORD_TYPES: RecordType[] = [
   "market",
   "job",
   "workout",
-  "chat",
+  "book",
 ];
 
 /**

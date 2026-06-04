@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import type { CryptoHolding, MarketInstrument, JobListing } from "@prisma/client";
+import type { CryptoHolding, MarketInstrument, JobListing, BookRecord } from "@prisma/client";
 import type { NormalizedRecord } from "@/features/sources/types";
 
 /**
@@ -16,6 +16,7 @@ export async function upsertRecord(
   if (normalized.recordType === "crypto") return upsertCrypto(ownerId, normalized);
   if (normalized.recordType === "market") return upsertMarket(ownerId, normalized);
   if (normalized.recordType === "job") return upsertJob(ownerId, normalized);
+  if (normalized.recordType === "book") return upsertBook(ownerId, normalized);
   throw new Error(`upsertRecord: tipo no soportado todavía: ${normalized.recordType}`);
 }
 
@@ -201,4 +202,58 @@ async function upsertJob(
 
 export function getJobById(id: string): Promise<JobListing | null> {
   return prisma.jobListing.findUnique({ where: { id } });
+}
+
+async function upsertBook(
+  ownerId: string,
+  n: NormalizedRecord
+): Promise<{ id: string; created: boolean; valueChanged: boolean }> {
+  const meta = (n.meta ?? {}) as Record<string, unknown>;
+  const str = (k: string) => (typeof meta[k] === "string" ? (meta[k] as string) : null);
+  const source = n.source;
+  const externalId = n.externalId ?? null;
+  const value = n.currentValue ?? null; // rating*100 (opcional)
+
+  const existing = await prisma.bookRecord.findFirst({
+    where: { ownerId, externalId, source },
+  });
+
+  if (!existing) {
+    const created = await prisma.bookRecord.create({
+      data: {
+        ownerId,
+        title: n.title,
+        subtitle: n.subtitle ?? null,
+        status: n.status ?? "WISHLIST",
+        authors: str("authors"),
+        isbn13: str("isbn13"),
+        currentValue: value,
+        currency: n.currency ?? null,
+        imageUrl: n.imageUrl ?? null,
+        source,
+        externalId,
+        lastCheckedAt: n.observedAt,
+        meta: meta as object,
+      },
+    });
+    return { id: created.id, created: true, valueChanged: value != null };
+  }
+
+  // Re-importar el mismo libro: refresca rating/portada/datos sin pisar lo editado.
+  const valueChanged = value != null && value !== existing.currentValue;
+  await prisma.bookRecord.update({
+    where: { id: existing.id },
+    data: {
+      title: existing.title || n.title,
+      imageUrl: existing.imageUrl ?? n.imageUrl ?? null,
+      currentValue: value ?? existing.currentValue,
+      lastCheckedAt: n.observedAt,
+      meta: { ...((existing.meta as Record<string, unknown>) ?? {}), ...meta } as object,
+    },
+  });
+  return { id: existing.id, created: false, valueChanged };
+}
+
+export function getBookById(id: string): Promise<BookRecord | null> {
+  return prisma.bookRecord.findUnique({ where: { id } });
 }

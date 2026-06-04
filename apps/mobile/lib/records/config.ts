@@ -51,6 +51,7 @@ export const RECORD_TYPE_CONFIG: Record<RecordType, RecordTypeConfig> = {
   job:      { label: "Empleos",    singular: "Empleo",    color: "#A86A17", icon: "briefcase-outline",    enabled: true,  addMode: "search", addPlaceholder: "Busca: react, enfermero/a, comercial…", searchOnSubmit: true },
   workout:  { label: "Entrenos",   singular: "Producto",  color: "#A23E3E", icon: "barbell-outline",      enabled: false, addMode: "soon",   addPlaceholder: "" },
   chat:     { label: "Chat",       singular: "Chat",      color: "#3A7BD5", icon: "chatbubbles-outline",  enabled: false, addMode: "soon",   addPlaceholder: "" },
+  book:     { label: "Libros",     singular: "Libro",     color: "#6B4FA0", icon: "book-outline",         enabled: true,  addMode: "search", addPlaceholder: "Busca: sapiens, el principito, padre rico…", searchOnSubmit: true },
 };
 
 export function recordTypeConfig(type: RecordType): RecordTypeConfig {

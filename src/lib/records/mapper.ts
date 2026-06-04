@@ -1,5 +1,5 @@
-import { formatPrice, formatMoney, type BaseRecord } from "@nidokey/shared";
-import type { Property, Media, CryptoHolding, MarketInstrument, JobListing } from "@prisma/client";
+import { formatPrice, formatMoney, type BaseRecord, type Book } from "@nidokey/shared";
+import type { Property, Media, CryptoHolding, MarketInstrument, JobListing, BookRecord } from "@prisma/client";
 
 /**
  * Mapper server-side: Property (Prisma) -> BaseRecord (modelo unificado).
@@ -118,6 +118,31 @@ export function jobToBaseRecord(j: JobListing): BaseRecord {
       externalId: j.externalId,
       lastCheckedAt: j.lastCheckedAt?.toISOString() ?? null,
       ...((j.meta as Record<string, unknown> | null) ?? {}),
+    },
+  };
+}
+
+/** BookRecord (Prisma) -> BaseRecord. El modelo `Book` completo viaja en
+ *  `meta.book` (lo lee el detalle); `primaryValue` = ★ valoración media. */
+export function bookToBaseRecord(b: BookRecord): BaseRecord {
+  const stored = (b.meta as { book?: Book } | null) ?? {};
+  const rating =
+    b.currentValue != null ? b.currentValue / 100 : stored.book?.averageRating ?? null;
+  return {
+    id: b.id,
+    type: "book",
+    title: b.title,
+    subtitle: b.subtitle,
+    status: b.status,
+    primaryValue: rating != null ? `★ ${rating.toFixed(1)}` : null,
+    imageUrl: b.imageUrl,
+    createdAt: b.createdAt.toISOString(),
+    updatedAt: b.updatedAt.toISOString(),
+    meta: {
+      ...((b.meta as Record<string, unknown> | null) ?? {}),
+      source: b.source,
+      externalId: b.externalId,
+      lastCheckedAt: b.lastCheckedAt?.toISOString() ?? null,
     },
   };
 }
