@@ -65,6 +65,13 @@ export default function ImportarScreen() {
   const [addedKeys, setAddedKeys] = useState<Set<number>>(new Set());
   const [addingIndex, setAddingIndex] = useState<number | null>(null);
   const [progress, setProgress] = useState(0); // carga del anuncio (0–1)
+  // Alta manual de libro (fallback final del híbrido): cuando ni el share ni la
+  // búsqueda encuentran el libro, se mete a mano (título/autor/ISBN).
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualTitle, setManualTitle] = useState("");
+  const [manualAuthor, setManualAuthor] = useState("");
+  const [manualIsbn, setManualIsbn] = useState("");
+  const [manualSaving, setManualSaving] = useState(false);
 
   const cfg = RECORD_TYPE_CONFIG[type];
 
@@ -72,6 +79,34 @@ export default function ImportarScreen() {
     setStatus("idle");
     setOkMsg(null);
     setErrorMsg(null);
+  }
+
+  // Guarda un libro a mano: el backend intenta Google Books con lo escrito (ISBN o
+  // título+autor) y, si no está, crea un libro source:"manual". Nunca te quedas
+  // sin poder añadirlo.
+  async function submitManual() {
+    const title = manualTitle.trim();
+    if (title.length < 2) return;
+    setManualSaving(true);
+    setOkMsg(null);
+    setErrorMsg(null);
+    try {
+      const r = await api<{ record: { title: string } | null }>("/api/books/manual", {
+        method: "POST",
+        body: JSON.stringify({ title, author: manualAuthor.trim(), isbn: manualIsbn.trim() }),
+      });
+      setOkMsg(`✅ ${r.record?.title ?? title} añadido en Libros`);
+      setStatus("ok");
+      setManualOpen(false);
+      setManualTitle("");
+      setManualAuthor("");
+      setManualIsbn("");
+    } catch (e) {
+      setErrorMsg(errMsg(e, "No se pudo añadir el libro"));
+      setStatus("error");
+    } finally {
+      setManualSaving(false);
+    }
   }
 
   // Share de un enlace de LIBRO: detecta el libro, busca (por ISBN o título) y,
@@ -656,6 +691,49 @@ export default function ImportarScreen() {
         </Card>
       )}
 
+      {type === "book" && (
+        <Card>
+          {!manualOpen ? (
+            <Pressable onPress={() => setManualOpen(true)} style={styles.manualToggle}>
+              <Ionicons name="create-outline" size={16} color={th.primary} />
+              <Text style={[styles.manualToggleText, { color: th.primary }]}>¿No aparece? Añádelo a mano</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.manualForm}>
+              <Text style={[styles.hintTitle, { color: th.textMuted }]}>Añadir libro a mano</Text>
+              <TextInput
+                placeholder="Título *"
+                placeholderTextColor={th.textSubtle}
+                value={manualTitle}
+                onChangeText={setManualTitle}
+                style={[styles.input, { color: th.text, borderColor: th.border, backgroundColor: th.bg }]}
+              />
+              <TextInput
+                placeholder="Autor"
+                placeholderTextColor={th.textSubtle}
+                value={manualAuthor}
+                onChangeText={setManualAuthor}
+                style={[styles.input, { color: th.text, borderColor: th.border, backgroundColor: th.bg }]}
+              />
+              <TextInput
+                placeholder="ISBN (opcional)"
+                placeholderTextColor={th.textSubtle}
+                value={manualIsbn}
+                onChangeText={setManualIsbn}
+                keyboardType="numbers-and-punctuation"
+                autoCapitalize="none"
+                style={[styles.input, { color: th.text, borderColor: th.border, backgroundColor: th.bg }]}
+              />
+              <Button
+                label={manualSaving ? "Guardando…" : "Guardar libro"}
+                onPress={submitManual}
+                disabled={manualTitle.trim().length < 2 || manualSaving}
+              />
+            </View>
+          )}
+        </Card>
+      )}
+
       </ScrollView>
 
       {isExtracting && (
@@ -718,6 +796,9 @@ const styles = StyleSheet.create({
   progressTrack: { height: 6, borderRadius: 999, overflow: "hidden", marginTop: 12 },
   progressFill: { height: 6, borderRadius: 999, minWidth: 6 },
   resultText: { fontSize: 14, fontWeight: "500" },
+  manualToggle: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 2 },
+  manualToggleText: { fontSize: 14, fontWeight: "600" },
+  manualForm: { gap: 10 },
   remoteToggle: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 2 },
   remoteLabel: { fontSize: 13, fontWeight: "500" },
   sourcesRow: { flexDirection: "row", gap: 8 },
