@@ -132,16 +132,17 @@ export default function BookDetail() {
             {book.averageRating != null ? (
               <Text style={[styles.rating, { color: th.accent }]}>★ {book.averageRating.toFixed(1)}</Text>
             ) : null}
+            {/* Compartir + abrir, abajo-derecha del hero: pegados al thumbnail y
+                justo encima de la ficha. marginTop:auto los empuja al fondo del
+                hero (que se estira a la altura de la portada). */}
+            <ShareOpenActions
+              style={styles.heroActions}
+              onShare={onShare}
+              onOpen={detailUrl ? () => void Linking.openURL(detailUrl) : undefined}
+              openLabel={`Ver en ${sourceLabel}`}
+            />
           </View>
         </View>
-
-        {/* Compartir + abrir en el proveedor, a la derecha y justo encima de la ficha. */}
-        <ShareOpenActions
-          style={styles.actions}
-          onShare={onShare}
-          onOpen={detailUrl ? () => void Linking.openURL(detailUrl) : undefined}
-          openLabel={`Ver en ${sourceLabel}`}
-        />
 
         {rows.length > 0 && (
           <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
@@ -171,7 +172,7 @@ export default function BookDetail() {
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   content: { padding: 16, gap: 6, paddingBottom: 40 },
-  hero: { flexDirection: "row", gap: 14, alignItems: "flex-start" },
+  hero: { flexDirection: "row", gap: 14, alignItems: "stretch" },
   cover: { width: 110, height: 165, borderRadius: 8 },
   coverPlaceholder: { alignItems: "center", justifyContent: "center" },
   heroInfo: { flex: 1, gap: 3 },
@@ -185,5 +186,5 @@ const styles = StyleSheet.create({
   rowVal: { fontSize: 13, fontWeight: "600", flexShrink: 1, textAlign: "right" },
   descTitle: { fontSize: 12, fontWeight: "600", marginBottom: 6 },
   descText: { fontSize: 14, lineHeight: 20 },
-  actions: { alignSelf: "flex-end", marginTop: 2 },
+  heroActions: { alignSelf: "flex-end", marginTop: "auto" },
 });
