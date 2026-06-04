@@ -101,7 +101,7 @@ export function ArticleWebViewScreen({ article }: { article: Article }) {
     setReloadKey((k) => k + 1);
   }
 
-  // Compartir = captura del bloque del título (con "Compartido desde Nidokey")
+  // Compartir = captura del bloque del título (con "NIDOKEY")
   // + enlace TOCABLE a la noticia.
   async function onShare() {
     try {
@@ -117,7 +117,7 @@ export function ArticleWebViewScreen({ article }: { article: Article }) {
       await RNShare.open({
         url: fileUrl,
         type: "image/png",
-        message: `${article.title}\n${article.url}\n\nCompartido desde Nidokey`,
+        message: `${article.title}\n${article.url}\n\nNIDOKEY`,
         failOnCancel: false,
       });
     } catch (err) {
@@ -149,7 +149,7 @@ export function ArticleWebViewScreen({ article }: { article: Article }) {
           <Text style={[styles.summary, { color: th.textSubtle }]}>Cargando resumen…</Text>
         ) : null}
         {capturing ? (
-          <Text style={[styles.brandFooter, { color: th.textSubtle }]}>Compartido desde Nidokey</Text>
+          <Text style={[styles.brandFooter, { color: th.textSubtle }]}>NIDOKEY</Text>
         ) : null}
       </View>
 

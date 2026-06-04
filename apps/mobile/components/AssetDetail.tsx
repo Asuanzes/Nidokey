@@ -193,7 +193,7 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
   ];
 
   // Compartir = captura del bloque (nombre + precio + gráfico, con el pie
-  // "Compartido desde Nidokey") + enlace TOCABLE a Yahoo Finanzas.
+  // "NIDOKEY") + enlace TOCABLE a Yahoo Finanzas.
   async function onShare() {
     try {
       setCapturing(true);
@@ -208,7 +208,7 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
       await RNShare.open({
         url: fileUrl,
         type: "image/png",
-        message: `${symbol} · ${recordTitle}\n${yahooUrl}\n\nCompartido desde Nidokey`,
+        message: `${symbol} · ${recordTitle}\n${yahooUrl}\n\nNIDOKEY`,
         failOnCancel: false,
       });
     } catch (e) {
@@ -330,7 +330,7 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
 
         {capturing ? (
           <Text style={[styles.brandFooter, { color: th.textSubtle }]}>
-            Compartido desde Nidokey
+            NIDOKEY
           </Text>
         ) : null}
         </View>
