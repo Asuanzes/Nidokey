@@ -14,8 +14,8 @@ import ShareMenu from "react-native-share-menu";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { ThemeContext, T, TD, useTheme } from "@/lib/theme";
-import { isPortalUrl, extractSharedUrl } from "@/lib/portal-url";
-import { isBookUrl } from "@/lib/book-url";
+import { isPortalUrl, extractSharedText } from "@/lib/portal-url";
+import { isBookShareText } from "@/lib/book-url";
 import { PendingImportProvider, usePendingImport } from "@/lib/pending-import";
 import { BrandLoading } from "@/components/BrandLoading";
 import { BootProvider, useBoot } from "@/lib/boot-context";
@@ -81,7 +81,7 @@ function AuthGate() {
   const { th } = useTheme();
   const segments = useSegments();
   const router = useRouter();
-  const { setUrl } = usePendingImport();
+  const { setUrl, setBookShare } = usePendingImport();
 
   // El loader (bolitas) se queda hasta que: la sesión está resuelta + (si está
   // logueado) los REGISTROS de la primera pantalla (Inmuebles) ya cargaron + un
@@ -134,20 +134,35 @@ function AuthGate() {
   useEffect(() => {
     if (state.kind !== "authed") return;
     let alive = true;
-    const go = (u: string | null) => {
-      if (alive && u) {
+    // Inmueble: una URL de PORTAL (compartida o abierta como app-link) → flujo property.
+    const goProperty = (u: string | null) => {
+      if (alive && u && isPortalUrl(u)) {
         setUrl(u);
         router.navigate("/importar");
       }
     };
-    Linking.getInitialURL().then((u) => go(u && (isPortalUrl(u) || isBookUrl(u)) ? u : null));
-    const linkSub = Linking.addEventListener("url", ({ url }) =>
-      go(isPortalUrl(url) || isBookUrl(url) ? url : null)
-    );
+    // Compartir TEXTO: Amazon/tiendas mandan "Título … <enlace>" (a veces enlace
+    // corto sin ISBN). Si el texto trae una URL de portal → inmueble; si parece un
+    // libro (ISBN o host de libros) → libro, que se resuelve por ISBN o por título.
+    const goShared = (text: string | null) => {
+      if (!alive || !text) return;
+      const url = text.match(/https?:\/\/[^\s]+/)?.[0] ?? null;
+      if (url && isPortalUrl(url)) {
+        setUrl(url);
+        router.navigate("/importar");
+        return;
+      }
+      if (isBookShareText(text)) {
+        setBookShare(text);
+        router.navigate("/importar");
+      }
+    };
+    Linking.getInitialURL().then((u) => goProperty(u ?? null));
+    const linkSub = Linking.addEventListener("url", ({ url }) => goProperty(url));
     let shareSub: { remove?: () => void } | undefined;
     try {
-      ShareMenu.getInitialShare((data) => go(extractSharedUrl(data)));
-      shareSub = ShareMenu.addNewShareListener((data) => go(extractSharedUrl(data)));
+      ShareMenu.getInitialShare((data) => goShared(extractSharedText(data)));
+      shareSub = ShareMenu.addNewShareListener((data) => goShared(extractSharedText(data)));
     } catch {
       // react-native-share-menu no disponible (p. ej. web) → ignorar.
     }
@@ -156,7 +171,7 @@ function AuthGate() {
       linkSub.remove();
       shareSub?.remove?.();
     };
-  }, [state.kind, router, setUrl]);
+  }, [state.kind, router, setUrl, setBookShare]);
 
   return (
     <>

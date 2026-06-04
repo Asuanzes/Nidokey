@@ -15,7 +15,7 @@ import { RECORD_TYPES } from "@nidokey/shared";
 import { useRecordCategory } from "@/lib/records/category-context";
 import { usePendingImport } from "@/lib/pending-import";
 import { isPortalUrl } from "@/lib/portal-url";
-import { isBookUrl, bookUrlQuery } from "@/lib/book-url";
+import { bookShareQuery } from "@/lib/book-url";
 import { useTheme } from "@/lib/theme";
 import { api, ApiError } from "@/lib/api";
 import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
@@ -78,8 +78,8 @@ export default function ImportarScreen() {
   // si es un ISBN (match fiable), lo añade solo; si no, deja los resultados para
   // que elijas. Reutiliza la búsqueda + el import existentes.
   const importBookShare = useCallback(
-    async (rawUrl: string) => {
-      const parsed = bookUrlQuery(rawUrl);
+    async (sharedText: string) => {
+      const parsed = bookShareQuery(sharedText);
       setType("book");
       setOkMsg(null);
       setErrorMsg(null);
@@ -127,35 +127,39 @@ export default function ImportarScreen() {
     [setType]
   );
 
-  // Share / deep-link: inmuebles (URL de portal) o libros (URL de libro). Auto-
-  // arranca la acción → no hay que pulsar nada.
-  const handleIncomingUrl = useCallback(
-    (u: string) => {
-      if (isBookUrl(u)) {
-        void importBookShare(u);
-        return;
-      }
-      if (isPortalUrl(u)) {
-        setType("property");
-        setValue(u);
-        setOkMsg(null);
-        setErrorMsg(null);
-        setProgress(0);
-        setStatus("extracting");
-      }
-    },
-    [importBookShare]
-  );
+  // Share/deep-link de INMUEBLE: una URL de portal → flujo property (WebView).
+  const handleIncomingUrl = useCallback((u: string) => {
+    if (isPortalUrl(u)) {
+      setType("property");
+      setValue(u);
+      setOkMsg(null);
+      setErrorMsg(null);
+      setProgress(0);
+      setStatus("extracting");
+    }
+  }, []);
 
-  // El layout raíz captura el share/deep-link (estés donde estés) y deja la URL
-  // aquí; la consumimos: auto-arranca la importación y la limpiamos.
-  const { url: pendingUrl, setUrl: setPendingUrl } = usePendingImport();
+  // El layout raíz captura el share/deep-link (estés donde estés) y deja aquí la
+  // URL de inmueble O el TEXTO compartido de un libro; consumimos cada canal y lo
+  // limpiamos (patrón consumidor → un segundo share igual vuelve a dispararse).
+  const {
+    url: pendingUrl,
+    setUrl: setPendingUrl,
+    bookShare: pendingBookShare,
+    setBookShare: setPendingBookShare,
+  } = usePendingImport();
   useEffect(() => {
     if (pendingUrl) {
       handleIncomingUrl(pendingUrl);
       setPendingUrl(null);
     }
   }, [pendingUrl, handleIncomingUrl, setPendingUrl]);
+  useEffect(() => {
+    if (pendingBookShare) {
+      void importBookShare(pendingBookShare);
+      setPendingBookShare(null);
+    }
+  }, [pendingBookShare, importBookShare, setPendingBookShare]);
 
   // ── Buscador (mercados / empleo): nombre/ticker/keywords → candidatos ──────
   // Guard de respuesta obsoleta por id de ejecución (evita pisar con una vieja).
@@ -167,7 +171,7 @@ export default function ImportarScreen() {
       // Books, una tienda…), extrae el ISBN/título de la URL y busca por eso,
       // no por la URL cruda (que no devuelve nada).
       if (type === "book") {
-        const parsed = bookUrlQuery(q);
+        const parsed = bookShareQuery(q);
         if (parsed) q = parsed.query;
       }
       // Empleo: se puede buscar solo por zona (puesto vacío).

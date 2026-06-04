@@ -15,6 +15,7 @@ const BOOK_HOSTS = [
   "openlibrary.org",
   "goodreads.com",
   "amazon.",
+  "amzn.",
   "casadellibro.",
   "todostuslibros.",
   "fnac.",
@@ -76,4 +77,53 @@ function safeDecode(s: string): string {
 }
 function slug(s: string): string {
   return s.replace(/[-_+]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+// ── Share de TEXTO (título + enlace) ─────────────────────────────────────────
+// Muchas apps (Amazon, tiendas) comparten "Título … <enlace>" como text/plain, y
+// el enlace suele ser CORTO sin ISBN (amzn.eu/d/XXXX). Lo identificable es el
+// TÍTULO en el texto. Estas funciones trabajan sobre el texto compartido COMPLETO.
+
+function firstUrl(text: string): string | null {
+  const m = text.match(/https?:\/\/[^\s]+/);
+  return m ? m[0] : null;
+}
+
+function isBookHost(url: string): boolean {
+  const low = url.toLowerCase();
+  return BOOK_HOSTS.some((h) => low.includes(h));
+}
+
+/** ¿El texto compartido parece un libro? (lleva un ISBN, o un enlace de un host
+ *  de libros conocido — Amazon/amzn, Google Books, Open Library, tiendas…). */
+export function isBookShareText(text: string): boolean {
+  if (!text) return false;
+  if (extractIsbn(text)) return true;
+  const url = firstUrl(text);
+  return !!(url && isBookHost(url));
+}
+
+/** Query buscable a partir del texto compartido: ISBN si lo hay (match fiable →
+ *  añadir solo); si no, el TÍTULO (el texto sin la URL ni el "(Editorial)" final).
+ *  null si no hay nada útil. Sirve igual para texto compartido y para pegar. */
+export function bookShareQuery(text: string): { query: string; isbn: boolean } | null {
+  const t = (text ?? "").trim();
+  if (!t) return null;
+  const isbn = extractIsbn(t);
+  if (isbn) return { query: isbn, isbn: true };
+  const url = firstUrl(t);
+  if (url && isBookHost(url)) {
+    let title = t
+      .replace(/https?:\/\/[^\s]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/\s*\([^)]*\)\s*$/, "") // quita "(Editorial)" del final
+      .trim();
+    // El título PRINCIPAL (antes del subtítulo tras ":") casa mejor en la
+    // búsqueda que la cadena larga que mandan Amazon/tiendas.
+    const main = title.split(":")[0].trim();
+    if (main.length >= 3) title = main;
+    if (title.length >= 3) return { query: title, isbn: false };
+  }
+  return null;
 }

@@ -1,5 +1,3 @@
-import { isBookUrl } from "@/lib/book-url";
-
 /** Hosts de portales inmobiliarios soportados para importar por URL/compartir. */
 export const PORTAL_HOSTS = [
   "fotocasa.", "pisos.com", "habitaclia.", "thinkspain.", "indomio.",
@@ -16,11 +14,12 @@ export function isPortalUrl(u: string): boolean {
 }
 
 /**
- * Extrae la primera URL de portal de un payload de share
- * (react-native-share-menu). `data.data` puede ser string o array de
- * { data } / strings, según el origen del intent.
+ * Texto crudo compartido (string) de un payload de react-native-share-menu.
+ * `data.data` puede ser string o array de { data } / strings según el origen.
+ * Devuelve el TEXTO completo (puede ser "Título … URL"); la clasificación
+ * (inmueble por URL de portal vs libro por isBookShareText) se hace fuera.
  */
-export function extractSharedUrl(
+export function extractSharedText(
   data: { data?: unknown } | null | undefined
 ): string | null {
   const raw = data?.data;
@@ -29,8 +28,7 @@ export function extractSharedUrl(
   for (const item of items) {
     const text =
       typeof item === "string" ? item : ((item as { data?: string })?.data ?? "");
-    const match = String(text).match(/https?:\/\/[^\s]+/);
-    if (match && (isPortalUrl(match[0]) || isBookUrl(match[0]))) return match[0];
+    if (text) return String(text);
   }
   return null;
 }
