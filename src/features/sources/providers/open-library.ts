@@ -42,3 +42,24 @@ export async function openLibraryWork(workId: string): Promise<unknown | null> {
   if (!id) return null;
   return getJson(`https://openlibrary.org/works/${encodeURIComponent(id)}.json`);
 }
+
+/** Sinopsis (description) de un work, si la hay. La búsqueda NO la trae, así que
+ *  se usa para enriquecer al guardar. `description` puede ser string o
+ *  `{ value }`; limpia las referencias markdown típicas de OL. */
+export async function openLibraryWorkDescription(workId: string): Promise<string | null> {
+  const work = await openLibraryWork(workId);
+  const d = (work as { description?: unknown })?.description;
+  let txt =
+    typeof d === "string"
+      ? d
+      : typeof (d as { value?: unknown })?.value === "string"
+      ? (d as { value: string }).value
+      : null;
+  if (!txt) return null;
+  txt = txt
+    .replace(/\(\[[^\]]*\]\[\d+\]\)/g, "") // "([source][1])"
+    .replace(/\n?\[\d+\]:\s*\S+/g, "") // "[1]: https://…"
+    .replace(/\s+/g, " ")
+    .trim();
+  return txt || null;
+}

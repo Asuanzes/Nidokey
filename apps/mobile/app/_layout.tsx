@@ -15,6 +15,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { ThemeContext, T, TD, useTheme } from "@/lib/theme";
 import { isPortalUrl, extractSharedUrl } from "@/lib/portal-url";
+import { isBookUrl } from "@/lib/book-url";
 import { PendingImportProvider, usePendingImport } from "@/lib/pending-import";
 import { BrandLoading } from "@/components/BrandLoading";
 import { BootProvider, useBoot } from "@/lib/boot-context";
@@ -139,9 +140,9 @@ function AuthGate() {
         router.navigate("/importar");
       }
     };
-    Linking.getInitialURL().then((u) => go(u && isPortalUrl(u) ? u : null));
+    Linking.getInitialURL().then((u) => go(u && (isPortalUrl(u) || isBookUrl(u)) ? u : null));
     const linkSub = Linking.addEventListener("url", ({ url }) =>
-      go(isPortalUrl(url) ? url : null)
+      go(isPortalUrl(url) || isBookUrl(url) ? url : null)
     );
     let shareSub: { remove?: () => void } | undefined;
     try {

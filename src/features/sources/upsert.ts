@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import type { CryptoHolding, MarketInstrument, JobListing, BookRecord } from "@prisma/client";
 import type { NormalizedRecord } from "@/features/sources/types";
+import type { Book } from "@nidokey/shared";
+import { openLibraryWorkDescription } from "@/features/sources/providers/open-library";
 
 /**
  * Persiste un NormalizedRecord en su tabla de tipo. Generaliza el split
@@ -208,7 +210,19 @@ async function upsertBook(
   ownerId: string,
   n: NormalizedRecord
 ): Promise<{ id: string; created: boolean; valueChanged: boolean }> {
-  const meta = (n.meta ?? {}) as Record<string, unknown>;
+  const meta = { ...((n.meta ?? {}) as Record<string, unknown>) };
+  // Sinopsis: Open Library no la trae en la búsqueda → la enriquecemos del work
+  // API al guardar (Google sí la trae en volumeInfo). Best-effort, una llamada
+  // gratis; si falla, se guarda sin sinopsis.
+  const book = meta.book as Book | undefined;
+  if (book?.source === "OPEN_LIBRARY" && !book.description && book.externalIds?.openLibraryWorkId) {
+    try {
+      const desc = await openLibraryWorkDescription(book.externalIds.openLibraryWorkId);
+      if (desc) meta.book = { ...book, description: desc };
+    } catch {
+      /* sin sinopsis → seguimos */
+    }
+  }
   const str = (k: string) => (typeof meta[k] === "string" ? (meta[k] as string) : null);
   const source = n.source;
   const externalId = n.externalId ?? null;

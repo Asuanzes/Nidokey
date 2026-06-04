@@ -1,3 +1,5 @@
+import { isBookUrl } from "@/lib/book-url";
+
 /** Hosts de portales inmobiliarios soportados para importar por URL/compartir. */
 export const PORTAL_HOSTS = [
   "fotocasa.", "pisos.com", "habitaclia.", "thinkspain.", "indomio.",
@@ -28,7 +30,7 @@ export function extractSharedUrl(
     const text =
       typeof item === "string" ? item : ((item as { data?: string })?.data ?? "");
     const match = String(text).match(/https?:\/\/[^\s]+/);
-    if (match && isPortalUrl(match[0])) return match[0];
+    if (match && (isPortalUrl(match[0]) || isBookUrl(match[0]))) return match[0];
   }
   return null;
 }

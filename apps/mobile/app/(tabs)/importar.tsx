@@ -15,6 +15,7 @@ import { RECORD_TYPES } from "@nidokey/shared";
 import { useRecordCategory } from "@/lib/records/category-context";
 import { usePendingImport } from "@/lib/pending-import";
 import { isPortalUrl } from "@/lib/portal-url";
+import { isBookUrl, bookUrlQuery } from "@/lib/book-url";
 import { useTheme } from "@/lib/theme";
 import { api, ApiError } from "@/lib/api";
 import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
@@ -73,18 +74,78 @@ export default function ImportarScreen() {
     setErrorMsg(null);
   }
 
-  // Share / deep-link: solo aplica a inmuebles (URL de portal). Auto-arranca la
-  // importación (status "extracting") → no hay que pulsar "Importar".
-  const handleIncomingUrl = useCallback((u: string) => {
-    if (isPortalUrl(u)) {
-      setType("property");
-      setValue(u);
+  // Share de un enlace de LIBRO: detecta el libro, busca (por ISBN o título) y,
+  // si es un ISBN (match fiable), lo añade solo; si no, deja los resultados para
+  // que elijas. Reutiliza la búsqueda + el import existentes.
+  const importBookShare = useCallback(
+    async (rawUrl: string) => {
+      const parsed = bookUrlQuery(rawUrl);
+      setType("book");
       setOkMsg(null);
       setErrorMsg(null);
-      setProgress(0);
-      setStatus("extracting");
-    }
-  }, []);
+      setStatus("idle");
+      if (!parsed) {
+        setValue("");
+        setErrorMsg("No reconocí ese enlace de libro. Búscalo por título, autor o ISBN.");
+        return;
+      }
+      setValue(parsed.query);
+      setResults([]);
+      setAddedKeys(new Set());
+      setHasSearched(false);
+      setSearching(true);
+      let hits: SearchHit[] = [];
+      try {
+        const res = await api<{ results: SearchHit[] }>(
+          `/api/records/search?type=book&q=${encodeURIComponent(parsed.query)}`
+        );
+        hits = res.results ?? [];
+        setResults(hits);
+      } catch {
+        setResults([]);
+      } finally {
+        setSearching(false);
+        setHasSearched(true);
+      }
+      // ISBN = coincidencia fiable → añade el primero automáticamente.
+      if (parsed.isbn && hits.length > 0 && hits[0].record) {
+        setStatus("sending");
+        try {
+          const r = await api<RecordImportResult>("/api/records/import", {
+            method: "POST",
+            body: JSON.stringify({ type: "book", input: { kind: "record", record: hits[0].record } }),
+          });
+          setOkMsg(`✅ ${r.record?.title ?? hits[0].name ?? "Libro"} añadido en Libros`);
+          setStatus("ok");
+          setAddedKeys(new Set([0]));
+        } catch (e) {
+          setErrorMsg(errMsg(e, "No se pudo añadir el libro"));
+          setStatus("error");
+        }
+      }
+    },
+    [setType]
+  );
+
+  // Share / deep-link: inmuebles (URL de portal) o libros (URL de libro). Auto-
+  // arranca la acción → no hay que pulsar nada.
+  const handleIncomingUrl = useCallback(
+    (u: string) => {
+      if (isBookUrl(u)) {
+        void importBookShare(u);
+        return;
+      }
+      if (isPortalUrl(u)) {
+        setType("property");
+        setValue(u);
+        setOkMsg(null);
+        setErrorMsg(null);
+        setProgress(0);
+        setStatus("extracting");
+      }
+    },
+    [importBookShare]
+  );
 
   // El layout raíz captura el share/deep-link (estés donde estés) y deja la URL
   // aquí; la consumimos: auto-arranca la importación y la limpiamos.
@@ -557,6 +618,8 @@ export default function ImportarScreen() {
           <Text style={[styles.hintText, { color: th.textSubtle }]}>
             {type === "job"
               ? "Elige las fuentes (InfoJobs, LinkedIn, Indeed) y escribe el puesto y/o la ciudad o zona. Puedes dejar el puesto vacío y buscar todo lo que haya en esa zona. Pulsa Buscar y elige una oferta para guardarla en tus Empleos."
+              : type === "book"
+              ? "Busca por título, autor, ISBN o palabra clave (p. ej. “sapiens”, “Yuval Harari”, “9780099590088”), pulsa Buscar y elige el libro de la lista para guardarlo en tus Libros."
               : "Escribe el nombre o el ticker (p. ej. “sxr8”, “apple”, “vaneck space”) y elige el correcto de la lista — con su bolsa. Sin sufijos ni colisiones."}
           </Text>
         </Card>
