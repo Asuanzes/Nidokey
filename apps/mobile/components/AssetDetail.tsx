@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   View,
@@ -13,6 +13,8 @@ import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LineChart } from "react-native-wagmi-charts";
+import { captureRef } from "react-native-view-shot";
+import RNShare from "react-native-share";
 
 import { type BaseRecord, metaField } from "@nidokey/shared";
 import { api } from "@/lib/api";
@@ -54,6 +56,8 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rangeKey, setRangeKey] = useState("1S");
+  const shotRef = useRef<View>(null);
+  const [capturing, setCapturing] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -160,6 +164,8 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
 
   const isMarket = type === "market";
   const symbol = metaField<string>(record, "symbol", record.title);
+  const yahooUrl = `https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}`;
+  const recordTitle = record.title;
   const quote = metaField<string>(record, "quoteCurrency", "EUR");
   const quoteCur = (chart?.currency ?? quote).toUpperCase();
   const change24h = metaField<number | null>(record, "change24h", null);
@@ -186,21 +192,34 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
     ["Moneda", quoteCur],
   ];
 
-  // Mensaje a compartir: símbolo · nombre · precio actual · cambio del rango.
-  const priceStr = record.primaryValue ?? (lastPrice != null ? formatPrice(lastPrice, quoteCur) : "");
-  const pctStr = rangePct != null ? `${up ? "+" : ""}${rangePct.toFixed(2).replace(".", ",")} %` : "";
-  const shareMessage =
-    `${symbol} · ${record.title}\n${priceStr}${pctStr ? `  (${pctStr} · ${range.label})` : ""}`.trim() +
-    "\n\nSeguido con Nidokey";
-
+  // Compartir = captura del bloque (nombre + precio + gráfico, con el pie
+  // "Compartido desde Nidokey") + enlace TOCABLE a Yahoo Finanzas.
   async function onShare() {
     try {
-      await Share.share({ message: shareMessage });
+      setCapturing(true);
+      await new Promise((r) => setTimeout(r, 60)); // deja renderizar el pie de marca
+      let uri: string;
+      try {
+        uri = await captureRef(shotRef, { format: "png", quality: 1 });
+      } finally {
+        setCapturing(false);
+      }
+      const fileUrl = uri.startsWith("file://") ? uri : `file://${uri}`;
+      await RNShare.open({
+        url: fileUrl,
+        type: "image/png",
+        message: `${symbol} · ${recordTitle}\n${yahooUrl}\n\nCompartido desde Nidokey`,
+        failOnCancel: false,
+      });
     } catch (e) {
-      // Cancelar NO lanza (resuelve con dismissedAction); aquí solo llegan
-      // errores reales. Log para depurar si el diálogo "no sale".
+      setCapturing(false);
       console.warn("[share]", e instanceof Error ? e.message : e);
     }
+  }
+
+  // Abre el activo en Yahoo Finanzas (navegador externo) con el mismo símbolo.
+  function openYahoo() {
+    void Linking.openURL(yahooUrl);
   }
 
   return (
@@ -210,6 +229,8 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Bloque capturable al compartir: nombre + precio + gráfico (sin stats). */}
+        <View ref={shotRef} collapsable={false} style={{ backgroundColor: th.bg }}>
         {/* ── Cabecera ── */}
         <View style={styles.headerRow}>
           {logoUri ? (
@@ -307,6 +328,13 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
           )}
         </View>
 
+        {capturing ? (
+          <Text style={[styles.brandFooter, { color: th.textSubtle }]}>
+            Compartido desde Nidokey
+          </Text>
+        ) : null}
+        </View>
+
         {/* ── Stats ── */}
         <View style={[styles.statsCard, { backgroundColor: th.surface, borderColor: th.border }]}>
           {stats.map(([k, v]) => (
@@ -318,31 +346,38 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
         </View>
       </ScrollView>
 
-      {/* ── Barra inferior: cerrar (izq) · compartir (der, más grande) ── */}
-      <View
-        style={[
-          styles.bottomBar,
-          { backgroundColor: th.surface, borderTopColor: th.border, paddingBottom: insets.bottom + 10 },
-        ]}
-      >
+      {/* ── Barra inferior: cerrar (izq) · compartir + abrir en Yahoo (der) ──
+          Iconos bronce sobre fondo superficie (blanco en claro / negro en oscuro). */}
+      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 10 }]}>
         <Pressable
           onPress={() => router.back()}
           hitSlop={10}
-          style={[styles.iconBtn, { backgroundColor: th.bg, borderColor: th.border }]}
+          style={({ pressed }) => [styles.fab, { backgroundColor: th.surface, borderColor: th.border }, pressed && { opacity: 0.85 }]}
           accessibilityRole="button"
           accessibilityLabel="Cerrar"
         >
           <Ionicons name="close" size={22} color={th.text} />
         </Pressable>
-        <Pressable
-          onPress={onShare}
-          hitSlop={10}
-          style={({ pressed }) => [styles.shareBtn, { backgroundColor: th.primary }, pressed && { opacity: 0.85 }]}
-          accessibilityRole="button"
-          accessibilityLabel="Compartir"
-        >
-          <Ionicons name="share-social-outline" size={24} color="#fff" />
-        </Pressable>
+        <View style={styles.fabGroup}>
+          <Pressable
+            onPress={onShare}
+            hitSlop={10}
+            style={({ pressed }) => [styles.fab, { backgroundColor: th.surface, borderColor: th.border }, pressed && { opacity: 0.85 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Compartir"
+          >
+            <Ionicons name="share-social-outline" size={22} color={th.primary} />
+          </Pressable>
+          <Pressable
+            onPress={openYahoo}
+            hitSlop={10}
+            style={({ pressed }) => [styles.fab, { backgroundColor: th.surface, borderColor: th.border }, pressed && { opacity: 0.85 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir en Yahoo Finanzas"
+          >
+            <Ionicons name="open-outline" size={22} color={th.primary} />
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -381,14 +416,20 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingTop: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
   },
-  shareBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+  fabGroup: { flexDirection: "row", gap: 12 },
+  fab: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 5,
   },
   headerRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 8 },
   logoChip: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, backgroundColor: "#fff", alignItems: "center", justifyContent: "center", overflow: "hidden" },
@@ -413,4 +454,5 @@ const styles = StyleSheet.create({
   statRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 11 },
   statKey: { fontSize: 13 },
   statVal: { fontSize: 13, fontWeight: "600" },
+  brandFooter: { textAlign: "center", fontSize: 11, letterSpacing: 1, marginTop: 14, marginBottom: 2 },
 });

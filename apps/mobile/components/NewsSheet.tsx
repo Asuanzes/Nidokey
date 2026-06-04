@@ -1,9 +1,12 @@
 import { useMemo } from "react";
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
+
+import { router } from "expo-router";
 
 import { useTheme } from "@/lib/theme";
 import { useNews } from "@/lib/hooks/useNews";
+import { newsItemToArticle } from "@/lib/article";
 
 export type NewsAsset = { symbol: string; name: string };
 
@@ -63,7 +66,12 @@ export function NewsSheet({ type, assets }: { type: "crypto" | "market"; assets:
           return (
             <Pressable
               key={it.url}
-              onPress={() => void Linking.openURL(it.url)}
+              onPress={() =>
+                router.push({
+                  pathname: "/article",
+                  params: { article: JSON.stringify(newsItemToArticle(it)) },
+                } as never)
+              }
               style={({ pressed }) => [
                 styles.item,
                 { borderBottomColor: th.border },

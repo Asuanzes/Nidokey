@@ -183,6 +183,17 @@ function AuthGate() {
               title: "Empleo",
             }}
           />
+          <Stack.Screen
+            name="article"
+            options={{
+              headerShown: true,
+              headerBackTitle: "Atrás",
+              headerTintColor: th.primary,
+              headerStyle: { backgroundColor: th.surface },
+              headerTitleStyle: { color: th.text },
+              title: "Noticia",
+            }}
+          />
           <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
           <Stack.Screen
             name="tools/mortgage"
