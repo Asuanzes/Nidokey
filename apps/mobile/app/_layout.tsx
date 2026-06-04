@@ -114,13 +114,18 @@ function AuthGate() {
   // debajo del overlay), así la pantalla de registros monta y empieza a cargar.
   useEffect(() => {
     if (!authResolved) return;
+    // Mismo guard que el efecto del share: el <Stack> se renderiza condicionalmente
+    // (`authResolved ? <Stack> : null`), así que monta tarde y este redirect corre en
+    // la MISMA transición que lo revela → sin esperar a que el navegador raíz esté
+    // montado, router.replace puede lanzar "navigate before mounting" en frío.
+    if (!rootNavState?.key) return;
     const onLogin = segments[0] === "login";
     if (state.kind === "unauthed" && !onLogin) {
       router.replace("/login");
     } else if (state.kind === "authed" && onLogin) {
       router.replace("/(tabs)");
     }
-  }, [authResolved, state, segments, router]);
+  }, [authResolved, rootNavState?.key, state, segments, router]);
 
   // Ocultar el splash nativo en cuanto monta el JS, para que SÍ se vea la
   // pantalla de carga (BrandLoading) mientras se resuelve la sesión, en vez de
@@ -179,7 +184,9 @@ function AuthGate() {
       linkSub.remove();
       shareSub?.remove?.();
     };
-  }, [state.kind, router, setUrl, setBookShare]);
+    // rootNavState?.key en deps: re-ejecuta el efecto en cuanto el navegador monta
+    // (su `.key` es estable tras montar, no re-dispara en cada navegación).
+  }, [state.kind, rootNavState?.key, router, setUrl, setBookShare]);
 
   return (
     <>
