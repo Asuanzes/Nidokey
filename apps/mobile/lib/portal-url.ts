@@ -14,21 +14,16 @@ export function isPortalUrl(u: string): boolean {
 }
 
 /**
- * Extrae la primera URL de portal de un payload de share
- * (react-native-share-menu). `data.data` puede ser string o array de
- * { data } / strings, según el origen del intent.
+ * Extrae la URL de portal de un share de expo-share-intent: primero `webUrl`
+ * (URL directa, p. ej. al compartir una página desde Safari/Chrome); si no, la
+ * primera URL que aparezca dentro de `text`.
  */
 export function extractSharedUrl(
-  data: { data?: unknown } | null | undefined
+  shareIntent: { webUrl?: string | null; text?: string | null } | null | undefined
 ): string | null {
-  const raw = data?.data;
-  if (raw == null) return null;
-  const items = Array.isArray(raw) ? raw : [raw];
-  for (const item of items) {
-    const text =
-      typeof item === "string" ? item : ((item as { data?: string })?.data ?? "");
-    const match = String(text).match(/https?:\/\/[^\s]+/);
-    if (match && isPortalUrl(match[0])) return match[0];
-  }
+  if (!shareIntent) return null;
+  if (shareIntent.webUrl && isPortalUrl(shareIntent.webUrl)) return shareIntent.webUrl;
+  const match = String(shareIntent.text ?? "").match(/https?:\/\/[^\s]+/);
+  if (match && isPortalUrl(match[0])) return match[0];
   return null;
 }

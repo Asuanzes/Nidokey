@@ -15,22 +15,41 @@
     "android": {
       "intentFilters": [
         {
-          "action": "android.intent.action.SEND",
-          "data": [{ "mimeType": "text/plain" }],
-          "category": "android.intent.category.DEFAULT"
-        },
-        {
           "action": "android.intent.action.VIEW",
           "autoVerify": true,
           "data": [
-            { "scheme": "https", "host": "www.idealista.com" },
-            { "scheme": "https", "host": "www.fotocasa.es" },
-            { "scheme": "https", "host": "www.pisos.com" },
-            { "scheme": "https", "host": "www.habitaclia.com" },
-            { "scheme": "https", "host": "www.milanuncios.com" },
-            { "scheme": "https", "host": "www.yaencontre.com" },
-            { "scheme": "https", "host": "www.thinkspain.com" },
-            { "scheme": "https", "host": "www.indomio.es" }
+            {
+              "scheme": "https",
+              "host": "www.idealista.com"
+            },
+            {
+              "scheme": "https",
+              "host": "www.fotocasa.es"
+            },
+            {
+              "scheme": "https",
+              "host": "www.pisos.com"
+            },
+            {
+              "scheme": "https",
+              "host": "www.habitaclia.com"
+            },
+            {
+              "scheme": "https",
+              "host": "www.milanuncios.com"
+            },
+            {
+              "scheme": "https",
+              "host": "www.yaencontre.com"
+            },
+            {
+              "scheme": "https",
+              "host": "www.thinkspain.com"
+            },
+            {
+              "scheme": "https",
+              "host": "www.indomio.es"
+            }
           ],
           "category": "android.intent.category.DEFAULT",
           "category2": "android.intent.category.BROWSABLE"
@@ -62,6 +81,18 @@
             "image": "./assets/images/splash-blank.png",
             "backgroundColor": "#141413"
           }
+        }
+      ],
+      [
+        "expo-share-intent",
+        {
+          "iosActivationRules": {
+            "NSExtensionActivationSupportsText": true,
+            "NSExtensionActivationSupportsWebURLWithMaxCount": 1,
+            "NSExtensionActivationSupportsWebPageWithMaxCount": 1
+          },
+          "iosShareExtensionName": "Importar a Nidokey",
+          "androidIntentFilters": ["text/*"]
         }
       ]
     ],

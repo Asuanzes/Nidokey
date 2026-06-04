@@ -1,4 +1,4 @@
-import "@/lib/logbox"; // PRIMERO: silencia el warning de share-menu antes de importarlo
+import "@/lib/logbox"; // PRIMERO: silencia warnings de NativeEventEmitter de modulos nativos
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -9,7 +9,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as SecureStore from "expo-secure-store";
 import * as Linking from "expo-linking";
 import * as SplashScreen from "expo-splash-screen";
-import ShareMenu from "react-native-share-menu";
+import { ShareIntentProvider, useShareIntentContext } from "expo-share-intent";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
@@ -58,6 +58,7 @@ export default function RootLayout() {
   const th = dark ? TD : T;
 
   return (
+    <ShareIntentProvider options={{ resetOnBackground: true }}>
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: th.bg }}>
       <AuthProvider>
         <ThemeContext.Provider value={{ dark, th, toggleTheme }}>
@@ -72,6 +73,7 @@ export default function RootLayout() {
         </ThemeContext.Provider>
       </AuthProvider>
     </GestureHandlerRootView>
+    </ShareIntentProvider>
   );
 }
 
@@ -81,6 +83,7 @@ function AuthGate() {
   const segments = useSegments();
   const router = useRouter();
   const { setUrl } = usePendingImport();
+  const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
 
   // El loader (bolitas) se queda hasta que: la sesión está resuelta + (si está
   // logueado) los REGISTROS de la primera pantalla (Inmuebles) ya cargaron + un
@@ -125,37 +128,38 @@ function AuthGate() {
     SplashScreen.hideAsync().catch(() => {});
   }, []);
 
-  // Share intent (react-native-share-menu) + deep links (expo-linking): estés en
-  // la pantalla que estés, si llega una URL de portal la guardamos y navegamos a
-  // Importar, que la auto-importa mostrando la ventana de carga. Centralizado
-  // aquí (siempre montado) porque antes solo lo escuchaba Importar, que no está
-  // montada al compartir → el share se perdía y quedabas en la pantalla principal.
+  // Deep links (expo-linking): estés en la pantalla que estés, si llega una URL de
+  // portal por enlace la guardamos y navegamos a Importar (que la auto-importa).
   useEffect(() => {
     if (state.kind !== "authed") return;
     let alive = true;
     const go = (u: string | null) => {
-      if (alive && u) {
+      if (alive && u && isPortalUrl(u)) {
         setUrl(u);
         router.navigate("/importar");
       }
     };
-    Linking.getInitialURL().then((u) => go(u && isPortalUrl(u) ? u : null));
-    const linkSub = Linking.addEventListener("url", ({ url }) =>
-      go(isPortalUrl(url) ? url : null)
-    );
-    let shareSub: { remove?: () => void } | undefined;
-    try {
-      ShareMenu.getInitialShare((data) => go(extractSharedUrl(data)));
-      shareSub = ShareMenu.addNewShareListener((data) => go(extractSharedUrl(data)));
-    } catch {
-      // react-native-share-menu no disponible (p. ej. web) → ignorar.
-    }
+    Linking.getInitialURL().then((u) => go(u));
+    const linkSub = Linking.addEventListener("url", ({ url }) => go(url));
     return () => {
       alive = false;
       linkSub.remove();
-      shareSub?.remove?.();
     };
   }, [state.kind, router, setUrl]);
+
+  // Share-to-app (expo-share-intent): cuando llega un share con una URL de portal
+  // (hoja de Compartir de iOS / Android), navegamos a Importar y la auto-importamos.
+  // Centralizado aquí (siempre montado) para no perder el share si Importar no está
+  // montada. La Share Extension de iOS la genera el config plugin en el prebuild.
+  useEffect(() => {
+    if (state.kind !== "authed" || !hasShareIntent) return;
+    const url = extractSharedUrl(shareIntent);
+    if (url) {
+      setUrl(url);
+      router.navigate("/importar");
+    }
+    resetShareIntent();
+  }, [hasShareIntent, shareIntent, state.kind, router, setUrl, resetShareIntent]);
 
   return (
     <>
