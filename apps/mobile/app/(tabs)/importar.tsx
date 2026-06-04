@@ -162,7 +162,14 @@ export default function ImportarScreen() {
   const searchRunId = useRef(0);
   const runSearch = useCallback(
     async (raw: string) => {
-      const q = raw.trim();
+      let q = raw.trim();
+      // Libros: si pegas un ENLACE de libro (Casa del Libro, Amazon, Google
+      // Books, una tienda…), extrae el ISBN/título de la URL y busca por eso,
+      // no por la URL cruda (que no devuelve nada).
+      if (type === "book") {
+        const parsed = bookUrlQuery(q);
+        if (parsed) q = parsed.query;
+      }
       // Empleo: se puede buscar solo por zona (puesto vacío).
       const zoneOnly = type === "job" && searchLocation.trim().length > 0;
       if (q.length < 2 && !zoneOnly) {

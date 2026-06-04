@@ -15,12 +15,12 @@
     "android": {
       "intentFilters": [
         {
-          "action": "android.intent.action.SEND",
+          "action": "SEND",
           "data": [{ "mimeType": "text/plain" }],
-          "category": "android.intent.category.DEFAULT"
+          "category": "DEFAULT"
         },
         {
-          "action": "android.intent.action.VIEW",
+          "action": "VIEW",
           "autoVerify": true,
           "data": [
             { "scheme": "https", "host": "www.idealista.com" },
@@ -32,8 +32,7 @@
             { "scheme": "https", "host": "www.thinkspain.com" },
             { "scheme": "https", "host": "www.indomio.es" }
           ],
-          "category": "android.intent.category.DEFAULT",
-          "category2": "android.intent.category.BROWSABLE"
+          "category": ["DEFAULT", "BROWSABLE"]
         }
       ],
       "adaptiveIcon": {
