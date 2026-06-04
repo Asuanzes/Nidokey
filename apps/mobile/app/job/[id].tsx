@@ -2,20 +2,20 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import RNShare from "react-native-share";
 
 import { type BaseRecord, metaField } from "@nidokey/shared";
 import { api } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 import { provinceImage } from "@/lib/records/province-images";
+import { ShareOpenActions } from "@/components/ShareOpenActions";
 
 /**
  * Ficha propia de un empleo guardado. Muestra los datos scrapeados (lugar,
@@ -98,6 +98,19 @@ export default function JobDetail() {
     ] as [string, string | null][]
   ).filter((r): r is [string, string] => Boolean(r[1]));
 
+  const externalUrl = applyUrl || url;
+  const recordTitle = record.title;
+  async function onShare() {
+    const msg = [recordTitle, [company, location].filter(Boolean).join(" · "), externalUrl]
+      .filter((l): l is string => !!l)
+      .join("\n");
+    try {
+      await RNShare.open({ message: `${msg}\n\nNIDOKEY`, failOnCancel: false });
+    } catch {
+      // cancelado o sin app de destino → ignorar
+    }
+  }
+
   return (
     <>
       <Stack.Screen options={{ title: "Empleo" }} />
@@ -127,15 +140,14 @@ export default function JobDetail() {
           </View>
         )}
 
-        {url && (
-          <Pressable
-            onPress={() => void Linking.openURL(applyUrl || url)}
-            style={[styles.cta, { backgroundColor: th.primary }]}
-          >
-            <Ionicons name="open-outline" size={18} color="#fff" />
-            <Text style={styles.ctaText}>Ver oferta en {platformLabel}</Text>
-          </Pressable>
-        )}
+        {/* Compartir + abrir la oferta original (estilo cripto/mercados),
+            a la derecha y encima de la descripción. */}
+        <ShareOpenActions
+          style={styles.actions}
+          onShare={onShare}
+          onOpen={externalUrl ? () => void Linking.openURL(externalUrl) : undefined}
+          openLabel={`Ver oferta en ${platformLabel}`}
+        />
 
         {description && (
           <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
@@ -162,14 +174,5 @@ const styles = StyleSheet.create({
   rowVal: { fontSize: 13, fontWeight: "600", flexShrink: 1, textAlign: "right" },
   descTitle: { fontSize: 12, fontWeight: "600", marginBottom: 6 },
   descText: { fontSize: 14, lineHeight: 20 },
-  cta: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    height: 48,
-    borderRadius: 10,
-    marginTop: 16,
-  },
-  ctaText: { color: "#fff", fontSize: 15, fontWeight: "600" },
+  actions: { alignSelf: "flex-end", marginTop: 14 },
 });

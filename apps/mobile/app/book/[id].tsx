@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,10 +10,12 @@ import {
 import { Stack, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import RNShare from "react-native-share";
 
 import { type BaseRecord, type Book, metaField } from "@nidokey/shared";
 import { api } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
+import { ShareOpenActions } from "@/components/ShareOpenActions";
 
 /**
  * Ficha de un libro guardado. Lee el `Book` completo de `meta.book` (lo guarda
@@ -83,6 +84,29 @@ export default function BookDetail() {
     ] as [string, string | null | undefined][]
   ).filter((r): r is [string, string] => Boolean(r[1]));
 
+  const sourceLabel =
+    book.source === "OPEN_LIBRARY"
+      ? "Open Library"
+      : book.source === "GOOGLE_BOOKS"
+      ? "Google Books"
+      : "la web";
+  const bookTitle = book.title;
+  const bookAuthors = book.authors;
+  const detailUrl = book.detailUrl;
+  async function onShare() {
+    const msg = [
+      bookTitle + (bookAuthors.length ? " — " + bookAuthors.join(", ") : ""),
+      detailUrl,
+    ]
+      .filter((l): l is string => !!l)
+      .join("\n");
+    try {
+      await RNShare.open({ message: `${msg}\n\nNIDOKEY`, failOnCancel: false });
+    } catch {
+      // cancelado o sin app de destino → ignorar
+    }
+  }
+
   return (
     <>
       <Stack.Screen options={{ title: "Libro" }} />
@@ -111,6 +135,14 @@ export default function BookDetail() {
           </View>
         </View>
 
+        {/* Compartir + abrir en el proveedor, a la derecha y justo encima de la ficha. */}
+        <ShareOpenActions
+          style={styles.actions}
+          onShare={onShare}
+          onOpen={detailUrl ? () => void Linking.openURL(detailUrl) : undefined}
+          openLabel={`Ver en ${sourceLabel}`}
+        />
+
         {rows.length > 0 && (
           <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
             {rows.map(([k, v]) => (
@@ -131,22 +163,6 @@ export default function BookDetail() {
           </View>
         ) : null}
 
-        {book.detailUrl ? (
-          <Pressable
-            onPress={() => void Linking.openURL(book.detailUrl!)}
-            style={[styles.cta, { backgroundColor: th.primary }]}
-          >
-            <Ionicons name="open-outline" size={18} color={th.primaryFg} />
-            <Text style={[styles.ctaText, { color: th.primaryFg }]}>
-              Ver en{" "}
-              {book.source === "OPEN_LIBRARY"
-                ? "Open Library"
-                : book.source === "GOOGLE_BOOKS"
-                ? "Google Books"
-                : "la web"}
-            </Text>
-          </Pressable>
-        ) : null}
       </ScrollView>
     </>
   );
@@ -169,14 +185,5 @@ const styles = StyleSheet.create({
   rowVal: { fontSize: 13, fontWeight: "600", flexShrink: 1, textAlign: "right" },
   descTitle: { fontSize: 12, fontWeight: "600", marginBottom: 6 },
   descText: { fontSize: 14, lineHeight: 20 },
-  cta: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    height: 48,
-    borderRadius: 10,
-    marginTop: 16,
-  },
-  ctaText: { fontSize: 15, fontWeight: "600" },
+  actions: { alignSelf: "flex-end", marginTop: 2 },
 });
