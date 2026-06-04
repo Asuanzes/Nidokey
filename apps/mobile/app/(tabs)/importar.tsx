@@ -124,43 +124,55 @@ export default function ImportarScreen() {
 
       const parsed = bookShareQuery(sharedText);
       const url = firstShareUrl(sharedText);
-      console.log("[bookshare] sharedText=", JSON.stringify(sharedText), "parsed=", JSON.stringify(parsed), "url=", url); // TEMP DEBUG
       setValue(parsed?.query ?? "");
       setSearching(true);
 
+      // Solo AUTO-añadimos con un match FIABLE (ISBN exacto, o el pipeline del
+      // servidor que ya vetó por ISBN/score). Con un título ambiguo NO adivinamos:
+      // dejamos la lista para que elijas (se acabó "añade el que le da la gana").
       let hits: SearchHit[] = [];
+      let reliable = false;
       try {
-        // Tier 1+2 (cliente): ISBN o título sacados de la cadena/slug compartidos.
-        if (parsed) {
-          const q = parsed.isbn ? `isbn:${parsed.query}` : parsed.query;
+        // 1) ISBN en la cadena/URL → match exacto.
+        if (parsed?.isbn) {
           const res = await api<{ results: SearchHit[] }>(
-            `/api/records/search?type=book&q=${encodeURIComponent(q)}`
+            `/api/records/search?type=book&q=${encodeURIComponent(`isbn:${parsed.query}`)}`
           );
           hits = res.results ?? [];
-          console.log("[bookshare] client hits=", hits.length); // TEMP DEBUG
+          reliable = hits.length > 0;
         }
-        // Tier 3 (servidor): si el cliente no sacó nada y hay URL, que el backend
-        // abra la página de la tienda y lea el ISBN/título de sus metadatos.
-        if (hits.length === 0 && url) {
-          const res = await api<{
-            results: SearchHit[];
-            extracted?: { isbn?: string | null; title?: string | null };
-          }>("/api/books/resolve", { method: "POST", body: JSON.stringify({ url }) });
+        // 2) Hay URL → pipeline del servidor (lee schema.org de la página y resuelve
+        //    por ISBN/score). Si devuelve libro, es fiable.
+        if (!reliable && url) {
+          const res = await api<{ results: SearchHit[] }>("/api/books/resolve", {
+            method: "POST",
+            body: JSON.stringify({ url }),
+          });
+          const rhits = res.results ?? [];
+          if (rhits.length > 0) {
+            hits = rhits;
+            reliable = true;
+          }
+        }
+        // 3) Solo título → buscar; fiable solo si el primero casa FUERTE (título
+        //    largo y distintivo). Si es corto/ambiguo, se muestra la lista.
+        if (!reliable && parsed?.query) {
+          const res = await api<{ results: SearchHit[] }>(
+            `/api/records/search?type=book&q=${encodeURIComponent(parsed.query)}`
+          );
           hits = res.results ?? [];
-          console.log("[bookshare] resolver hits=", hits.length, "extracted=", JSON.stringify(res.extracted)); // TEMP DEBUG
-          if (!parsed?.query && res.extracted?.title) setValue(res.extracted.title);
+          reliable = hits.length > 0 && strongTitleMatch(parsed.query, hits[0].name);
         }
-      } catch (e) {
-        console.log("[bookshare] ERROR=", e instanceof Error ? e.message : String(e)); // TEMP DEBUG
+      } catch {
+        /* red caída → hits vacío → cae a alta manual */
       } finally {
         setSearching(false);
         setHasSearched(true);
       }
       setResults(hits);
-      // Decisión: hay match → añade el MEJOR resultado (el primero por ISBN/título
-      // suele ser el correcto; la lista queda visible por si quieres otra edición).
-      // Nada → mensaje + alta manual.
-      if (hits.length > 0 && hits[0].record) {
+      // Match fiable → lo añadimos solo. Ambiguo (hay resultados pero sin match
+      // claro) → status idle: la lista queda visible para que elijas. Nada → manual.
+      if (reliable && hits[0]?.record) {
         setStatus("sending");
         try {
           const r = await api<RecordImportResult>("/api/records/import", {
@@ -171,12 +183,12 @@ export default function ImportarScreen() {
           setStatus("ok");
           setAddedKeys(new Set([0]));
         } catch (e) {
-          console.log("[bookshare] import ERROR=", e instanceof Error ? e.message : String(e)); // TEMP DEBUG
           setErrorMsg(errMsg(e, "No se pudo añadir el libro"));
           setStatus("error");
         }
-      } else {
+      } else if (hits.length === 0) {
         setErrorMsg("No pude identificar el libro. Búscalo abajo por título/autor/ISBN o añádelo a mano.");
+        setStatus("error");
       }
     },
     [setType]
@@ -771,6 +783,25 @@ function jobMetaOf(
         ? "Indeed"
         : undefined,
   };
+}
+
+/** ¿El primer resultado casa FUERTE con el título compartido? Solo entonces
+ *  auto-añadimos por título (evita meter el libro equivocado). Títulos cortos o
+ *  de 1–2 palabras se consideran ambiguos → mejor elegir a mano. */
+function strongTitleMatch(shared: string, hitName: string | null): boolean {
+  if (!hitName) return false;
+  const norm = (s: string) =>
+    s
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9 ]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  const a = norm(shared);
+  const b = norm(hitName);
+  if (a.length < 12 || a.split(" ").length < 3) return false;
+  return b.includes(a) || a.includes(b);
 }
 
 function errMsg(e: unknown, fallback: string): string {
