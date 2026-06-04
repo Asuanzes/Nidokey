@@ -1,6 +1,6 @@
 import "@/lib/logbox"; // PRIMERO: silencia el warning de share-menu antes de importarlo
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
-import { Stack, useRouter, useSegments } from "expo-router";
+import { Stack, useRouter, useSegments, useRootNavigationState } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { Appearance, StyleSheet, View } from "react-native";
@@ -81,6 +81,9 @@ function AuthGate() {
   const { th } = useTheme();
   const segments = useSegments();
   const router = useRouter();
+  // Estado del navegador raíz: su `.key` solo existe cuando el Stack está
+  // montado. Lo usamos para no navegar antes de tiempo (cold-start desde share).
+  const rootNavState = useRootNavigationState();
   const { setUrl, setBookShare } = usePendingImport();
 
   // El loader (bolitas) se queda hasta que: la sesión está resuelta + (si está
@@ -133,6 +136,11 @@ function AuthGate() {
   // montada al compartir → el share se perdía y quedabas en la pantalla principal.
   useEffect(() => {
     if (state.kind !== "authed") return;
+    // No navegar hasta que el navegador raíz esté montado; si no, expo-router lanza
+    // "Attempted to navigate before mounting the Root Layout" (al abrir desde un
+    // share en arranque en frío). El share inicial no se pierde: getInitialShare
+    // lo conserva y se lee en cuanto el navegador está listo.
+    if (!rootNavState?.key) return;
     let alive = true;
     // Inmueble: una URL de PORTAL (compartida o abierta como app-link) → flujo property.
     const goProperty = (u: string | null) => {
