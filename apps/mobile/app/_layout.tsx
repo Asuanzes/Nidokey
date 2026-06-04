@@ -3,7 +3,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native
 import { Stack, useRouter, useSegments, useRootNavigationState } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { Appearance, StyleSheet, View } from "react-native";
+import { Alert, Appearance, StyleSheet, View } from "react-native";
 import "react-native-reanimated";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as SecureStore from "expo-secure-store";
@@ -16,6 +16,7 @@ import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { ThemeContext, T, TD, useTheme } from "@/lib/theme";
 import { isPortalUrl, extractSharedText } from "@/lib/portal-url";
 import { isBookShareText } from "@/lib/book-url";
+import { addBookFromShare } from "@/lib/books/add-from-share";
 import { PendingImportProvider, usePendingImport } from "@/lib/pending-import";
 import { BrandLoading } from "@/components/BrandLoading";
 import { BootProvider, useBoot } from "@/lib/boot-context";
@@ -166,8 +167,27 @@ function AuthGate() {
         return;
       }
       if (isBookShareText(text)) {
-        setBookShare(text);
-        router.navigate("/importar");
+        // NO navegamos: en Android el share arranca una 2ª instancia del root →
+        // navegar desde aquí corrompe TODA la navegación. Resolvemos + añadimos en
+        // segundo plano y avisamos con un Alert. Caso ambiguo → dejamos el texto en
+        // cola (setBookShare) para que elijas al abrir Añadir › Libros tú mismo.
+        void addBookFromShare(text).then((r) => {
+          if (!alive) return;
+          if (r.status === "added") {
+            Alert.alert("Libro añadido", `✅ "${r.title}" está en tus Libros.`);
+          } else if (r.status === "pick") {
+            setBookShare(text);
+            Alert.alert(
+              "Elige el libro",
+              `Encontré varios resultados para "${r.query}". Ábrelo en Añadir › Libros para elegir el correcto.`,
+            );
+          } else {
+            Alert.alert(
+              "No encontrado",
+              "No pude identificar el libro. Búscalo o añádelo a mano en Añadir › Libros.",
+            );
+          }
+        });
       }
     };
     Linking.getInitialURL().then((u) => goProperty(u ?? null));
