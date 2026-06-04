@@ -127,13 +127,6 @@ export default function JobDetail() {
           </View>
         )}
 
-        {description && (
-          <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
-            <Text style={[styles.descTitle, { color: th.textMuted }]}>Descripción</Text>
-            <Text style={[styles.descText, { color: th.text }]}>{description}</Text>
-          </View>
-        )}
-
         {url && (
           <Pressable
             onPress={() => void Linking.openURL(applyUrl || url)}
@@ -142,6 +135,13 @@ export default function JobDetail() {
             <Ionicons name="open-outline" size={18} color="#fff" />
             <Text style={styles.ctaText}>Ver oferta en {platformLabel}</Text>
           </Pressable>
+        )}
+
+        {description && (
+          <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
+            <Text style={[styles.descTitle, { color: th.textMuted }]}>Descripción</Text>
+            <Text style={[styles.descText, { color: th.text }]}>{description}</Text>
+          </View>
         )}
       </ScrollView>
     </>
