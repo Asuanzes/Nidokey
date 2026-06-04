@@ -190,9 +190,15 @@ function AuthGate() {
 
   return (
     <>
-      {authResolved ? (
-        <Stack>
-          <Stack.Screen name="login" options={{ headerShown: false }} />
+      {/* El navegador (<Stack>) se monta SIEMPRE desde el primer render — nunca
+          condicionado a authResolved. Es la única forma fiable de evitar el
+          "Attempted to navigate before mounting the Root Layout": si el Stack
+          falta aunque sea un instante, cualquier navegación (share, ficha,
+          botones) revienta. El loader se superpone encima mientras resuelve la
+          sesión; las pantallas leen el token de SecureStore en cada llamada, así
+          que no fallan por montar antes de que el AuthProvider resuelva. */}
+      <Stack>
+        <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen
             name="property/[id]"
@@ -257,8 +263,7 @@ function AuthGate() {
               headerTitleStyle: { color: th.text },
             }}
           />
-        </Stack>
-      ) : null}
+      </Stack>
       {showLoader ? (
         <View style={StyleSheet.absoluteFill}>
           <BrandLoading />
