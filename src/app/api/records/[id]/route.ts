@@ -112,3 +112,43 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
   if (res.count === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }
+
+/**
+ * PATCH /api/records/:id?type=book  { notes }
+ *
+ * Guarda el COMENTARIO/nota del usuario para un libro en `meta.userNotes` — texto
+ * propio, separado de la sinopsis del proveedor y a salvo de los re-imports (el
+ * merge de upsertBook no toca userNotes). `notes` vacío borra la nota. Owner-scoped.
+ * Por ahora solo libros.
+ */
+export async function PATCH(req: NextRequest, { params }: Ctx) {
+  const { id } = await params;
+  const ownerId = await requireUserId();
+  const type = (req.nextUrl.searchParams.get("type") ?? "property") as RecordType;
+  if (type !== "book") {
+    return NextResponse.json({ error: "Solo los libros admiten notas por ahora" }, { status: 400 });
+  }
+
+  let body: { notes?: unknown };
+  try {
+    body = (await req.json()) as typeof body;
+  } catch {
+    return NextResponse.json({ error: "Body inválido" }, { status: 400 });
+  }
+  const raw = typeof body.notes === "string" ? body.notes.trim() : "";
+  const notes = raw ? raw.slice(0, 4000) : null;
+
+  const book = await prisma.bookRecord.findFirst({ where: { id, ownerId } });
+  if (!book) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const meta = { ...((book.meta as Record<string, unknown>) ?? {}) };
+  if (notes) meta.userNotes = notes;
+  else delete meta.userNotes;
+
+  const updated = await prisma.bookRecord.update({
+    where: { id: book.id },
+    data: { meta: meta as object },
+  });
+  const record = bookToBaseRecord(updated);
+  return NextResponse.json({ ...record, meta: { ...record.meta, detail: updated } });
+}

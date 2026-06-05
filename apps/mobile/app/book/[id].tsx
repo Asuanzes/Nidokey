@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
@@ -28,13 +30,23 @@ export default function BookDetail() {
   const [record, setRecord] = useState<BaseRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [descExpanded, setDescExpanded] = useState(false);
+  // Comentario propio del usuario (meta.userNotes). Sin caja a la vista: si no hay,
+  // solo un "＋ Añadir comentario"; al tocar aparece el editor.
+  const [note, setNote] = useState<string | null>(null);
+  const [editingNote, setEditingNote] = useState(false);
+  const [draftNote, setDraftNote] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
 
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
         const r = await api<BaseRecord>(`/api/records/${id}?type=book`);
-        if (alive) setRecord(r);
+        if (alive) {
+          setRecord(r);
+          setNote(metaField<string | null>(r, "userNotes", null));
+        }
       } catch (e) {
         if (alive) setError(e instanceof Error ? e.message : "No se pudo cargar");
       } finally {
@@ -45,6 +57,23 @@ export default function BookDetail() {
       alive = false;
     };
   }, [id]);
+
+  async function saveNote() {
+    const text = draftNote.trim();
+    setSavingNote(true);
+    try {
+      await api(`/api/records/${id}?type=book`, {
+        method: "PATCH",
+        body: JSON.stringify({ notes: text }),
+      });
+      setNote(text || null);
+      setEditingNote(false);
+    } catch {
+      /* error de red → se queda en modo edición para reintentar */
+    } finally {
+      setSavingNote(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -159,9 +188,85 @@ export default function BookDetail() {
         {book.description ? (
           <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
             <Text style={[styles.descTitle, { color: th.textMuted }]}>Sinopsis</Text>
-            <Text style={[styles.descText, { color: th.text }]}>{book.description}</Text>
+            <Text
+              style={[styles.descText, { color: th.text }]}
+              numberOfLines={descExpanded ? undefined : 4}
+            >
+              {book.description}
+            </Text>
+            {book.description.length > 200 ? (
+              <Pressable onPress={() => setDescExpanded((v) => !v)} hitSlop={8}>
+                <Text style={[styles.moreLink, { color: th.primary }]}>
+                  {descExpanded ? "Ver menos" : "Ver más"}
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
+
+        {/* Mis notas: comentario propio del usuario. Editor oculto hasta que toca. */}
+        <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
+          {editingNote ? (
+            <>
+              <Text style={[styles.descTitle, { color: th.textMuted }]}>Mis notas</Text>
+              <TextInput
+                value={draftNote}
+                onChangeText={setDraftNote}
+                multiline
+                autoFocus
+                placeholder="Tu comentario, opinión, dónde lo compraste…"
+                placeholderTextColor={th.textSubtle}
+                style={[
+                  styles.noteInput,
+                  { color: th.text, borderColor: th.border, backgroundColor: th.bg },
+                ]}
+              />
+              <View style={styles.noteActions}>
+                <Pressable
+                  onPress={() => {
+                    setEditingNote(false);
+                    setDraftNote(note ?? "");
+                  }}
+                  hitSlop={8}
+                >
+                  <Text style={[styles.noteBtn, { color: th.textMuted }]}>Cancelar</Text>
+                </Pressable>
+                <Pressable onPress={saveNote} disabled={savingNote} hitSlop={8}>
+                  <Text style={[styles.noteBtn, { color: th.primary, fontWeight: "700" }]}>
+                    {savingNote ? "Guardando…" : "Guardar"}
+                  </Text>
+                </Pressable>
+              </View>
+            </>
+          ) : note ? (
+            <Pressable
+              onPress={() => {
+                setDraftNote(note);
+                setEditingNote(true);
+              }}
+            >
+              <View style={styles.noteHeader}>
+                <Text style={[styles.descTitle, { color: th.textMuted, marginBottom: 0 }]}>
+                  Mis notas
+                </Text>
+                <Ionicons name="pencil" size={13} color={th.textSubtle} />
+              </View>
+              <Text style={[styles.descText, { color: th.text, marginTop: 6 }]}>{note}</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={() => {
+                setDraftNote("");
+                setEditingNote(true);
+              }}
+              style={styles.addNoteRow}
+              hitSlop={8}
+            >
+              <Ionicons name="add-circle-outline" size={18} color={th.primary} />
+              <Text style={[styles.addNoteText, { color: th.primary }]}>Añadir comentario</Text>
+            </Pressable>
+          )}
+        </View>
 
       </ScrollView>
     </>
@@ -223,5 +328,12 @@ const styles = StyleSheet.create({
   rowVal: { fontSize: 13, fontWeight: "600", flexShrink: 1, textAlign: "right" },
   descTitle: { fontSize: 12, fontWeight: "600", marginBottom: 6 },
   descText: { fontSize: 14, lineHeight: 20 },
+  moreLink: { fontSize: 13, fontWeight: "600", marginTop: 6 },
+  noteInput: { minHeight: 80, borderRadius: 10, borderWidth: 1, padding: 12, fontSize: 14, textAlignVertical: "top" },
+  noteActions: { flexDirection: "row", justifyContent: "flex-end", gap: 18, marginTop: 10 },
+  noteBtn: { fontSize: 14 },
+  noteHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  addNoteRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 2 },
+  addNoteText: { fontSize: 14, fontWeight: "600" },
   heroActions: { alignSelf: "flex-end", marginTop: "auto" },
 });
