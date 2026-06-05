@@ -56,7 +56,8 @@ export async function GET(req: NextRequest) {
     /* Google caído → solo OL (si había isbn) */
   }
 
+  // Pocas: el usuario quiere elegir rápido, no scrollear. Máx 4 (OL por ISBN + 3 GB).
   const seen = new Set<string>();
-  const out = covers.filter((c) => Boolean(c.url) && !seen.has(c.url) && seen.add(c.url)).slice(0, 6);
+  const out = covers.filter((c) => Boolean(c.url) && !seen.has(c.url) && seen.add(c.url)).slice(0, 4);
   return NextResponse.json({ covers: out });
 }

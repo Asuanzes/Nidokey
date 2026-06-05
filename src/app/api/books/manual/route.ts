@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
     isbn?: unknown;
     year?: unknown;
     imageUrl?: unknown;
+    description?: unknown;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -40,6 +41,10 @@ export async function POST(req: NextRequest) {
   const year = Number.isInteger(yearNum) && yearNum > 1000 ? yearNum : null;
   const imageUrl =
     typeof body.imageUrl === "string" && /^https?:\/\//.test(body.imageUrl) ? body.imageUrl : null;
+  // Sinopsis / notas que escribe el usuario (su propio texto). En un libro manual
+  // ES la sinopsis (no hay proveedor), así que va a `description` y se ve en la ficha.
+  const descRaw = typeof body.description === "string" ? body.description.trim() : "";
+  const description = descRaw ? descRaw.slice(0, 4000) : null;
   if (title.length < 2) {
     return NextResponse.json({ error: "El título es obligatorio" }, { status: 400 });
   }
@@ -56,6 +61,7 @@ export async function POST(req: NextRequest) {
     isbn13: isbn && isbn.length === 13 ? isbn : null,
     publishedYear: year,
     publishedDate: year ? String(year) : null,
+    description,
     imageUrls: imageUrl ? { thumbnail: imageUrl, large: imageUrl } : {},
   });
   const normalized: NormalizedRecord = {

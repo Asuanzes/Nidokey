@@ -72,6 +72,7 @@ export default function ImportarScreen() {
   const [manualTitle, setManualTitle] = useState("");
   const [manualAuthor, setManualAuthor] = useState("");
   const [manualIsbn, setManualIsbn] = useState("");
+  const [manualNotes, setManualNotes] = useState(""); // sinopsis/notas propias del usuario
   const [manualSaving, setManualSaving] = useState(false);
   // Sugerencias de PORTADA para el alta manual: el usuario las pide y ELIGE una
   // (o ninguna). El alta sigue siendo literal — esto solo adjunta la imagen.
@@ -90,7 +91,7 @@ export default function ImportarScreen() {
 
   // Pide SUGERENCIAS de portada (no decide el libro): muestra candidatos para que
   // el usuario elija la imagen que encaja con SU libro. El alta sigue siendo literal.
-  async function suggestCover() {
+  const suggestCover = useCallback(async () => {
     const title = manualTitle.trim();
     const isbn = manualIsbn.trim();
     if (title.length < 2 && isbn.replace(/[^0-9Xx]/g, "").length < 10) return;
@@ -105,7 +106,17 @@ export default function ImportarScreen() {
     } finally {
       setCoverLoading(false);
     }
-  }
+  }, [manualTitle, manualAuthor, manualIsbn]);
+
+  // Auto-sugerir portadas: en cuanto el usuario ha puesto TÍTULO y AUTOR, intentamos
+  // la búsqueda (con debounce de 700 ms). El botón sigue valiendo para re-buscar o
+  // cuando solo hay ISBN.
+  useEffect(() => {
+    if (!manualOpen || type !== "book") return;
+    if (manualTitle.trim().length < 2 || manualAuthor.trim().length < 2) return;
+    const t = setTimeout(() => void suggestCover(), 700);
+    return () => clearTimeout(t);
+  }, [manualOpen, type, manualTitle, manualAuthor, suggestCover]);
 
   // Guarda un libro a mano de forma LITERAL: lo que escribes es lo que se añade.
   // No hay búsqueda que pueda traer otro libro; solo se adjunta la portada elegida.
@@ -122,6 +133,7 @@ export default function ImportarScreen() {
           title,
           author: manualAuthor.trim(),
           isbn: manualIsbn.trim(),
+          description: manualNotes.trim(),
           imageUrl: manualCover,
         }),
       });
@@ -131,6 +143,7 @@ export default function ImportarScreen() {
       setManualTitle("");
       setManualAuthor("");
       setManualIsbn("");
+      setManualNotes("");
       setManualCovers([]);
       setManualCover(null);
     } catch (e) {
@@ -764,6 +777,18 @@ export default function ImportarScreen() {
                 style={[styles.input, { color: th.text, borderColor: th.border, backgroundColor: th.bg }]}
               />
               <TextInput
+                placeholder="Sinopsis / notas (opcional)"
+                placeholderTextColor={th.textSubtle}
+                value={manualNotes}
+                onChangeText={setManualNotes}
+                multiline
+                style={[
+                  styles.input,
+                  styles.inputMultiline,
+                  { color: th.text, borderColor: th.border, backgroundColor: th.bg },
+                ]}
+              />
+              <TextInput
                 placeholder="ISBN (opcional)"
                 placeholderTextColor={th.textSubtle}
                 value={manualIsbn}
@@ -918,6 +943,7 @@ const styles = StyleSheet.create({
   typeItem: { width: 46, height: 46, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   heading: { fontSize: 16, fontWeight: "700" },
   input: { height: 48, borderRadius: 10, borderWidth: 1, paddingHorizontal: 14, fontSize: 14 },
+  inputMultiline: { height: undefined, minHeight: 80, paddingVertical: 10, textAlignVertical: "top" },
   infoText: { fontSize: 14, fontWeight: "500" },
   infoSub: { fontSize: 12, lineHeight: 16, marginTop: 6 },
   loadingRow: { flexDirection: "row", alignItems: "center", gap: 10 },
