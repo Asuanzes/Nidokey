@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { CameraView, useCameraPermissions } from "expo-camera";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -8,6 +7,24 @@ import { router } from "expo-router";
 import { useTheme } from "@/lib/theme";
 import { api, ApiError } from "@/lib/api";
 import { Button } from "@/components/ui";
+
+// expo-camera es un MÓDULO NATIVO. Si la app no se ha recompilado tras añadirlo,
+// importarlo lanza "Cannot find native module 'ExpoCamera'" — y como expo-router
+// evalúa TODAS las rutas al montar el Stack, eso tumbaría la app entera (pantalla
+// negra). Por eso lo cargamos a prueba de fallos: si el nativo no está, la pantalla
+// muestra un aviso y el resto de la app sigue funcionando.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let CameraView: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let useCameraPermissions: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const cam = require("expo-camera");
+  CameraView = cam.CameraView;
+  useCameraPermissions = cam.useCameraPermissions;
+} catch {
+  /* módulo nativo ausente (app sin recompilar) → CameraView queda null */
+}
 
 /**
  * Escáner de código de barras (ISBN) para añadir libros físicos. Lee el EAN-13 del
@@ -30,6 +47,13 @@ type ImportResponse = {
 };
 
 export default function ScanBookScreen() {
+  // Si el módulo nativo de cámara no está (app sin recompilar tras añadir
+  // expo-camera) → aviso, sin montar la cámara ni sus hooks.
+  if (!CameraView || !useCameraPermissions) return <CameraUnavailable />;
+  return <Scanner />;
+}
+
+function Scanner() {
   const { th } = useTheme();
   const [permission, requestPermission] = useCameraPermissions();
   const [state, setState] = useState<ScanState>({ kind: "scanning" });
@@ -222,6 +246,22 @@ function ManualBar({
         style={[styles.manualInput, { color: th.text, borderColor: th.border, backgroundColor: th.bg }]}
       />
       <Button label="Buscar" icon="search" onPress={onSubmit} fullWidth={false} disabled={value.replace(/[^0-9Xx]/g, "").length < 10} />
+    </View>
+  );
+}
+
+/** Aviso cuando expo-camera (nativo) no está en el build → no rompe la app. */
+function CameraUnavailable() {
+  const { th } = useTheme();
+  return (
+    <View style={[styles.fill, styles.center, { backgroundColor: th.bg, padding: 24, gap: 14 }]}>
+      <Ionicons name="camera-outline" size={40} color={th.textMuted} />
+      <Text style={[styles.permTitle, { color: th.text }]}>Escáner no disponible aún</Text>
+      <Text style={[styles.permText, { color: th.textSubtle }]}>
+        Hay que recompilar la app (expo run:android) para activar la cámara. Mientras, añade
+        libros desde la búsqueda o el alta manual.
+      </Text>
+      <Button label="Volver" icon="arrow-back" onPress={() => router.back()} fullWidth={false} />
     </View>
   );
 }
