@@ -162,7 +162,7 @@ export async function lookupBookByIsbn(isbn: string): Promise<Book | null> {
       /* OL caído → null */
     }
   }
-  return book ? withIsbnCoverFallback(book, norm) : null;
+  return book ? await recoverCover(book, norm) : null;
 }
 
 /** Muchas ediciones concretas de Google Books (las que casan por ISBN exacto) NO
@@ -180,6 +180,37 @@ function withIsbnCoverFallback(book: Book, isbn: string): Book {
   };
 }
 
+/** Injerta una portada de un candidato hermano (misma búsqueda título+autor) cuando
+ *  la edición elegida no trae ninguna: sin coste de red, reutiliza los candidatos ya
+ *  descargados. El primer hermano CON portada es de la misma obra → portada válida. */
+function withBestCover(book: Book, siblings: Book[]): Book {
+  if (book.imageUrls.thumbnail || book.imageUrls.large) return book;
+  const covered = siblings.find((b) => b.imageUrls.thumbnail || b.imageUrls.large);
+  return covered ? { ...book, imageUrls: covered.imageUrls } : book;
+}
+
+/** Recupera la portada de un libro que se quedó sin ella (típico al resolver por un
+ *  ISBN cuya edición concreta no trae imagen). Orden: (1) buscar una edición CON
+ *  portada de la MISMA obra por título+autor — Google/OL ya injertan hermanos, así
+ *  que `alt.imageUrls` suele venir lleno; (2) último recurso, portada OL por ISBN
+ *  (URL directa, 404→placeholder). Solo cambia `imageUrls`: el resto del libro
+ *  resuelto (la edición correcta) manda. */
+async function recoverCover(book: Book, fallbackIsbn?: string | null): Promise<Book> {
+  if (book.imageUrls.thumbnail || book.imageUrls.large) return book;
+  if (book.title) {
+    try {
+      const alt = await lookupBookByTitleAuthor(book.title, book.authors);
+      if (alt && (alt.imageUrls.thumbnail || alt.imageUrls.large)) {
+        return { ...book, imageUrls: alt.imageUrls };
+      }
+    } catch {
+      /* sigue al respaldo por ISBN */
+    }
+  }
+  const isbn = book.isbn13 ?? fallbackIsbn ?? null;
+  return isbn ? withIsbnCoverFallback(book, isbn) : book;
+}
+
 /** Resuelve por título(+autor) cuando no hay ISBN: busca en Google Books / Open
  *  Library y elige el mejor candidato por similitud de título y solape de autor.
  *  Devuelve null si ninguno supera el umbral (evita "añadir el que sea"). */
@@ -190,16 +221,16 @@ export async function lookupBookByTitleAuthor(
   const q = [title, authors[0]].filter(Boolean).join(" ").trim();
   if (q.length < 2) return null;
   try {
-    const items = await googleBooksSearch(q);
-    const best = pickBest(items.map(fromGoogleBooks), title, authors);
-    if (best) return best;
+    const cands = (await googleBooksSearch(q)).map(fromGoogleBooks);
+    const best = pickBest(cands, title, authors);
+    if (best) return withBestCover(best, cands);
   } catch {
     /* Google caído → probamos OL */
   }
   try {
-    const docs = await openLibrarySearch(q);
-    const best = pickBest(docs.map(fromOpenLibrary), title, authors);
-    if (best) return enrichOl(best);
+    const cands = (await openLibrarySearch(q)).map(fromOpenLibrary);
+    const best = pickBest(cands, title, authors);
+    if (best) return enrichOl(withBestCover(best, cands));
   } catch {
     /* OL caído → null */
   }
@@ -258,8 +289,14 @@ export async function resolveBookFromUrl(
 
   // C2) Título(+autor) → fuzzy con scoring.
   if (hints.title) {
-    const book = await d.lookupByTitleAuthor(hints.title, hints.authors ?? []);
-    if (book) return { ok: true, book, via: "title-author", hints };
+    let book = await d.lookupByTitleAuthor(hints.title, hints.authors ?? []);
+    if (book) {
+      // Si la edición elegida no trae portada pero la página daba ISBN, respaldo OL.
+      if (!book.imageUrls.thumbnail && !book.imageUrls.large && hints.isbn) {
+        book = withIsbnCoverFallback(book, hints.isbn);
+      }
+      return { ok: true, book, via: "title-author", hints };
+    }
   }
 
   if (!hints.isbn && !hints.title) {

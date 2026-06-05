@@ -210,6 +210,13 @@ export function getJobById(id: string): Promise<JobListing | null> {
   return prisma.jobListing.findUnique({ where: { id } });
 }
 
+/** ¿Portada "perezosa" nuestra (URL OL por ISBN con `default=false`, que puede dar
+ *  404) o ausente? Esas SÍ se reemplazan al reimportar si llega una portada real;
+ *  las reales/manuales nunca se degradan. */
+function isLazyCover(url: string | null | undefined): boolean {
+  return !url || /covers\.openlibrary\.org\/b\/isbn\/[^?]*\?default=false/.test(url);
+}
+
 async function upsertBook(
   ownerId: string,
   n: NormalizedRecord
@@ -292,18 +299,31 @@ async function upsertBook(
   const existingMeta = (existing.meta as Record<string, unknown>) ?? {};
   const existingBook = existingMeta.book as Book | undefined;
   if (book && existingBook) {
+    // Portada: una real entrante reemplaza a una ausente/"perezosa"; nunca al revés
+    // (no degradamos una portada real/manual a la URL OL-por-ISBN que puede dar 404).
+    const incomingCover = book.imageUrls.thumbnail ?? book.imageUrls.large ?? null;
+    const existingCover = existingBook.imageUrls?.thumbnail ?? existingBook.imageUrls?.large ?? null;
+    const keepExistingImgs = isLazyCover(incomingCover) && !isLazyCover(existingCover);
     meta.book = {
       ...book,
+      imageUrls: keepExistingImgs ? existingBook.imageUrls : book.imageUrls,
       averageRating: book.averageRating ?? existingBook.averageRating ?? null,
       ratingsCount: book.ratingsCount ?? existingBook.ratingsCount ?? null,
     };
   }
+  // Misma regla para la columna que muestra la lista: refresca solo si la guardada
+  // falta/es perezosa y la entrante es real.
+  const incomingImage = n.imageUrl ?? null;
+  const nextImage =
+    isLazyCover(existing.imageUrl) && incomingImage && !isLazyCover(incomingImage)
+      ? incomingImage
+      : existing.imageUrl ?? incomingImage;
   const valueChanged = value != null && value !== existing.currentValue;
   await prisma.bookRecord.update({
     where: { id: existing.id },
     data: {
       title: existing.title || n.title,
-      imageUrl: existing.imageUrl ?? n.imageUrl ?? null,
+      imageUrl: nextImage,
       currentValue: value ?? existing.currentValue,
       lastCheckedAt: n.observedAt,
       meta: { ...existingMeta, ...meta } as object,
