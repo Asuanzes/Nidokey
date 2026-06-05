@@ -2,8 +2,8 @@ import "@/lib/logbox"; // PRIMERO: silencia warnings benignos de NativeEventEmit
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { Stack, useRouter, useSegments, useRootNavigationState } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef, useState } from "react";
-import { Appearance, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Appearance, StyleSheet, View } from "react-native";
 import "react-native-reanimated";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as SecureStore from "expo-secure-store";
@@ -19,7 +19,6 @@ import { isBookShareText } from "@/lib/book-url";
 import { PendingImportProvider, usePendingImport } from "@/lib/pending-import";
 import { BrandLoading } from "@/components/BrandLoading";
 import { BootProvider, useBoot } from "@/lib/boot-context";
-import { isPrimaryFree, acquireSurface } from "@/lib/primary-surface";
 
 // Mantener el splash nativo hasta que la sesión esté resuelta: evita el
 // "cuadrado blanco" y el flash blanco entre el splash y el primer render.
@@ -33,19 +32,6 @@ export default function RootLayout() {
   // arranque (visible en dev Y en release). SecureStore (async) luego respeta la
   // preferencia guardada del usuario si la hay.
   const [dark, setDark] = useState(() => Appearance.getColorScheme() === "dark");
-
-  // Surface DUPLICADA: una app nativa que comparte con FLAG_ACTIVITY_NEW_TASK monta
-  // una 2ª instancia de este root en el MISMO proceso JS → dos navegadores →
-  // corrompe la navegación. Solo la PRIMERA surface es la app completa; las
-  // posteriores se renderizan inertes (abajo). La DECISIÓN es una lectura pura
-  // latcheada 1 vez; el contador se ocupa/libera en el efecto (solo árbol commiteado).
-  const amPrimaryRef = useRef<boolean | null>(null);
-  if (amPrimaryRef.current === null) amPrimaryRef.current = isPrimaryFree();
-  const amPrimary = amPrimaryRef.current;
-  useEffect(() => {
-    if (!amPrimary) return;
-    return acquireSurface();
-  }, [amPrimary]);
 
   useEffect(() => {
     SecureStore.getItemAsync("nidokey.theme")
@@ -72,10 +58,6 @@ export default function RootLayout() {
 
   const th = dark ? TD : T;
 
-  // Surface duplicada → árbol INERTE (sin ShareIntentProvider/AuthGate/Stack): no se
-  // monta un 2º navegador ni corren los efectos de navegación → no crashea la app.
-  if (!amPrimary) return <DuplicateSurfaceNotice dark={dark} />;
-
   return (
     // ShareIntentProvider entrega el contenido compartido al hook (un solo root)
     // en vez de montar una 2ª instancia como react-native-share-menu.
@@ -95,30 +77,6 @@ export default function RootLayout() {
       </AuthProvider>
     </GestureHandlerRootView>
     </ShareIntentProvider>
-  );
-}
-
-/** Pantalla mínima para una surface DUPLICADA (p. ej. al compartir desde una app
- *  nativa que abre una ventana nueva). Sin navegador ni providers → inerte → la
- *  app primaria sigue intacta. Tema desde los objetos T/TD (sin contexto). */
-function DuplicateSurfaceNotice({ dark }: { dark: boolean }) {
-  const th = dark ? TD : T;
-  return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: th.bg }}>
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 12 }}>
-        <Text style={{ fontSize: 13, fontWeight: "700", letterSpacing: 3, color: th.textMuted }}>
-          NIDOKEY
-        </Text>
-        <Text style={{ fontSize: 15, lineHeight: 22, textAlign: "center", color: th.text }}>
-          Abre Nidokey desde su icono para añadir libros.
-        </Text>
-        <Text style={{ fontSize: 13, lineHeight: 20, textAlign: "center", color: th.textSubtle }}>
-          Algunas apps (como la de Amazon) abren una ventana nueva al compartir. Copia el
-          enlace o el título y búscalo dentro de Nidokey.
-        </Text>
-      </View>
-      <StatusBar style="auto" />
-    </GestureHandlerRootView>
   );
 }
 
