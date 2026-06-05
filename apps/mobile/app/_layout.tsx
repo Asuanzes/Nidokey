@@ -1,22 +1,21 @@
-import "@/lib/logbox"; // PRIMERO: silencia el warning de share-menu antes de importarlo
+import "@/lib/logbox"; // PRIMERO: silencia warnings benignos de NativeEventEmitter
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { Stack, useRouter, useSegments, useRootNavigationState } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { Alert, Appearance, StyleSheet, View } from "react-native";
+import { Appearance, StyleSheet, View } from "react-native";
 import "react-native-reanimated";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as SecureStore from "expo-secure-store";
 import * as Linking from "expo-linking";
 import * as SplashScreen from "expo-splash-screen";
-import ShareMenu from "react-native-share-menu";
+import { ShareIntentProvider, useShareIntentContext } from "expo-share-intent";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { ThemeContext, T, TD, useTheme } from "@/lib/theme";
 import { isPortalUrl, extractSharedText } from "@/lib/portal-url";
 import { isBookShareText } from "@/lib/book-url";
-import { addBookFromShare } from "@/lib/books/add-from-share";
 import { PendingImportProvider, usePendingImport } from "@/lib/pending-import";
 import { BrandLoading } from "@/components/BrandLoading";
 import { BootProvider, useBoot } from "@/lib/boot-context";
@@ -60,6 +59,9 @@ export default function RootLayout() {
   const th = dark ? TD : T;
 
   return (
+    // ShareIntentProvider entrega el contenido compartido al hook (un solo root)
+    // en vez de montar una 2ª instancia como react-native-share-menu.
+    <ShareIntentProvider options={{ resetOnBackground: true }}>
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: th.bg }}>
       <AuthProvider>
         <ThemeContext.Provider value={{ dark, th, toggleTheme }}>
@@ -74,6 +76,7 @@ export default function RootLayout() {
         </ThemeContext.Provider>
       </AuthProvider>
     </GestureHandlerRootView>
+    </ShareIntentProvider>
   );
 }
 
@@ -86,6 +89,7 @@ function AuthGate() {
   // montado. Lo usamos para no navegar antes de tiempo (cold-start desde share).
   const rootNavState = useRootNavigationState();
   const { setUrl, setBookShare } = usePendingImport();
+  const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
 
   // El loader (bolitas) se queda hasta que: la sesión está resuelta + (si está
   // logueado) los REGISTROS de la primera pantalla (Inmuebles) ya cargaron + un
@@ -135,78 +139,44 @@ function AuthGate() {
     SplashScreen.hideAsync().catch(() => {});
   }, []);
 
-  // Share intent (react-native-share-menu) + deep links (expo-linking): estés en
-  // la pantalla que estés, si llega una URL de portal la guardamos y navegamos a
-  // Importar, que la auto-importa mostrando la ventana de carga. Centralizado
-  // aquí (siempre montado) porque antes solo lo escuchaba Importar, que no está
-  // montada al compartir → el share se perdía y quedabas en la pantalla principal.
+  // Deep links (expo-linking): una URL de portal abierta como enlace → Importar.
   useEffect(() => {
     if (state.kind !== "authed") return;
-    // No navegar hasta que el navegador raíz esté montado; si no, expo-router lanza
-    // "Attempted to navigate before mounting the Root Layout" (al abrir desde un
-    // share en arranque en frío). El share inicial no se pierde: getInitialShare
-    // lo conserva y se lee en cuanto el navegador está listo.
-    if (!rootNavState?.key) return;
     let alive = true;
-    // Inmueble: una URL de PORTAL (compartida o abierta como app-link) → flujo property.
-    const goProperty = (u: string | null) => {
+    const go = (u: string | null) => {
       if (alive && u && isPortalUrl(u)) {
         setUrl(u);
         router.navigate("/importar");
       }
     };
-    // Compartir TEXTO: Amazon/tiendas mandan "Título … <enlace>" (a veces enlace
-    // corto sin ISBN). Si el texto trae una URL de portal → inmueble; si parece un
-    // libro (ISBN o host de libros) → libro, que se resuelve por ISBN o por título.
-    const goShared = (text: string | null) => {
-      if (!alive || !text) return;
+    Linking.getInitialURL().then((u) => go(u ?? null));
+    const linkSub = Linking.addEventListener("url", ({ url }) => go(url));
+    return () => {
+      alive = false;
+      linkSub.remove();
+    };
+  }, [state.kind, router, setUrl]);
+
+  // Share-to-app (expo-share-intent): la hoja de Compartir entrega el contenido al
+  // HOOK (un solo root React — no crea una 2ª instancia como react-native-share-menu,
+  // que corrompía TODA la navegación). Clasificamos el texto compartido: URL de
+  // portal → inmueble; ISBN/host de libro → libro. Navegamos a Importar (seguro
+  // ahora) y allí se auto-importa.
+  useEffect(() => {
+    if (state.kind !== "authed" || !hasShareIntent) return;
+    const text = extractSharedText(shareIntent);
+    if (text) {
       const url = text.match(/https?:\/\/[^\s]+/)?.[0] ?? null;
       if (url && isPortalUrl(url)) {
         setUrl(url);
         router.navigate("/importar");
-        return;
+      } else if (isBookShareText(text)) {
+        setBookShare(text);
+        router.navigate("/importar");
       }
-      if (isBookShareText(text)) {
-        // NO navegamos: en Android el share arranca una 2ª instancia del root →
-        // navegar desde aquí corrompe TODA la navegación. Resolvemos + añadimos en
-        // segundo plano y avisamos con un Alert. Caso ambiguo → dejamos el texto en
-        // cola (setBookShare) para que elijas al abrir Añadir › Libros tú mismo.
-        void addBookFromShare(text).then((r) => {
-          if (!alive) return;
-          if (r.status === "added") {
-            Alert.alert("Libro añadido", `✅ "${r.title}" está en tus Libros.`);
-          } else if (r.status === "pick") {
-            setBookShare(text);
-            Alert.alert(
-              "Elige el libro",
-              `Encontré varios resultados para "${r.query}". Ábrelo en Añadir › Libros para elegir el correcto.`,
-            );
-          } else {
-            Alert.alert(
-              "No encontrado",
-              "No pude identificar el libro. Búscalo o añádelo a mano en Añadir › Libros.",
-            );
-          }
-        });
-      }
-    };
-    Linking.getInitialURL().then((u) => goProperty(u ?? null));
-    const linkSub = Linking.addEventListener("url", ({ url }) => goProperty(url));
-    let shareSub: { remove?: () => void } | undefined;
-    try {
-      ShareMenu.getInitialShare((data) => goShared(extractSharedText(data)));
-      shareSub = ShareMenu.addNewShareListener((data) => goShared(extractSharedText(data)));
-    } catch {
-      // react-native-share-menu no disponible (p. ej. web) → ignorar.
     }
-    return () => {
-      alive = false;
-      linkSub.remove();
-      shareSub?.remove?.();
-    };
-    // rootNavState?.key en deps: re-ejecuta el efecto en cuanto el navegador monta
-    // (su `.key` es estable tras montar, no re-dispara en cada navegación).
-  }, [state.kind, rootNavState?.key, router, setUrl, setBookShare]);
+    resetShareIntent();
+  }, [hasShareIntent, shareIntent, state.kind, router, setUrl, setBookShare, resetShareIntent]);
 
   return (
     <>

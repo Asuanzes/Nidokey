@@ -15,11 +15,6 @@
     "android": {
       "intentFilters": [
         {
-          "action": "SEND",
-          "data": [{ "mimeType": "text/plain" }],
-          "category": "DEFAULT"
-        },
-        {
           "action": "VIEW",
           "autoVerify": true,
           "data": [
@@ -61,6 +56,18 @@
             "image": "./assets/images/splash-blank.png",
             "backgroundColor": "#141413"
           }
+        }
+      ],
+      [
+        "expo-share-intent",
+        {
+          "iosActivationRules": {
+            "NSExtensionActivationSupportsText": true,
+            "NSExtensionActivationSupportsWebURLWithMaxCount": 1,
+            "NSExtensionActivationSupportsWebPageWithMaxCount": 1
+          },
+          "iosShareExtensionName": "Importar a Nidokey",
+          "androidIntentFilters": ["text/*"]
         }
       ]
     ],

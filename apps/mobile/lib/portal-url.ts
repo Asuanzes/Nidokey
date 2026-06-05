@@ -14,21 +14,18 @@ export function isPortalUrl(u: string): boolean {
 }
 
 /**
- * Texto crudo compartido (string) de un payload de react-native-share-menu.
- * `data.data` puede ser string o array de { data } / strings según el origen.
- * Devuelve el TEXTO completo (puede ser "Título … URL"); la clasificación
- * (inmueble por URL de portal vs libro por isBookShareText) se hace fuera.
+ * Texto crudo de un share (expo-share-intent): `text` (p. ej. "Título … enlace")
+ * o `webUrl`. Devuelve el TEXTO completo; la clasificación (inmueble por URL de
+ * portal vs libro por isBookShareText) se hace fuera.
  */
 export function extractSharedText(
-  data: { data?: unknown } | null | undefined
+  shareIntent: { text?: string | null; webUrl?: string | null } | null | undefined
 ): string | null {
-  const raw = data?.data;
-  if (raw == null) return null;
-  const items = Array.isArray(raw) ? raw : [raw];
-  for (const item of items) {
-    const text =
-      typeof item === "string" ? item : ((item as { data?: string })?.data ?? "");
-    if (text) return String(text);
-  }
-  return null;
+  if (!shareIntent) return null;
+  // expo-share-intent: texto plano en `text` (Amazon "Título … enlace") o un
+  // enlace limpio en `webUrl`. Devolvemos lo que haya, recortado.
+  const raw = shareIntent.text ?? shareIntent.webUrl ?? null;
+  if (!raw) return null;
+  const s = String(raw).trim();
+  return s.length ? s : null;
 }
