@@ -46,15 +46,23 @@ export const TD = {
 
 export type Theme = typeof T;
 
+/** Modo de tema: "auto" sigue el sistema; "light"/"dark" fijan el tema. */
+export type ThemeMode = "auto" | "light" | "dark";
+
 type ThemeCtx = {
   dark: boolean;
   th: Theme;
+  themeMode: ThemeMode;
+  setThemeMode: (m: ThemeMode) => void;
+  /** Atajo (claro↔oscuro) que conservamos por compatibilidad. */
   toggleTheme: () => void;
 };
 
 export const ThemeContext = createContext<ThemeCtx>({
   dark: false,
   th: T,
+  themeMode: "auto",
+  setThemeMode: () => {},
   toggleTheme: () => {},
 });
 

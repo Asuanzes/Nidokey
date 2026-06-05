@@ -1,0 +1,189 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { RECORD_TYPES, type RecordType } from "@nidokey/shared";
+
+import {
+  applyCategoryOrder,
+  getHiddenCategories,
+  getSavedCategoryOrder,
+  getStartCategory,
+  resetAllPreferences,
+  saveCategoryOrder,
+  saveHiddenCategories,
+  saveStartCategory,
+} from "@/lib/records/category-prefs";
+
+/**
+ * Preferencias VIVAS del menú de categorías, compartidas por TODO el árbol (root):
+ * el rail/selector en las tabs y la pantalla `category-settings` (hermana de las
+ * tabs). Sustituye al antiguo `RecordCategoryProvider` y además centraliza el
+ * orden, las ocultas y la categoría de inicio.
+ *
+ * Persistencia LOCAL (SecureStore, ver `category-prefs.ts`). Reglas: nunca se
+ * puede dejar el menú sin categorías (≥1 visible), y la categoría activa cae a la
+ * primera visible si se oculta.
+ */
+const DEFAULT_CATEGORY: RecordType = "property";
+
+type Managed = { type: RecordType; hidden: boolean };
+
+type Ctx = {
+  ready: boolean;
+  /** Orden aplicado, SIN ocultas → para el rail (Registros) y el selector (Importar). */
+  orderedVisible: RecordType[];
+  /** TODAS las categorías en orden, con su flag de oculta → para la pantalla de ajustes. */
+  managed: Managed[];
+  category: RecordType;
+  setCategory: (t: RecordType) => void;
+  /** Reordenado EN VIVO durante el arrastre (no persiste). */
+  reorder: (next: RecordType[]) => void;
+  /** Al soltar: persiste el orden. */
+  commitOrder: (next: RecordType[]) => void;
+  /** Ocultar/mostrar (inmediato). Rechaza ocultar si dejaría 0 visibles. */
+  toggleHidden: (t: RecordType) => void;
+  startCategory: RecordType | null;
+  setStartCategory: (t: RecordType) => void;
+  /** Vuelve a fábrica (orden, ocultas, inicio, tema y orden de registros). */
+  reset: () => void;
+};
+
+const CategoryPrefsContext = createContext<Ctx | null>(null);
+
+export function CategoryPrefsProvider({ children }: { children: ReactNode }) {
+  const [order, setOrder] = useState<RecordType[]>(() => [...RECORD_TYPES]);
+  const [hidden, setHidden] = useState<Set<RecordType>>(() => new Set());
+  const [startCategory, setStartCategoryState] = useState<RecordType | null>(null);
+  const [category, setCategory] = useState<RecordType>(DEFAULT_CATEGORY);
+  const [ready, setReady] = useState(false);
+  const didInit = useRef(false);
+
+  // Hidratar de SecureStore una vez al montar.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const [savedOrder, savedHidden, start] = await Promise.all([
+        getSavedCategoryOrder(),
+        getHiddenCategories(),
+        getStartCategory(),
+      ]);
+      if (!alive) return;
+      setOrder(applyCategoryOrder(savedOrder));
+      setHidden(new Set(savedHidden));
+      setStartCategoryState(start);
+      setReady(true);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const orderedVisible = useMemo(() => order.filter((t) => !hidden.has(t)), [order, hidden]);
+  const managed = useMemo<Managed[]>(
+    () => order.map((t) => ({ type: t, hidden: hidden.has(t) })),
+    [order, hidden]
+  );
+
+  // Init-once de la categoría activa cuando termina la hidratación: la de inicio
+  // (si visible), si no la de por defecto (si visible), si no la primera visible.
+  useEffect(() => {
+    if (!ready || didInit.current) return;
+    didInit.current = true;
+    const visible = order.filter((t) => !hidden.has(t));
+    const pick =
+      (startCategory && !hidden.has(startCategory) && startCategory) ||
+      (!hidden.has(DEFAULT_CATEGORY) && DEFAULT_CATEGORY) ||
+      visible[0] ||
+      DEFAULT_CATEGORY;
+    setCategory(pick);
+  }, [ready, order, hidden, startCategory]);
+
+  // Fallback: si la categoría activa queda oculta, saltar a la primera visible.
+  useEffect(() => {
+    if (!ready) return;
+    if (orderedVisible.length > 0 && !orderedVisible.includes(category)) {
+      setCategory(orderedVisible[0]);
+    }
+  }, [orderedVisible, category, ready]);
+
+  const reorder = useCallback((next: RecordType[]) => setOrder(next), []);
+  const commitOrder = useCallback((next: RecordType[]) => {
+    setOrder(next);
+    void saveCategoryOrder(next);
+  }, []);
+
+  const toggleHidden = useCallback(
+    (t: RecordType) => {
+      const willHide = !hidden.has(t);
+      if (willHide && orderedVisible.filter((x) => x !== t).length === 0) return; // ≥1 visible
+      const next = new Set(hidden);
+      if (willHide) next.add(t);
+      else next.delete(t);
+      setHidden(next);
+      void saveHiddenCategories([...next]);
+    },
+    [hidden, orderedVisible]
+  );
+
+  const setStartCategory = useCallback((t: RecordType) => {
+    setStartCategoryState(t);
+    void saveStartCategory(t);
+  }, []);
+
+  const reset = useCallback(() => {
+    setOrder([...RECORD_TYPES]);
+    setHidden(new Set());
+    setStartCategoryState(null);
+    setCategory(DEFAULT_CATEGORY);
+    void resetAllPreferences();
+  }, []);
+
+  const value = useMemo<Ctx>(
+    () => ({
+      ready,
+      orderedVisible,
+      managed,
+      category,
+      setCategory,
+      reorder,
+      commitOrder,
+      toggleHidden,
+      startCategory,
+      setStartCategory,
+      reset,
+    }),
+    [
+      ready,
+      orderedVisible,
+      managed,
+      category,
+      reorder,
+      commitOrder,
+      toggleHidden,
+      startCategory,
+      setStartCategory,
+      reset,
+    ]
+  );
+
+  return <CategoryPrefsContext.Provider value={value}>{children}</CategoryPrefsContext.Provider>;
+}
+
+export function useCategoryPrefs(): Ctx {
+  const ctx = useContext(CategoryPrefsContext);
+  if (!ctx) throw new Error("useCategoryPrefs fuera de CategoryPrefsProvider");
+  return ctx;
+}
+
+/** Alias retrocompatible: la categoría activa compartida (lista ↔ importar). */
+export function useRecordCategory(): { category: RecordType; setCategory: (t: RecordType) => void } {
+  const { category, setCategory } = useCategoryPrefs();
+  return { category, setCategory };
+}

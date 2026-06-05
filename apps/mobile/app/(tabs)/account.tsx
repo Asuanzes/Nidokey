@@ -1,14 +1,21 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 
 import { useAuth } from "@/lib/auth-context";
-import { useTheme } from "@/lib/theme";
+import { useTheme, type ThemeMode } from "@/lib/theme";
 import { API_URL } from "@/lib/api";
-import { Button, Screen, Section } from "@/components/ui";
+import { Button, Chip, Screen, Section } from "@/components/ui";
+
+const THEME_MODES: { value: ThemeMode; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { value: "light", label: "Claro", icon: "sunny-outline" },
+  { value: "dark", label: "Oscuro", icon: "moon-outline" },
+  { value: "auto", label: "Automático", icon: "contrast-outline" },
+];
 
 export default function AccountScreen() {
   const { state, logout } = useAuth();
-  const { th, dark, toggleTheme } = useTheme();
+  const { th, themeMode, setThemeMode } = useTheme();
   if (state.kind !== "authed") return null;
 
   return (
@@ -28,18 +35,24 @@ export default function AccountScreen() {
       </Section>
 
       <Section label="Apariencia">
-        <Pressable style={styles.toggleRow} onPress={toggleTheme}>
-          <Ionicons
-            name={dark ? "moon-outline" : "sunny-outline"}
-            size={20}
-            color={th.textMuted}
-          />
-          <Text style={[styles.toggleLabel, { color: th.text }]}>
-            {dark ? "Modo oscuro" : "Modo claro"}
-          </Text>
-          <View style={[styles.track, { backgroundColor: dark ? th.accent : th.border }]}>
-            <View style={[styles.knob, { transform: [{ translateX: dark ? 16 : 2 }] }]} />
-          </View>
+        <View style={styles.modeRow}>
+          {THEME_MODES.map((m) => (
+            <Chip
+              key={m.value}
+              label={m.label}
+              icon={m.icon}
+              selected={themeMode === m.value}
+              onPress={() => setThemeMode(m.value)}
+            />
+          ))}
+        </View>
+      </Section>
+
+      <Section label="Categorías">
+        <Pressable style={styles.toggleRow} onPress={() => router.push("/category-settings")}>
+          <Ionicons name="albums-outline" size={20} color={th.textMuted} />
+          <Text style={[styles.toggleLabel, { color: th.text }]}>Gestionar categorías</Text>
+          <Ionicons name="chevron-forward" size={18} color={th.textSubtle} />
         </Pressable>
       </Section>
 
@@ -75,18 +88,7 @@ const styles = StyleSheet.create({
   name: { fontSize: 13 },
   toggleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   toggleLabel: { flex: 1, fontSize: 15 },
-  track: { width: 36, height: 20, borderRadius: 10, justifyContent: "center" },
-  knob: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: "#fff",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
-  },
+  modeRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   code: { fontSize: 12, fontFamily: "monospace" },
   logout: { marginTop: 4 },
   footer: { marginTop: "auto", textAlign: "center", fontSize: 11, paddingBottom: 16 },

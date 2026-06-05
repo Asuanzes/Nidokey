@@ -69,6 +69,15 @@
           "iosShareExtensionName": "Importar a Nidokey",
           "androidIntentFilters": ["text/*"]
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Nidokey usa la cámara para escanear el código de barras de tus libros.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
       ]
     ],
     "experiments": {

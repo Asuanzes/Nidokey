@@ -9,8 +9,8 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { RECORD_TYPES, metaField, type BaseRecord } from "@nidokey/shared";
-import { useRecordCategory } from "@/lib/records/category-context";
+import { metaField, type BaseRecord } from "@nidokey/shared";
+import { useCategoryPrefs } from "@/lib/records/category-prefs-context";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme";
 import { useRecords } from "@/lib/hooks/useRecords";
@@ -33,7 +33,7 @@ export default function RecordsScreen() {
   const { th } = useTheme();
   // Categoría activa COMPARTIDA con Importar (contexto), no estado local: así
   // Importar abre la categoría en la que estás y "Ver {categoría}" vuelve a ella.
-  const { category: type, setCategory: setType } = useRecordCategory();
+  const { category: type, setCategory: setType, orderedVisible } = useCategoryPrefs();
 
   const { data: records, error, loading, refreshing, refetch } = useRecords({ type });
 
@@ -162,7 +162,7 @@ export default function RecordsScreen() {
           contentContainerStyle={styles.railContent}
           showsVerticalScrollIndicator={false}
         >
-          {RECORD_TYPES.map((t) => {
+          {orderedVisible.map((t) => {
             const c = RECORD_TYPE_CONFIG[t];
             const active = type === t;
             return (

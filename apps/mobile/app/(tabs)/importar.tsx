@@ -12,8 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 
-import { RECORD_TYPES } from "@nidokey/shared";
-import { useRecordCategory } from "@/lib/records/category-context";
+import { useCategoryPrefs } from "@/lib/records/category-prefs-context";
 import { usePendingImport } from "@/lib/pending-import";
 import { isPortalUrl } from "@/lib/portal-url";
 import { bookShareQuery, firstShareUrl } from "@/lib/book-url";
@@ -49,7 +48,7 @@ export default function ImportarScreen() {
   const { th } = useTheme();
   // Categoría COMPARTIDA con la lista (contexto): al abrir Importar desde una
   // categoría (p. ej. Criptos) se abre directamente en ella.
-  const { category: type, setCategory: setType } = useRecordCategory();
+  const { category: type, setCategory: setType, orderedVisible } = useCategoryPrefs();
   const [value, setValue] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [okMsg, setOkMsg] = useState<string | null>(null);
@@ -436,7 +435,7 @@ export default function ImportarScreen() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.typeRow}
       >
-        {RECORD_TYPES.map((t) => {
+        {orderedVisible.map((t) => {
           const c = RECORD_TYPE_CONFIG[t];
           const active = type === t;
           return (
@@ -755,10 +754,21 @@ export default function ImportarScreen() {
       {type === "book" && (
         <Card>
           {!manualOpen ? (
-            <Pressable onPress={() => setManualOpen(true)} style={styles.manualToggle}>
-              <Ionicons name="create-outline" size={16} color={th.primary} />
-              <Text style={[styles.manualToggleText, { color: th.primary }]}>¿No aparece? Añádelo a mano</Text>
-            </Pressable>
+            <View style={{ gap: 4 }}>
+              <Pressable onPress={() => router.push("/scan-book")} style={styles.manualToggle}>
+                <Ionicons name="barcode-outline" size={18} color={th.primary} />
+                <Text style={[styles.manualToggleText, { color: th.primary }]}>
+                  Escanear código de barras
+                </Text>
+              </Pressable>
+              <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: th.border }} />
+              <Pressable onPress={() => setManualOpen(true)} style={styles.manualToggle}>
+                <Ionicons name="create-outline" size={16} color={th.primary} />
+                <Text style={[styles.manualToggleText, { color: th.primary }]}>
+                  ¿No aparece? Añádelo a mano
+                </Text>
+              </Pressable>
+            </View>
           ) : (
             <View style={styles.manualForm}>
               <Text style={[styles.hintTitle, { color: th.textMuted }]}>Añadir libro a mano</Text>

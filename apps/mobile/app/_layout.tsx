@@ -13,12 +13,13 @@ import { ShareIntentProvider, useShareIntentContext } from "expo-share-intent";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
-import { ThemeContext, T, TD, useTheme } from "@/lib/theme";
+import { ThemeContext, T, TD, useTheme, type ThemeMode } from "@/lib/theme";
 import { isPortalUrl, extractSharedText } from "@/lib/portal-url";
 import { isBookShareText } from "@/lib/book-url";
 import { PendingImportProvider, usePendingImport } from "@/lib/pending-import";
 import { BrandLoading } from "@/components/BrandLoading";
 import { BootProvider, useBoot } from "@/lib/boot-context";
+import { CategoryPrefsProvider } from "@/lib/records/category-prefs-context";
 
 // Mantener el splash nativo hasta que la sesión esté resuelta: evita el
 // "cuadrado blanco" y el flash blanco entre el splash y el primer render.
@@ -31,17 +32,26 @@ export default function RootLayout() {
   // unos frames con fondo claro (#FAFAF7) sobre negro — el "cuadrado claro" del
   // arranque (visible en dev Y en release). SecureStore (async) luego respeta la
   // preferencia guardada del usuario si la hay.
-  const [dark, setDark] = useState(() => Appearance.getColorScheme() === "dark");
+  // Tema: "auto" sigue el sistema (default); "light"/"dark" lo fijan. Sembramos el
+  // estado del SO de forma SÍNCRONA en el primer frame (evita el "cuadrado claro"
+  // al arrancar en oscuro). SecureStore (async) carga luego la preferencia guardada.
+  const [themeMode, setThemeModeState] = useState<ThemeMode>("auto");
+  const [systemDark, setSystemDark] = useState(() => Appearance.getColorScheme() === "dark");
 
   useEffect(() => {
     SecureStore.getItemAsync("nidokey.theme")
       .then((v) => {
-        // La preferencia guardada manda; el seed del SO (arriba) solo gobierna el
-        // primer frame y el caso "sin preferencia guardada".
-        if (v === "dark") setDark(true);
-        else if (v === "light") setDark(false);
+        if (v === "dark" || v === "light" || v === "auto") setThemeModeState(v);
       })
       .catch(() => {});
+  }, []);
+
+  // En modo "auto", seguir en vivo los cambios de tema del sistema.
+  useEffect(() => {
+    const sub = Appearance.addChangeListener(({ colorScheme }) =>
+      setSystemDark(colorScheme === "dark")
+    );
+    return () => sub.remove();
   }, []);
 
   // Red de seguridad: si la sesión tardara demasiado, no dejar el splash colgado.
@@ -50,11 +60,12 @@ export default function RootLayout() {
     return () => clearTimeout(t);
   }, []);
 
-  const toggleTheme = () => {
-    const next = !dark;
-    setDark(next);
-    SecureStore.setItemAsync("nidokey.theme", next ? "dark" : "light").catch(() => {});
+  const setThemeMode = (m: ThemeMode) => {
+    setThemeModeState(m);
+    SecureStore.setItemAsync("nidokey.theme", m).catch(() => {});
   };
+  const dark = themeMode === "auto" ? systemDark : themeMode === "dark";
+  const toggleTheme = () => setThemeMode(dark ? "light" : "dark");
 
   const th = dark ? TD : T;
 
@@ -64,11 +75,13 @@ export default function RootLayout() {
     <ShareIntentProvider options={{ resetOnBackground: true }}>
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: th.bg }}>
       <AuthProvider>
-        <ThemeContext.Provider value={{ dark, th, toggleTheme }}>
+        <ThemeContext.Provider value={{ dark, th, themeMode, setThemeMode, toggleTheme }}>
           <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
             <PendingImportProvider>
               <BootProvider>
-                <AuthGate />
+                <CategoryPrefsProvider>
+                  <AuthGate />
+                </CategoryPrefsProvider>
               </BootProvider>
               <StatusBar style="auto" />
             </PendingImportProvider>
@@ -251,6 +264,29 @@ function AuthGate() {
               headerTintColor: th.primary,
               headerStyle: { backgroundColor: th.surface },
               headerTitleStyle: { color: th.text },
+            }}
+          />
+          <Stack.Screen
+            name="category-settings"
+            options={{
+              headerShown: true,
+              headerBackTitle: "Atrás",
+              headerTintColor: th.primary,
+              headerStyle: { backgroundColor: th.surface },
+              headerTitleStyle: { color: th.text },
+              title: "Categorías",
+            }}
+          />
+          <Stack.Screen
+            name="scan-book"
+            options={{
+              presentation: "modal",
+              headerShown: true,
+              headerBackTitle: "Atrás",
+              headerTintColor: th.primary,
+              headerStyle: { backgroundColor: th.surface },
+              headerTitleStyle: { color: th.text },
+              title: "Escanear libro",
             }}
           />
       </Stack>
