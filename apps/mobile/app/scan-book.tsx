@@ -132,6 +132,9 @@ function Scanner() {
       <CameraView
         style={styles.fill}
         active={state.kind === "scanning"}
+        // En iOS el autofocus viene en "off" por defecto → el código sale borroso y
+        // no lee bien (iPhone 14). Lo forzamos a "on" (continuo). En Android no estorba.
+        autofocus="on"
         barcodeScannerSettings={{ barcodeTypes: ["ean13", "upc_a"] }}
         onBarcodeScanned={state.kind === "scanning" ? onScan : undefined}
       />

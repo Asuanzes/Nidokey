@@ -147,19 +147,37 @@ export function extractBookHintsFromHtml(html: string): BookHints {
 export async function lookupBookByIsbn(isbn: string): Promise<Book | null> {
   const norm = normalizeIsbn(isbn);
   if (!norm) return null;
+  let book: Book | null = null;
   try {
     const items = await googleBooksSearch(`isbn:${norm}`);
-    if (items[0]) return fromGoogleBooks(items[0]);
+    if (items[0]) book = fromGoogleBooks(items[0]);
   } catch {
     /* Google caído → probamos OL */
   }
-  try {
-    const docs = await openLibrarySearch(norm);
-    if (docs[0]) return enrichOl(fromOpenLibrary(docs[0]));
-  } catch {
-    /* OL caído → null */
+  if (!book) {
+    try {
+      const docs = await openLibrarySearch(norm);
+      if (docs[0]) book = await enrichOl(fromOpenLibrary(docs[0]));
+    } catch {
+      /* OL caído → null */
+    }
   }
-  return null;
+  return book ? withIsbnCoverFallback(book, norm) : null;
+}
+
+/** Muchas ediciones concretas de Google Books (las que casan por ISBN exacto) NO
+ *  traen portada, aunque la obra sí tenga una. Si el libro resuelto se queda sin
+ *  portada, usamos la portada por ISBN de Open Library (URL directa, sin API key).
+ *  `?default=false` → 404 si OL tampoco la tiene (expo-image muestra su placeholder). */
+function withIsbnCoverFallback(book: Book, isbn: string): Book {
+  if (book.imageUrls.thumbnail || book.imageUrls.large) return book;
+  return {
+    ...book,
+    imageUrls: {
+      thumbnail: `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false`,
+      large: `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg?default=false`,
+    },
+  };
 }
 
 /** Resuelve por título(+autor) cuando no hay ISBN: busca en Google Books / Open
