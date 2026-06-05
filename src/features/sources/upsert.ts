@@ -2,7 +2,11 @@ import { prisma } from "@/lib/db";
 import type { CryptoHolding, MarketInstrument, JobListing, BookRecord } from "@prisma/client";
 import type { NormalizedRecord } from "@/features/sources/types";
 import type { Book } from "@nidokey/shared";
-import { openLibraryWorkDescription } from "@/features/sources/providers/open-library";
+import {
+  openLibraryWorkDescription,
+  openLibraryWorkRatings,
+  openLibraryRatingByIsbn,
+} from "@/features/sources/providers/open-library";
 
 /**
  * Persiste un NormalizedRecord en su tabla de tipo. Generaliza el split
@@ -211,22 +215,49 @@ async function upsertBook(
   n: NormalizedRecord
 ): Promise<{ id: string; created: boolean; valueChanged: boolean }> {
   const meta = { ...((n.meta ?? {}) as Record<string, unknown>) };
-  // Sinopsis: Open Library no la trae en la búsqueda → la enriquecemos del work
-  // API al guardar (Google sí la trae en volumeInfo). Best-effort, una llamada
-  // gratis; si falla, se guarda sin sinopsis.
-  const book = meta.book as Book | undefined;
+  // El Book completo viaja en meta.book; lo enriquecemos al guardar (best-effort).
+  let book = meta.book as Book | undefined;
+
+  // 1) Sinopsis: Open Library no la trae en la búsqueda → la pedimos del work API
+  //    (Google sí la trae en volumeInfo). Una llamada gratis; si falla, sin sinopsis.
   if (book?.source === "OPEN_LIBRARY" && !book.description && book.externalIds?.openLibraryWorkId) {
     try {
       const desc = await openLibraryWorkDescription(book.externalIds.openLibraryWorkId);
-      if (desc) meta.book = { ...book, description: desc };
+      if (desc) {
+        book = { ...book, description: desc };
+        meta.book = book;
+      }
     } catch {
       /* sin sinopsis → seguimos */
     }
   }
+
+  // 2) Valoración cruzada: muchos volúmenes de Google Books NO traen nota, pero
+  //    Open Library agrega los votos de TODAS las ediciones del work y a menudo sí
+  //    la tiene. Si falta el rating, lo rellenamos desde OL (por work id directo o
+  //    resolviendo el ISBN). Best-effort; si falla, el libro se guarda sin nota.
+  let enrichedRating: number | null = null;
+  if (book && book.averageRating == null) {
+    try {
+      const r =
+        (book.externalIds?.openLibraryWorkId
+          ? await openLibraryWorkRatings(book.externalIds.openLibraryWorkId)
+          : null) ?? (book.isbn13 ? await openLibraryRatingByIsbn(book.isbn13) : null);
+      if (r) {
+        book = { ...book, averageRating: r.average, ratingsCount: r.count };
+        meta.book = book;
+        enrichedRating = r.average;
+      }
+    } catch {
+      /* sin rating → seguimos */
+    }
+  }
+
   const str = (k: string) => (typeof meta[k] === "string" ? (meta[k] as string) : null);
   const source = n.source;
   const externalId = n.externalId ?? null;
-  const value = n.currentValue ?? null; // rating*100 (opcional)
+  // currentValue = rating*100 (opcional). Si lo acabamos de enriquecer, derivarlo.
+  const value = n.currentValue ?? (enrichedRating != null ? Math.round(enrichedRating * 100) : null);
 
   const existing = await prisma.bookRecord.findFirst({
     where: { ownerId, externalId, source },
@@ -254,6 +285,19 @@ async function upsertBook(
   }
 
   // Re-importar el mismo libro: refresca rating/portada/datos sin pisar lo editado.
+  // NO degradar el rating: el merge superficial de meta reemplaza meta.book entero,
+  // así que si el nuevo import viene sin nota (fuente más pobre) pero el guardado ya
+  // la tenía, la conservamos (no la pisamos con null). currentValue ya preserva el
+  // escalar con `value ?? existing.currentValue`.
+  const existingMeta = (existing.meta as Record<string, unknown>) ?? {};
+  const existingBook = existingMeta.book as Book | undefined;
+  if (book && existingBook) {
+    meta.book = {
+      ...book,
+      averageRating: book.averageRating ?? existingBook.averageRating ?? null,
+      ratingsCount: book.ratingsCount ?? existingBook.ratingsCount ?? null,
+    };
+  }
   const valueChanged = value != null && value !== existing.currentValue;
   await prisma.bookRecord.update({
     where: { id: existing.id },
@@ -262,7 +306,7 @@ async function upsertBook(
       imageUrl: existing.imageUrl ?? n.imageUrl ?? null,
       currentValue: value ?? existing.currentValue,
       lastCheckedAt: n.observedAt,
-      meta: { ...((existing.meta as Record<string, unknown>) ?? {}), ...meta } as object,
+      meta: { ...existingMeta, ...meta } as object,
     },
   });
   return { id: existing.id, created: false, valueChanged };

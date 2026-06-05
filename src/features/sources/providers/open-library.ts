@@ -63,3 +63,36 @@ export async function openLibraryWorkDescription(workId: string): Promise<string
     .trim();
   return txt || null;
 }
+
+/** Valoración agregada de un work: media (1-5) y nº de votos. La búsqueda ya trae
+ *  rating, pero el fetch directo por work id y los libros de Google sin nota NO →
+ *  se pide aquí. `summary.average` es la media; `summary.count` el nº de votos. */
+export async function openLibraryWorkRatings(
+  workId: string
+): Promise<{ average: number; count: number | null } | null> {
+  const id = workId.trim();
+  if (!id) return null;
+  const json = (await getJson(
+    `https://openlibrary.org/works/${encodeURIComponent(id)}/ratings.json`
+  )) as { summary?: { average?: number | null; count?: number | null } } | null;
+  const avg = json?.summary?.average;
+  if (avg == null || !Number.isFinite(avg)) return null;
+  const count = json?.summary?.count;
+  return { average: Math.round(avg * 10) / 10, count: typeof count === "number" ? count : null };
+}
+
+/** Valoración de Open Library a partir de un ISBN: resuelve ISBN → edición → work
+ *  → ratings. Sirve para rellenar la nota cuando Google Books no la trae (OL
+ *  agrega votos de TODAS las ediciones del work). 2 llamadas, best-effort. */
+export async function openLibraryRatingByIsbn(
+  isbn: string
+): Promise<{ average: number; count: number | null } | null> {
+  const clean = isbn.replace(/[^0-9Xx]/g, "");
+  if (clean.length < 10) return null;
+  const ed = (await getJson(`https://openlibrary.org/isbn/${clean}.json`)) as
+    | { works?: { key?: string }[] }
+    | null;
+  const workKey = ed?.works?.[0]?.key; // p.ej. "/works/OL12345W"
+  if (!workKey) return null;
+  return openLibraryWorkRatings(workKey.replace(/^\/works\//, ""));
+}
