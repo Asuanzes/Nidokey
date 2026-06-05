@@ -56,7 +56,9 @@ export function saveHiddenCategories(hidden: RecordType[]): Promise<void> {
 export async function getStartCategory(): Promise<RecordType | null> {
   try {
     const raw = await getItem(START_KEY);
-    return isRecordType(raw) ? raw : null;
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw); // se guarda con JSON.stringify (writeJson)
+    return isRecordType(parsed) ? parsed : null;
   } catch {
     return null;
   }

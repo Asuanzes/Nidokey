@@ -20,6 +20,7 @@ import {
   saveHiddenCategories,
   saveStartCategory,
 } from "@/lib/records/category-prefs";
+import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
 
 /**
  * Preferencias VIVAS del menú de categorías, compartidas por TODO el árbol (root):
@@ -91,16 +92,18 @@ export function CategoryPrefsProvider({ children }: { children: ReactNode }) {
     [order, hidden]
   );
 
-  // Init-once de la categoría activa cuando termina la hidratación: la de inicio
-  // (si visible), si no la de por defecto (si visible), si no la primera visible.
+  // Init-once de la categoría activa al terminar la hidratación: la categoría de
+  // inicio si es USABLE (visible + DESARROLLADA), si no Inmobiliarias, si no la
+  // primera usable. Nunca arranca en una categoría "Próximamente" → no se queda en
+  // blanco por elegir como inicio una categoría sin desarrollar.
   useEffect(() => {
     if (!ready || didInit.current) return;
     didInit.current = true;
-    const visible = order.filter((t) => !hidden.has(t));
+    const usable = (t: RecordType) => !hidden.has(t) && RECORD_TYPE_CONFIG[t].enabled;
     const pick =
-      (startCategory && !hidden.has(startCategory) && startCategory) ||
-      (!hidden.has(DEFAULT_CATEGORY) && DEFAULT_CATEGORY) ||
-      visible[0] ||
+      (startCategory && usable(startCategory) && startCategory) ||
+      (usable(DEFAULT_CATEGORY) && DEFAULT_CATEGORY) ||
+      order.find(usable) ||
       DEFAULT_CATEGORY;
     setCategory(pick);
   }, [ready, order, hidden, startCategory]);

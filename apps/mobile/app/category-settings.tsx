@@ -27,11 +27,12 @@ export default function CategorySettingsScreen() {
   } = useCategoryPrefs();
   const [scrollOn, setScrollOn] = useState(true);
 
-  // La categoría de inicio efectiva: la guardada (si visible), si no Inmuebles (si
-  // visible), si no la primera visible. Solo se puede arrancar en una visible.
+  // Solo se puede arrancar en una categoría DESARROLLADA (enabled) y visible — así
+  // no se puede dejar la app en una pantalla "Próximamente" al abrir.
+  const startOptions = orderedVisible.filter((t) => RECORD_TYPE_CONFIG[t].enabled);
   const effectiveStart =
-    (startCategory && orderedVisible.includes(startCategory) && startCategory) ||
-    (orderedVisible.includes("property") ? "property" : orderedVisible[0]);
+    (startCategory && startOptions.includes(startCategory) && startCategory) ||
+    (startOptions.includes("property") ? "property" : startOptions[0]);
 
   function confirmReset() {
     Alert.alert(
@@ -73,9 +74,11 @@ export default function CategorySettingsScreen() {
       </Section>
 
       <Section label="Categoría de inicio">
-        <Text style={[styles.help, { color: th.textSubtle }]}>Con qué categoría se abre la app.</Text>
+        <Text style={[styles.help, { color: th.textSubtle }]}>
+          Con qué categoría se abre la app (solo las ya disponibles).
+        </Text>
         <View style={styles.chips}>
-          {orderedVisible.map((t) => (
+          {startOptions.map((t) => (
             <Chip
               key={t}
               label={RECORD_TYPE_CONFIG[t].label}
