@@ -170,9 +170,13 @@ export default function ImportarScreen() {
         setHasSearched(true);
       }
       setResults(hits);
-      // Match fiable → lo añadimos solo. Ambiguo (hay resultados pero sin match
-      // claro) → status idle: la lista queda visible para que elijas. Nada → manual.
-      if (reliable && hits[0]?.record) {
+      // Guard anti-ficha-vacía: aunque sea "fiable", no auto-añadimos un resultado
+      // sin TÍTULO real (un share pobre de una app nativa podía colar una ficha en
+      // blanco). Si el top no tiene título usable, cae a lista/manual en vez de crear basura.
+      const topTitle = (hits[0]?.name ?? "").trim();
+      // Match fiable + con título → lo añadimos solo. Ambiguo (hay resultados pero sin
+      // match claro) → status idle: la lista queda visible para que elijas. Nada → manual.
+      if (reliable && hits[0]?.record && topTitle.length >= 2) {
         setStatus("sending");
         try {
           const r = await api<RecordImportResult>("/api/records/import", {

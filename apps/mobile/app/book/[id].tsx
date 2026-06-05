@@ -75,12 +75,6 @@ export default function BookDetail() {
       ["Idioma", book.language ? book.language.toUpperCase() : null],
       ["Categorías", book.categories.join(", ")],
       ["ISBN", book.isbn13 ?? book.isbn10],
-      [
-        "Valoración",
-        book.averageRating != null
-          ? `★ ${book.averageRating.toFixed(1)} (${book.ratingsCount ?? 0})`
-          : null,
-      ],
     ] as [string, string | null | undefined][]
   ).filter((r): r is [string, string] => Boolean(r[1]));
 
@@ -130,7 +124,12 @@ export default function BookDetail() {
               </Text>
             ) : null}
             {book.averageRating != null ? (
-              <Text style={[styles.rating, { color: th.accent }]}>★ {book.averageRating.toFixed(1)}</Text>
+              <RatingStars
+                value={book.averageRating}
+                count={book.ratingsCount ?? null}
+                color={th.accent}
+                mutedColor={th.textMuted}
+              />
             ) : null}
             {/* Compartir + abrir, abajo-derecha del hero: pegados al thumbnail y
                 justo encima de la ficha. marginTop:auto los empuja al fondo del
@@ -169,6 +168,42 @@ export default function BookDetail() {
   );
 }
 
+/** Valoración de lectores: estrellas (Ionicons, con media estrella) + nota + nº de
+ *  votos. El dato es opcional (muchos volúmenes no lo traen), por eso el llamador
+ *  lo condiciona a averageRating != null. La nota se redondea a la media estrella
+ *  más cercana solo para pintar; el número exacto se muestra al lado. */
+function RatingStars({
+  value,
+  count,
+  color,
+  mutedColor,
+}: {
+  value: number;
+  count: number | null;
+  color: string;
+  mutedColor: string;
+}) {
+  const rounded = Math.round(value * 2) / 2;
+  return (
+    <View style={styles.ratingRow}>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Ionicons
+          key={i}
+          name={rounded >= i ? "star" : rounded >= i - 0.5 ? "star-half" : "star-outline"}
+          size={14}
+          color={color}
+        />
+      ))}
+      <Text style={[styles.ratingNum, { color }]}>{value.toFixed(1)}</Text>
+      {count != null && count > 0 ? (
+        <Text style={[styles.ratingCount, { color: mutedColor }]}>
+          ({count.toLocaleString("es-ES")})
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   content: { padding: 16, gap: 6, paddingBottom: 40 },
@@ -179,7 +214,9 @@ const styles = StyleSheet.create({
   title: { fontSize: 19, fontWeight: "700" },
   subtitle: { fontSize: 14 },
   authors: { fontSize: 14, marginTop: 2 },
-  rating: { fontSize: 16, fontWeight: "700", marginTop: 6 },
+  ratingRow: { flexDirection: "row", alignItems: "center", gap: 3, marginTop: 6 },
+  ratingNum: { fontSize: 14, fontWeight: "700", marginLeft: 3 },
+  ratingCount: { fontSize: 13, fontWeight: "500", marginLeft: 1 },
   card: { borderWidth: 1, borderRadius: 10, padding: 14, marginTop: 12 },
   row: { flexDirection: "row", justifyContent: "space-between", gap: 12, paddingVertical: 5 },
   rowKey: { fontSize: 13 },
