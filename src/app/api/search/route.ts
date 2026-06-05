@@ -5,14 +5,17 @@ import {
   propertyToBaseRecord,
   cryptoToBaseRecord,
   marketToBaseRecord,
+  jobToBaseRecord,
+  bookToBaseRecord,
 } from "@/lib/records/mapper";
 
 /**
  * GET /api/search?q=texto[&scope=all]
  *
  * - Sin scope (web GlobalSearch): proyección reducida de PROPIEDADES → { results }.
- * - scope=all (app móvil "Buscar en tus registros"): búsqueda UNIFICADA sobre
- *   propiedades + cripto + mercados → { results: BaseRecord[] }.
+ * - scope=all (app móvil "Buscar en tus registros"): búsqueda UNIFICADA sobre TODAS
+ *   las categorías — propiedades + cripto + mercados + empleos + libros →
+ *   { results: BaseRecord[] }.
  *
  * Owner-scoped (requireUserId). Insensible a mayúsculas (Prisma insensitive).
  */
@@ -51,8 +54,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ results });
   }
 
-  // ── scope=all (móvil): propiedades + cripto + mercados → BaseRecord[] ─────
-  const [props, cryptos, markets] = await Promise.all([
+  // ── scope=all (móvil): TODAS las categorías → BaseRecord[] ───────────────
+  const [props, cryptos, markets, jobs, books] = await Promise.all([
     prisma.property.findMany({
       where: {
         ownerId,
@@ -80,12 +83,30 @@ export async function GET(req: NextRequest) {
       take: 8,
       orderBy: { updatedAt: "desc" },
     }),
+    prisma.jobListing.findMany({
+      where: {
+        ownerId,
+        OR: [{ title: ci }, { subtitle: ci }, { company: ci }, { location: ci }],
+      },
+      take: 8,
+      orderBy: { updatedAt: "desc" },
+    }),
+    prisma.bookRecord.findMany({
+      where: {
+        ownerId,
+        OR: [{ title: ci }, { subtitle: ci }, { authors: ci }, { isbn13: ci }],
+      },
+      take: 8,
+      orderBy: { updatedAt: "desc" },
+    }),
   ]);
 
   const results = [
     ...props.map(propertyToBaseRecord),
     ...cryptos.map(cryptoToBaseRecord),
     ...markets.map(marketToBaseRecord),
+    ...jobs.map(jobToBaseRecord),
+    ...books.map(bookToBaseRecord),
   ];
   return NextResponse.json({ results });
 }
