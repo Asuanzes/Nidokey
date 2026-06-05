@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { router } from "expo-router";
 
 import { RECORD_TYPES } from "@nidokey/shared";
@@ -72,6 +73,12 @@ export default function ImportarScreen() {
   const [manualAuthor, setManualAuthor] = useState("");
   const [manualIsbn, setManualIsbn] = useState("");
   const [manualSaving, setManualSaving] = useState(false);
+  // Sugerencias de PORTADA para el alta manual: el usuario las pide y ELIGE una
+  // (o ninguna). El alta sigue siendo literal — esto solo adjunta la imagen.
+  const [manualCovers, setManualCovers] = useState<{ url: string; title: string }[]>([]);
+  const [manualCover, setManualCover] = useState<string | null>(null);
+  const [coverLoading, setCoverLoading] = useState(false);
+  const [coverFailed, setCoverFailed] = useState<Set<string>>(new Set());
 
   const cfg = RECORD_TYPE_CONFIG[type];
 
@@ -81,9 +88,27 @@ export default function ImportarScreen() {
     setErrorMsg(null);
   }
 
-  // Guarda un libro a mano: el backend intenta Google Books con lo escrito (ISBN o
-  // título+autor) y, si no está, crea un libro source:"manual". Nunca te quedas
-  // sin poder añadirlo.
+  // Pide SUGERENCIAS de portada (no decide el libro): muestra candidatos para que
+  // el usuario elija la imagen que encaja con SU libro. El alta sigue siendo literal.
+  async function suggestCover() {
+    const title = manualTitle.trim();
+    const isbn = manualIsbn.trim();
+    if (title.length < 2 && isbn.replace(/[^0-9Xx]/g, "").length < 10) return;
+    setCoverLoading(true);
+    setCoverFailed(new Set());
+    try {
+      const qs = new URLSearchParams({ title, author: manualAuthor.trim(), isbn }).toString();
+      const r = await api<{ covers: { url: string; title: string }[] }>(`/api/books/cover?${qs}`);
+      setManualCovers(r.covers ?? []);
+    } catch {
+      setManualCovers([]);
+    } finally {
+      setCoverLoading(false);
+    }
+  }
+
+  // Guarda un libro a mano de forma LITERAL: lo que escribes es lo que se añade.
+  // No hay búsqueda que pueda traer otro libro; solo se adjunta la portada elegida.
   async function submitManual() {
     const title = manualTitle.trim();
     if (title.length < 2) return;
@@ -93,7 +118,12 @@ export default function ImportarScreen() {
     try {
       const r = await api<{ record: { title: string } | null }>("/api/books/manual", {
         method: "POST",
-        body: JSON.stringify({ title, author: manualAuthor.trim(), isbn: manualIsbn.trim() }),
+        body: JSON.stringify({
+          title,
+          author: manualAuthor.trim(),
+          isbn: manualIsbn.trim(),
+          imageUrl: manualCover,
+        }),
       });
       setOkMsg(`✅ ${r.record?.title ?? title} añadido en Libros`);
       setStatus("ok");
@@ -101,6 +131,8 @@ export default function ImportarScreen() {
       setManualTitle("");
       setManualAuthor("");
       setManualIsbn("");
+      setManualCovers([]);
+      setManualCover(null);
     } catch (e) {
       setErrorMsg(errMsg(e, "No se pudo añadir el libro"));
       setStatus("error");
@@ -740,6 +772,68 @@ export default function ImportarScreen() {
                 autoCapitalize="none"
                 style={[styles.input, { color: th.text, borderColor: th.border, backgroundColor: th.bg }]}
               />
+
+              {/* Portada (opcional): se SUGIERE de internet y el usuario elige; el
+                  alta es literal, esto solo adjunta la imagen seleccionada. */}
+              <Pressable
+                onPress={suggestCover}
+                disabled={
+                  coverLoading ||
+                  (manualTitle.trim().length < 2 &&
+                    manualIsbn.replace(/[^0-9Xx]/g, "").length < 10)
+                }
+                style={styles.manualToggle}
+              >
+                <Ionicons name="image-outline" size={16} color={th.primary} />
+                <Text style={[styles.manualToggleText, { color: th.primary }]}>
+                  {coverLoading ? "Buscando portadas…" : "Sugerir portada (opcional)"}
+                </Text>
+              </Pressable>
+              {manualCovers.filter((c) => !coverFailed.has(c.url)).length > 0 ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 8, paddingVertical: 2 }}
+                >
+                  {manualCovers
+                    .filter((c) => !coverFailed.has(c.url))
+                    .map((c) => {
+                      const sel = c.url === manualCover;
+                      return (
+                        <Pressable key={c.url} onPress={() => setManualCover(sel ? null : c.url)}>
+                          <Image
+                            source={{ uri: c.url }}
+                            style={[
+                              styles.coverThumb,
+                              {
+                                borderColor: sel ? th.primary : th.border,
+                                borderWidth: sel ? 2 : 1,
+                              },
+                            ]}
+                            contentFit="cover"
+                            onError={() =>
+                              setCoverFailed((s) => {
+                                const n = new Set(s);
+                                n.add(c.url);
+                                return n;
+                              })
+                            }
+                          />
+                          {sel ? (
+                            <View style={styles.coverCheck}>
+                              <Ionicons name="checkmark-circle" size={18} color={th.primary} />
+                            </View>
+                          ) : null}
+                        </Pressable>
+                      );
+                    })}
+                </ScrollView>
+              ) : manualCovers.length > 0 ? (
+                <Text style={[styles.hintText, { color: th.textSubtle }]}>
+                  No encontré portadas; puedes guardarlo sin imagen.
+                </Text>
+              ) : null}
+
               <Button
                 label={manualSaving ? "Guardando…" : "Guardar libro"}
                 onPress={submitManual}
@@ -834,6 +928,8 @@ const styles = StyleSheet.create({
   manualToggle: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 2 },
   manualToggleText: { fontSize: 14, fontWeight: "600" },
   manualForm: { gap: 10 },
+  coverThumb: { width: 56, height: 84, borderRadius: 6, backgroundColor: "#00000010" },
+  coverCheck: { position: "absolute", top: 2, right: 2, borderRadius: 999, backgroundColor: "#fff" },
   remoteToggle: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 2 },
   remoteLabel: { fontSize: 13, fontWeight: "500" },
   sourcesRow: { flexDirection: "row", gap: 8 },
