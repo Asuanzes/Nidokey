@@ -67,6 +67,11 @@ type FlightItem = {
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
+/** Una habitación: adultos + edades de los niños. */
+type Room = { adults: number; children: number[] };
+/** Tipos de viaje sugeridos (el usuario puede escribir uno propio). */
+const TRIP_TYPES = ["Vacaciones", "Negocios", "Trabajo", "Familia", "Pareja", "Grupo", "Amigos"];
+
 // Calendario en español (react-native-calendars, JS puro).
 LocaleConfig.locales.es = {
   monthNames: ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"],
@@ -124,6 +129,42 @@ export default function NewTrip() {
   const [origin, setOrigin] = useState("MAD");
   const [startISO, setStartISO] = useState("");
   const [endISO, setEndISO] = useState("");
+  const [tripType, setTripType] = useState("Vacaciones");
+  const [rooms, setRooms] = useState<Room[]>([{ adults: 2, children: [] }]);
+
+  const totalAdults = rooms.reduce((s, r) => s + r.adults, 0);
+  const allChildAges = rooms.flatMap((r) => r.children);
+  const occSummary =
+    `${rooms.length} hab. · ${totalAdults} adulto${totalAdults !== 1 ? "s" : ""}` +
+    (allChildAges.length ? ` · ${allChildAges.length} niño${allChildAges.length !== 1 ? "s" : ""}` : "");
+
+  function setAdults(i: number, delta: number) {
+    setRooms((rs) => rs.map((r, j) => (j === i ? { ...r, adults: Math.max(1, Math.min(6, r.adults + delta)) } : r)));
+  }
+  function setChildrenCount(i: number, delta: number) {
+    setRooms((rs) =>
+      rs.map((r, j) => {
+        if (j !== i) return r;
+        const children = [...r.children];
+        if (delta > 0 && children.length < 4) children.push(8); // edad por defecto
+        else if (delta < 0 && children.length > 0) children.pop();
+        return { ...r, children };
+      })
+    );
+  }
+  function setChildAge(roomI: number, childI: number, age: number) {
+    setRooms((rs) =>
+      rs.map((r, j) =>
+        j === roomI ? { ...r, children: r.children.map((a, k) => (k === childI ? Math.max(0, Math.min(17, age)) : a)) } : r
+      )
+    );
+  }
+  function addRoom() {
+    setRooms((rs) => (rs.length < 4 ? [...rs, { adults: 2, children: [] }] : rs));
+  }
+  function removeRoom(i: number) {
+    setRooms((rs) => (rs.length > 1 ? rs.filter((_, j) => j !== i) : rs));
+  }
 
   // Paso 2
   const [hotels, setHotels] = useState<HotelItem[]>([]);
@@ -175,7 +216,8 @@ export default function NewTrip() {
     setError(null);
     try {
       // Coordenadas preferente (independiente del idioma del nombre).
-      const qs = new URLSearchParams({ checkin: startISO, checkout: endISO, adults: "2" });
+      const qs = new URLSearchParams({ checkin: startISO, checkout: endISO });
+      qs.set("occupancies", JSON.stringify(rooms.map((r) => ({ adults: r.adults, children: r.children }))));
       if (dest.lat != null && dest.lng != null) {
         qs.set("lat", String(dest.lat));
         qs.set("lng", String(dest.lng));
@@ -201,9 +243,15 @@ export default function NewTrip() {
     setError(null);
     try {
       if (origin.trim().length === 3 && dest?.iata) {
-        const { item } = await api<{ item: FlightItem }>(
-          `/api/travel/flights?origin=${origin.trim().toUpperCase()}&destination=${dest.iata}&departDate=${startISO}&returnDate=${endISO}`
-        );
+        const fq = new URLSearchParams({
+          origin: origin.trim().toUpperCase(),
+          destination: dest.iata,
+          departDate: startISO,
+          returnDate: endISO,
+          adults: String(totalAdults),
+        });
+        if (allChildAges.length) fq.set("children", allChildAges.join(","));
+        const { item } = await api<{ item: FlightItem }>(`/api/travel/flights?${fq.toString()}`);
         setFlight(item);
       } else {
         setFlight(null);
@@ -258,6 +306,8 @@ export default function NewTrip() {
       destination: dest.cityName,
       startISO,
       endISO,
+      tripType,
+      occupancy: rooms.map((r) => ({ adults: r.adults, children: r.children })),
       transport,
       accommodation,
       imageUrl: hotel.thumbnail,
@@ -348,6 +398,30 @@ export default function NewTrip() {
               </>
             )}
 
+            <Text style={[styles.label, { color: th.textMuted, marginTop: 6 }]}>Tipo de viaje</Text>
+            <View style={styles.chipsWrap}>
+              {TRIP_TYPES.map((t) => {
+                const on = tripType === t;
+                return (
+                  <Pressable
+                    key={t}
+                    onPress={() => setTripType(t)}
+                    style={[styles.typeChip, { borderColor: on ? th.accent : th.border, backgroundColor: on ? th.accentSoft : th.surface }]}
+                  >
+                    <Text style={{ color: on ? th.accent : th.textMuted, fontSize: 13, fontWeight: "600" }}>{t}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <TextInput
+              value={TRIP_TYPES.includes(tripType) ? "" : tripType}
+              onChangeText={setTripType}
+              placeholder="…u otro tipo (escríbelo)"
+              placeholderTextColor={th.textSubtle}
+              autoCapitalize="sentences"
+              style={[styles.input, { backgroundColor: th.surface, borderColor: th.border, color: th.text }]}
+            />
+
             <Text style={[styles.label, { color: th.textMuted, marginTop: 6 }]}>Origen (IATA)</Text>
             <TextInput
               value={origin}
@@ -385,6 +459,45 @@ export default function NewTrip() {
                 }}
               />
             </View>
+
+            <Text style={[styles.label, { color: th.textMuted, marginTop: 6 }]}>Viajeros y habitaciones</Text>
+            <Text style={{ color: th.textSubtle, fontSize: 12 }}>{occSummary}</Text>
+            {rooms.map((r, i) => (
+              <View key={i} style={[styles.roomCard, { backgroundColor: th.surface, borderColor: th.border }]}>
+                <View style={styles.roomHeader}>
+                  <Text style={{ color: th.text, fontWeight: "700" }}>Habitación {i + 1}</Text>
+                  {rooms.length > 1 ? (
+                    <Pressable onPress={() => removeRoom(i)} hitSlop={8}>
+                      <Ionicons name="trash-outline" size={18} color={th.dangerFg} />
+                    </Pressable>
+                  ) : null}
+                </View>
+                <Stepper label="Adultos" value={r.adults} onMinus={() => setAdults(i, -1)} onPlus={() => setAdults(i, 1)} th={th} />
+                <Stepper label="Niños" value={r.children.length} onMinus={() => setChildrenCount(i, -1)} onPlus={() => setChildrenCount(i, 1)} th={th} />
+                {r.children.length > 0 ? (
+                  <View style={styles.agesRow}>
+                    {r.children.map((age, ci) => (
+                      <View key={ci} style={[styles.ageBox, { borderColor: th.border, backgroundColor: th.bg }]}>
+                        <Text style={{ color: th.textSubtle, fontSize: 10 }}>Edad</Text>
+                        <Pressable onPress={() => setChildAge(i, ci, age - 1)} hitSlop={6}>
+                          <Ionicons name="remove" size={14} color={th.accent} />
+                        </Pressable>
+                        <Text style={{ color: th.text, fontWeight: "600", minWidth: 16, textAlign: "center" }}>{age}</Text>
+                        <Pressable onPress={() => setChildAge(i, ci, age + 1)} hitSlop={6}>
+                          <Ionicons name="add" size={14} color={th.accent} />
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+              </View>
+            ))}
+            {rooms.length < 4 ? (
+              <Pressable onPress={addRoom} style={[styles.addRoomBtn, { borderColor: th.border }]}>
+                <Ionicons name="add" size={16} color={th.accent} />
+                <Text style={{ color: th.accent, fontWeight: "600" }}>Añadir habitación</Text>
+              </Pressable>
+            ) : null}
 
             <PrimaryBtn label="Siguiente" loading={loading} onPress={() => void loadHotels()} th={th} />
           </View>
@@ -460,7 +573,9 @@ export default function NewTrip() {
           <View style={{ gap: 12 }}>
             <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
               <Row k="Destino" v={dest.name} th={th} />
+              {tripType.trim() ? <Row k="Tipo" v={tripType.trim()} th={th} /> : null}
               <Row k="Fechas" v={`${startISO} – ${endISO}`} th={th} />
+              <Row k="Viajeros" v={occSummary} th={th} />
               <Row k="Alojamiento" v={`${hotel.name} · ${formatMoney(hotel.priceCents, hotel.currency)}`} th={th} />
               {flight ? (
                 <Row k="Vuelo" v={`${flight.airline ?? "Vuelo"} · ${formatMoney(flight.priceCents, flight.currency)}`} th={th} />
@@ -549,6 +664,35 @@ function GhostBtn({ label, onPress, th }: { label: string; onPress: () => void; 
   );
 }
 
+function Stepper({
+  label,
+  value,
+  onMinus,
+  onPlus,
+  th,
+}: {
+  label: string;
+  value: number;
+  onMinus: () => void;
+  onPlus: () => void;
+  th: Th;
+}) {
+  return (
+    <View style={styles.stepperRow}>
+      <Text style={{ color: th.text, fontSize: 14 }}>{label}</Text>
+      <View style={styles.stepperCtrls}>
+        <Pressable onPress={onMinus} style={[styles.stepBtn, { borderColor: th.border }]} hitSlop={6}>
+          <Ionicons name="remove" size={18} color={th.accent} />
+        </Pressable>
+        <Text style={{ color: th.text, fontWeight: "700", minWidth: 22, textAlign: "center" }}>{value}</Text>
+        <Pressable onPress={onPlus} style={[styles.stepBtn, { borderColor: th.border }]} hitSlop={6}>
+          <Ionicons name="add" size={18} color={th.accent} />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 12, paddingBottom: 40 },
   stepLabel: { fontSize: 12, fontWeight: "600" },
@@ -571,4 +715,14 @@ const styles = StyleSheet.create({
   ghostBtn: { height: 48, paddingHorizontal: 18, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   outlineBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, height: 46, borderRadius: 10, borderWidth: 1 },
   navRow: { flexDirection: "row", gap: 10, alignItems: "center", marginTop: 8 },
+  chipsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  typeChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
+  roomCard: { borderWidth: 1, borderRadius: 10, padding: 12, gap: 8 },
+  roomHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  stepperRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  stepperCtrls: { flexDirection: "row", alignItems: "center", gap: 12 },
+  stepBtn: { width: 34, height: 34, borderRadius: 8, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  agesRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  ageBox: { flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 },
+  addRoomBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, height: 42, borderRadius: 10, borderWidth: 1, borderStyle: "dashed" },
 });

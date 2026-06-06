@@ -124,11 +124,17 @@ export async function liteHotelsByCoords(opts: {
 }
 
 // ── Tarifas reales por hotel ───────────────────────────────────────────────
+/** Ocupación de UNA habitación: adultos + edades de los niños. */
+export type Occupancy = { adults: number; children?: number[] };
+
 export type LiteRatesOpts = {
   hotelIds: string[];
   /** "YYYY-MM-DD". */
   checkin: string;
   checkout: string;
+  /** Ocupación por habitación (1 entrada = 1 habitación). Si se omite, usa `adults`. */
+  occupancies?: Occupancy[];
+  /** Atajo: 1 habitación con N adultos (si no se pasan `occupancies`). */
   adults?: number;
   /** ISO-2 nacionalidad del huésped (afecta tarifas). */
   guestNationality?: string;
@@ -145,11 +151,15 @@ export type LiteRatesOpts = {
  * confirma con el primer resultado real).
  */
 export async function liteHotelRates(opts: LiteRatesOpts): Promise<unknown[]> {
+  const occupancies =
+    opts.occupancies && opts.occupancies.length
+      ? opts.occupancies.map((o) => ({ adults: Math.max(1, o.adults), children: o.children ?? [] }))
+      : [{ adults: opts.adults ?? 2, children: [] }];
   const json = await liteFetch<{ data?: unknown[] }>("/hotels/rates", {
     method: "POST",
     body: {
       hotelIds: opts.hotelIds,
-      occupancies: [{ adults: opts.adults ?? 2 }],
+      occupancies,
       checkin: opts.checkin,
       checkout: opts.checkout,
       currency: opts.currency ?? "EUR",

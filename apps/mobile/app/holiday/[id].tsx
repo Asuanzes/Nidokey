@@ -64,12 +64,24 @@ export default function HolidayDetail() {
   const destination = metaField<string | null>(record, "destination", null);
   const accommodation = metaField<AccommodationChoice | null>(record, "accommodation", null);
   const transport = metaField<TransportLeg | null>(record, "transport", null);
+  const tripType = metaField<string | null>(record, "tripType", null);
+  const occupancy = metaField<{ adults: number; children: number[] }[] | null>(record, "occupancy", null);
   // ⚠️ NO leer metaField(record, "commission", …): es interno, no se pinta.
+
+  const occSummary =
+    occupancy && occupancy.length
+      ? `${occupancy.length} hab. · ${occupancy.reduce((s, r) => s + (r.adults ?? 0), 0)} adultos` +
+        (occupancy.flatMap((r) => r.children ?? []).length
+          ? ` · ${occupancy.flatMap((r) => r.children ?? []).length} niños`
+          : "")
+      : null;
 
   const rows: [string, string][] = (
     [
       ["Destino", destination],
+      ["Tipo", tripType],
       ["Fechas", record.subtitle],
+      ["Viajeros", occSummary],
       [
         "Alojamiento",
         accommodation

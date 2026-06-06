@@ -22,7 +22,19 @@ const Query = z.object({
   checkin: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   checkout: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   adults: z.coerce.number().int().min(1).max(8).optional(),
+  // Ocupación por habitación, JSON: [{"adults":2,"children":[5,8]}, ...]
+  occupancies: z.string().optional(),
 });
+
+const OccSchema = z
+  .array(
+    z.object({
+      adults: z.coerce.number().int().min(1).max(8),
+      children: z.array(z.coerce.number().int().min(0).max(17)).optional(),
+    })
+  )
+  .min(1)
+  .max(6);
 
 /** % de margen interno (monetización) que LiteAPI baja al precio retail. */
 const HOTEL_MARGIN_PCT = 6;
@@ -69,6 +81,16 @@ export async function GET(req: NextRequest) {
     );
   }
   const { lat, lng, countryCode, cityName, checkin, checkout, adults } = parsed.data;
+  // Ocupación por habitación (si viene); si no, 1 hab. con `adults`.
+  let occupancies: { adults: number; children?: number[] }[] | undefined;
+  if (parsed.data.occupancies) {
+    try {
+      const occ = OccSchema.safeParse(JSON.parse(parsed.data.occupancies));
+      if (occ.success) occupancies = occ.data;
+    } catch {
+      /* JSON inválido → ignora, usa adults */
+    }
+  }
   if ((lat == null || lng == null) && (!countryCode || !cityName)) {
     return NextResponse.json(
       { error: "Falta destino: lat/lng o countryCode+cityName" },
@@ -89,6 +111,7 @@ export async function GET(req: NextRequest) {
       hotelIds: hotels.map((h) => h.id),
       checkin,
       checkout,
+      occupancies, // por habitación (si viene); si no, cae a `adults`
       adults: adults ?? 2,
       currency: "EUR",
       margin: HOTEL_MARGIN_PCT, // interno; NO se devuelve al cliente

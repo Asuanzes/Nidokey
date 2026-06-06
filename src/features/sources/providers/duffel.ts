@@ -58,6 +58,8 @@ export async function duffelSearchOffers(opts: {
   departDate: string; // "YYYY-MM-DD"
   returnDate?: string;
   adults?: number;
+  /** Edades de los niños (Duffel exige edad por pasajero infantil). */
+  childAges?: number[];
   cabin?: "economy" | "premium_economy" | "business" | "first";
 }): Promise<DuffelOffer[]> {
   const o = opts.origin.toUpperCase();
@@ -66,7 +68,11 @@ export async function duffelSearchOffers(opts: {
     { origin: o, destination: d, departure_date: opts.departDate },
   ];
   if (opts.returnDate) slices.push({ origin: d, destination: o, departure_date: opts.returnDate });
-  const passengers = Array.from({ length: Math.max(1, opts.adults ?? 1) }, () => ({ type: "adult" }));
+  // Duffel: adulto = {type:"adult"}; niño/bebé = {age: N}.
+  const passengers: Array<{ type: "adult" } | { age: number }> = [
+    ...Array.from({ length: Math.max(1, opts.adults ?? 1) }, () => ({ type: "adult" as const })),
+    ...(opts.childAges ?? []).map((age) => ({ age: Math.max(0, Math.min(17, Math.round(age))) })),
+  ];
 
   await throttle();
   const res = await fetch(`${DUFFEL_BASE}/air/offer_requests?return_offers=true&supplier_timeout=12000`, {

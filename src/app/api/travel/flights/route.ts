@@ -17,6 +17,9 @@ const Query = z.object({
   destination: z.string().min(3).max(3),
   departDate: z.string().optional(),
   returnDate: z.string().optional(),
+  adults: z.coerce.number().int().min(1).max(9).optional(),
+  /** Edades de los niños, CSV: "5,8". */
+  children: z.string().optional(),
 });
 
 type FlightItem = {
@@ -61,12 +64,17 @@ export async function GET(req: NextRequest) {
   const origin = parsed.data.origin.toUpperCase();
   const destination = parsed.data.destination.toUpperCase();
   const { departDate, returnDate } = parsed.data;
+  const adults = parsed.data.adults ?? 1;
+  const childAges = (parsed.data.children ?? "")
+    .split(",")
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isFinite(n) && n >= 0 && n <= 17);
   const bookUrl = aviasalesUrl(origin, destination, departDate);
 
   // 1) PRIMARIO — Duffel (en vivo, fechas exactas, cualquier ruta).
   if (departDate) {
     try {
-      const offers = await duffelSearchOffers({ origin, destination, departDate, returnDate, adults: 1 });
+      const offers = await duffelSearchOffers({ origin, destination, departDate, returnDate, adults, childAges });
       const best = cheapestOffer(offers);
       if (best) {
         const seg = best.slices?.[0]?.segments?.[0];

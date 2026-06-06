@@ -109,6 +109,12 @@ export interface AccommodationChoice {
   affiliateUrl?: string | null;
 }
 
+/** Ocupación de una habitación (adultos + edades de los niños). */
+export interface TravelOccupancy {
+  adults: number;
+  children: number[]; // edades
+}
+
 /** Comisión estimada de afiliación (capa de monetización). */
 export interface CommissionEstimate {
   /** Tasa aplicada (0–1; ej. 0.06 = 6%). */
@@ -126,6 +132,10 @@ export interface HolidayTripMeta {
   destination?: string | null;
   startISO?: string | null;
   endISO?: string | null;
+  /** Tipo de viaje libre: "Negocios", "Familia", "Pareja", "Grupo"… o uno propio. */
+  tripType?: string | null;
+  /** Ocupación por habitación (alojamiento). */
+  occupancy?: TravelOccupancy[] | null;
   /** Desplazamiento elegido. */
   transport?: TransportLeg | null;
   /** Alojamiento elegido. */

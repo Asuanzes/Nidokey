@@ -11,6 +11,7 @@ import {
   type TransportLeg,
   type AccommodationChoice,
   type HolidayTripMeta,
+  type TravelOccupancy,
   holidayTotalCents,
   estimateCommission,
 } from "./holiday";
@@ -33,6 +34,10 @@ export function buildHolidayImport(args: {
   destination: string;
   startISO: string;
   endISO: string;
+  /** Tipo de viaje libre (Negocios, Familia, Pareja…). */
+  tripType?: string | null;
+  /** Ocupación por habitación. */
+  occupancy?: TravelOccupancy[] | null;
   transport?: TransportLeg | null;
   accommodation?: AccommodationChoice | null;
   imageUrl?: string | null;
@@ -43,10 +48,12 @@ export function buildHolidayImport(args: {
   // COMISIÓN: interna. Se guarda en meta.commission y NUNCA se muestra al usuario.
   const commission = estimateCommission(total, args.commissionRate ?? 0.06);
   const currency = args.accommodation?.currency ?? args.transport?.currency ?? "EUR";
+  const tripType = args.tripType?.trim() || null;
   return {
     recordType: "holiday",
     title: `Viaje a ${args.destination}`,
-    subtitle: `${args.startISO} – ${args.endISO}`,
+    // El tipo de viaje encabeza el subtítulo (se ve en la tarjeta de la lista).
+    subtitle: [tripType, `${args.startISO} – ${args.endISO}`].filter(Boolean).join(" · "),
     status: "PLANNING",
     currentValue: total, // total visible; sin desglose de comisión
     currency,
@@ -57,6 +64,8 @@ export function buildHolidayImport(args: {
       destination: args.destination,
       startISO: args.startISO,
       endISO: args.endISO,
+      tripType,
+      occupancy: args.occupancy ?? null,
       transport: args.transport ?? null,
       accommodation: args.accommodation ?? null,
       totalCents: total,
