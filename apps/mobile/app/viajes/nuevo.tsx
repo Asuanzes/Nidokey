@@ -12,6 +12,7 @@ import { Image } from "expo-image";
 import { Stack, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
+import { Calendar, LocaleConfig, type DateData } from "react-native-calendars";
 
 import {
   buildHolidayImport,
@@ -66,6 +67,49 @@ type FlightItem = {
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
+// Calendario en español (react-native-calendars, JS puro).
+LocaleConfig.locales.es = {
+  monthNames: ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"],
+  monthNamesShort: ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"],
+  dayNames: ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"],
+  dayNamesShort: ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"],
+  today: "Hoy",
+};
+LocaleConfig.defaultLocale = "es";
+
+const MONTHS_SHORT = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+
+/** "YYYY-MM-DD" de HOY en hora local (minDate del calendario). */
+function todayISO(): string {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+/** "2026-07-15" → "15 jul". TZ-safe (no usa new Date sobre el ISO). */
+function fmtDay(iso: string): string {
+  const [, m, d] = iso.split("-").map(Number);
+  return `${d} ${MONTHS_SHORT[(m ?? 1) - 1]}`;
+}
+
+type DayMark = { startingDay?: boolean; endingDay?: boolean; color: string; textColor: string };
+
+/** Marca el rango entrada→salida (estilo Booking, markingType="period"). */
+function rangeMarks(start: string, end: string, color: string, textColor: string): Record<string, DayMark> {
+  if (!start) return {};
+  if (!end) return { [start]: { startingDay: true, endingDay: true, color, textColor } };
+  const marks: Record<string, DayMark> = {};
+  const cur = new Date(`${start}T00:00:00`);
+  const last = new Date(`${end}T00:00:00`);
+  while (cur <= last) {
+    const iso = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(cur.getDate()).padStart(2, "0")}`;
+    marks[iso] = { color, textColor, startingDay: iso === start, endingDay: iso === end };
+    cur.setDate(cur.getDate() + 1);
+  }
+  return marks;
+}
+
 export default function NewTrip() {
   const { th } = useTheme();
   const [step, setStep] = useState(1);
@@ -102,6 +146,18 @@ export default function NewTrip() {
       setError(e instanceof Error ? e.message : "Error buscando destino");
     } finally {
       setSearching(false);
+    }
+  }
+
+  // Selección de rango tipo Booking: 1ª pulsación = entrada; 2ª = salida.
+  // Pulsar una fecha anterior a la entrada (o re-empezar) reinicia el rango.
+  function onPickDay(day: DateData) {
+    const d = day.dateString;
+    if (!startISO || (startISO && endISO) || d <= startISO) {
+      setStartISO(d);
+      setEndISO("");
+    } else {
+      setEndISO(d);
     }
   }
 
@@ -296,24 +352,29 @@ export default function NewTrip() {
             />
 
             <Text style={[styles.label, { color: th.textMuted, marginTop: 6 }]}>Fechas</Text>
-            <View style={styles.searchRow}>
-              <TextInput
-                value={startISO}
-                onChangeText={setStartISO}
-                placeholder="2026-07-15"
-                placeholderTextColor={th.textSubtle}
-                keyboardType="numbers-and-punctuation"
-                autoCorrect={false}
-                style={[styles.input, styles.flex, { backgroundColor: th.surface, borderColor: th.border, color: th.text }]}
-              />
-              <TextInput
-                value={endISO}
-                onChangeText={setEndISO}
-                placeholder="2026-07-18"
-                placeholderTextColor={th.textSubtle}
-                keyboardType="numbers-and-punctuation"
-                autoCorrect={false}
-                style={[styles.input, styles.flex, { backgroundColor: th.surface, borderColor: th.border, color: th.text }]}
+            <Text style={{ color: startISO ? th.text : th.textSubtle, fontSize: 13, fontWeight: "500" }}>
+              {startISO && endISO
+                ? `${fmtDay(startISO)} → ${fmtDay(endISO)}`
+                : startISO
+                ? `Entrada ${fmtDay(startISO)} · elige la salida`
+                : "Elige la fecha de entrada"}
+            </Text>
+            <View style={[styles.calendarWrap, { borderColor: th.border, backgroundColor: th.surface }]}>
+              <Calendar
+                minDate={todayISO()}
+                firstDay={1}
+                markingType="period"
+                markedDates={rangeMarks(startISO, endISO, th.accent, th.primaryFg)}
+                onDayPress={onPickDay}
+                theme={{
+                  calendarBackground: th.surface,
+                  monthTextColor: th.text,
+                  dayTextColor: th.text,
+                  textDisabledColor: th.textSubtle,
+                  textSectionTitleColor: th.textMuted,
+                  arrowColor: th.accent,
+                  todayTextColor: th.accent,
+                }}
               />
             </View>
 
@@ -485,6 +546,7 @@ const styles = StyleSheet.create({
   center: { alignItems: "center", justifyContent: "center" },
   input: { height: 48, borderRadius: 10, borderWidth: 1, paddingHorizontal: 14, fontSize: 14 },
   searchRow: { flexDirection: "row", gap: 8 },
+  calendarWrap: { borderWidth: 1, borderRadius: 10, overflow: "hidden", paddingBottom: 4 },
   searchBtn: { width: 48, height: 48, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   row: { borderWidth: 1, borderRadius: 10, padding: 12, gap: 2 },
   chip: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, alignSelf: "flex-start" },
