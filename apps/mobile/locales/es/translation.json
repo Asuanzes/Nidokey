@@ -1,0 +1,41 @@
+{
+  "common": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "search": "Buscar",
+    "back": "Atrás",
+    "retry": "Reintentar",
+    "loading": "Cargando…",
+    "understood": "Entendido",
+    "done": "Listo",
+    "soon": "Próximamente"
+  },
+  "tabs": {
+    "records": "Registros",
+    "search": "Buscar",
+    "import": "Importar",
+    "duplicates": "Duplic.",
+    "account": "Cuenta"
+  },
+  "account": {
+    "appearance": "Apariencia",
+    "theme_light": "Claro",
+    "theme_dark": "Oscuro",
+    "theme_auto": "Automático",
+    "categories": "Categorías",
+    "manage_categories": "Gestionar categorías",
+    "server": "Servidor",
+    "logout": "Cerrar sesión",
+    "footer": "Nidokey · v0.1.0"
+  },
+  "settings": {
+    "language": {
+      "title": "Idioma",
+      "auto": "Automático (sistema)",
+      "current": "Actual",
+      "automatic": "Traducción automática",
+      "partial": "Traducción parcial"
+    }
+  }
+}

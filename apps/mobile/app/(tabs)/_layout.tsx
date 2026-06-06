@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
@@ -28,6 +29,7 @@ export default function TabsLayout() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const { th } = useTheme();
+  const { t } = useTranslation();
   const [dupCount, setDupCount] = useState(0);
   const dupChanged = useDuplicatesChanged();
 
@@ -57,11 +59,11 @@ export default function TabsLayout() {
     badge?: number;
     primary?: boolean;
   }[] = [
-    { href: "/",         label: "Registros", icon: "albums-outline" },
-    { href: "/search",   label: "Buscar",    icon: "search-outline" },
-    { href: "/importar", label: "Importar",  icon: "add", primary: true },
-    { href: "/matches",  label: "Duplic.",   icon: "sparkles-outline", badge: dupCount || undefined },
-    { href: "/account",  label: "Cuenta",    icon: "person-outline" },
+    { href: "/",         label: t("tabs.records"),    icon: "albums-outline" },
+    { href: "/search",   label: t("tabs.search"),     icon: "search-outline" },
+    { href: "/importar", label: t("tabs.import"),     icon: "add", primary: true },
+    { href: "/matches",  label: t("tabs.duplicates"), icon: "sparkles-outline", badge: dupCount || undefined },
+    { href: "/account",  label: t("tabs.account"),    icon: "person-outline" },
   ];
 
   return (

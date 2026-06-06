@@ -20,6 +20,8 @@ import { PendingImportProvider, usePendingImport } from "@/lib/pending-import";
 import { BrandLoading } from "@/components/BrandLoading";
 import { BootProvider, useBoot } from "@/lib/boot-context";
 import { CategoryPrefsProvider } from "@/lib/records/category-prefs-context";
+import "@/lib/i18n"; // inicializa i18next (debe importarse antes de usar t())
+import { LanguageProvider } from "@/lib/i18n/language-context";
 
 // Mantener el splash nativo hasta que la sesión esté resuelta: evita el
 // "cuadrado blanco" y el flash blanco entre el splash y el primer render.
@@ -74,6 +76,7 @@ export default function RootLayout() {
     // en vez de montar una 2ª instancia como react-native-share-menu.
     <ShareIntentProvider options={{ resetOnBackground: true }}>
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: th.bg }}>
+      <LanguageProvider>
       <AuthProvider>
         <ThemeContext.Provider value={{ dark, th, themeMode, setThemeMode, toggleTheme }}>
           <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
@@ -88,6 +91,7 @@ export default function RootLayout() {
           </ThemeProvider>
         </ThemeContext.Provider>
       </AuthProvider>
+      </LanguageProvider>
     </GestureHandlerRootView>
     </ShareIntentProvider>
   );

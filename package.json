@@ -29,6 +29,8 @@
     "test-travelpayouts": "tsx scripts/test-travelpayouts.ts",
     "gen-province-images": "tsx scripts/gen-province-images.ts",
     "mobile": "npm --workspace @nidokey/mobile run start",
+    "i18n:validate": "tsx scripts/i18n-validate.ts",
+    "i18n:translate": "tsx scripts/i18n-translate.ts",
     "postinstall": "patch-package"
   },
   "prisma": {
