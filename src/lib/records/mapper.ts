@@ -1,5 +1,5 @@
-import { formatPrice, formatMoney, type BaseRecord, type Book } from "@nidokey/shared";
-import type { Property, Media, CryptoHolding, MarketInstrument, JobListing, BookRecord } from "@prisma/client";
+import { formatPrice, formatMoney, formatDate, type BaseRecord, type Book } from "@nidokey/shared";
+import type { Property, Media, CryptoHolding, MarketInstrument, JobListing, BookRecord, Holiday } from "@prisma/client";
 
 /**
  * Mapper server-side: Property (Prisma) -> BaseRecord (modelo unificado).
@@ -143,6 +143,39 @@ export function bookToBaseRecord(b: BookRecord): BaseRecord {
       source: b.source,
       externalId: b.externalId,
       lastCheckedAt: b.lastCheckedAt?.toISOString() ?? null,
+    },
+  };
+}
+
+/** Holiday (Prisma) -> BaseRecord. `primaryValue` = total del viaje; el detalle
+ *  (transporte + alojamiento + comisión) viaja en `meta` (HolidayTripMeta). */
+export function holidayToBaseRecord(h: Holiday): BaseRecord {
+  const dateRange =
+    h.startDate || h.endDate
+      ? [h.startDate, h.endDate]
+          .filter(Boolean)
+          .map((d) => formatDate(d as Date))
+          .join(" – ")
+      : null;
+  const subtitle = h.subtitle ?? ([h.destination, dateRange].filter(Boolean).join(" · ") || null);
+  return {
+    id: h.id,
+    type: "holiday",
+    title: h.title,
+    subtitle,
+    status: h.status,
+    primaryValue: h.currentValue != null ? formatMoney(h.currentValue, h.currency ?? "EUR") : null,
+    imageUrl: h.imageUrl,
+    createdAt: h.createdAt.toISOString(),
+    updatedAt: h.updatedAt.toISOString(),
+    meta: {
+      destination: h.destination,
+      startDate: h.startDate?.toISOString() ?? null,
+      endDate: h.endDate?.toISOString() ?? null,
+      source: h.source,
+      externalId: h.externalId,
+      lastCheckedAt: h.lastCheckedAt?.toISOString() ?? null,
+      ...((h.meta as Record<string, unknown> | null) ?? {}),
     },
   };
 }

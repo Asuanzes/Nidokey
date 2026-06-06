@@ -93,6 +93,7 @@ model User {
   marketInstruments MarketInstrument[]
   jobListings       JobListing[]
   bookRecords       BookRecord[]
+  holidays          Holiday[]
 }
 
 // Tablas estándar de NextAuth / Auth.js (Prisma adapter).
@@ -289,6 +290,7 @@ enum ImportLogKind {
   MERGE_MANUAL
   BORROW_FIELDS
   RECHECK
+  TRAVELPAYOUTS
 }
 
 model ImportLog {
@@ -494,6 +496,58 @@ model BookRecord {
 
   @@unique([ownerId, externalId, source])
   @@index([recordType])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Holiday — VIAJE completo (vertical "Viajes"). Mismo contrato común que las
+// demás verticales. Un registro = un viaje integrado: el alojamiento elegido y
+// el desplazamiento elegido viven en `meta` (shape tipado en
+// packages/shared/src/holiday.ts → HolidayTripMeta). `currentValue` = precio
+// TOTAL del viaje en céntimos (transporte + alojamiento). Snapshot del total
+// para histórico (los precios cambian hasta cerrar el viaje). Datos de búsqueda
+// (vuelos/hoteles) vienen de Amadeus; tren/bus/coche y afiliados son capa aparte.
+// Dedup por (ownerId, externalId, source).
+// ─────────────────────────────────────────────────────────────────────────
+model Holiday {
+  id            String   @id @default(cuid())
+  ownerId       String?
+  owner         User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  recordType    String   @default("holiday")
+
+  title         String              // "Viaje a Barcelona"
+  subtitle      String?             // "15–20 jun 2026 · 5 días"
+  status        String?             // libre: "PLANNING" | "BOOKED" | "DONE"
+  destination   String?             // ciudad/destino ("Barcelona")
+  startDate     DateTime?
+  endDate       DateTime?
+  currentValue  Int?                // precio TOTAL del viaje, céntimos de currency
+  currency      String?  @default("EUR")
+  imageUrl      String?             // foto del destino
+  source        String?             // "amadeus" | "manual" | …
+  externalId    String?             // clave estable del viaje (ruta+fechas, etc.)
+  lastCheckedAt DateTime?
+  meta          Json?               // HolidayTripMeta: transporte + alojamiento + comisión
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  snapshots     HolidaySnapshot[]
+
+  @@unique([ownerId, externalId, source])
+  @@index([recordType])
+  @@index([startDate])
+}
+
+model HolidaySnapshot {
+  id         String   @id @default(cuid())
+  holidayId  String
+  holiday    Holiday  @relation(fields: [holidayId], references: [id], onDelete: Cascade)
+  value      Int      // precio total del viaje en céntimos
+  source     String
+  observedAt DateTime @default(now())
+  meta       Json?
+
+  @@index([holidayId, observedAt])
 }
 
 // ─────────────────────────────────────────────────────────────────────────

@@ -26,6 +26,7 @@
     "backfill-ratings": "node --env-file=.env --import tsx scripts/backfill-book-ratings.ts",
     "test-ingest": "tsx scripts/test-property-ingest.ts",
     "test-jobs": "tsx scripts/test-jobs-ingestion.ts",
+    "test-travelpayouts": "tsx scripts/test-travelpayouts.ts",
     "gen-province-images": "tsx scripts/gen-province-images.ts",
     "mobile": "npm --workspace @nidokey/mobile run start",
     "postinstall": "patch-package"

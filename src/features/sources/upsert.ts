@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import type { CryptoHolding, MarketInstrument, JobListing, BookRecord } from "@prisma/client";
+import type { CryptoHolding, MarketInstrument, JobListing, BookRecord, Holiday } from "@prisma/client";
 import type { NormalizedRecord } from "@/features/sources/types";
 import type { Book } from "@nidokey/shared";
 import {
@@ -23,6 +23,7 @@ export async function upsertRecord(
   if (normalized.recordType === "market") return upsertMarket(ownerId, normalized);
   if (normalized.recordType === "job") return upsertJob(ownerId, normalized);
   if (normalized.recordType === "book") return upsertBook(ownerId, normalized);
+  if (normalized.recordType === "holiday") return upsertHoliday(ownerId, normalized);
   throw new Error(`upsertRecord: tipo no soportado todavía: ${normalized.recordType}`);
 }
 
@@ -334,4 +335,90 @@ async function upsertBook(
 
 export function getBookById(id: string): Promise<BookRecord | null> {
   return prisma.bookRecord.findUnique({ where: { id } });
+}
+
+/** "2026-06-15" | ISO → Date, o null si no parsea. */
+function toDate(v: unknown): Date | null {
+  if (typeof v !== "string" || !v) return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * VIAJES — persiste un viaje (record `holiday`). El detalle (transporte +
+ * alojamiento + comisión) viaja en `meta` (HolidayTripMeta de @nidokey/shared);
+ * `currentValue` = precio TOTAL en céntimos. Dedupe por (ownerId, externalId,
+ * source). Snapshot del total solo si cambia (igual que el resto de verticales).
+ */
+async function upsertHoliday(
+  ownerId: string,
+  n: NormalizedRecord
+): Promise<{ id: string; created: boolean; valueChanged: boolean }> {
+  const meta = (n.meta ?? {}) as Record<string, unknown>;
+  const str = (k: string) => (typeof meta[k] === "string" ? (meta[k] as string) : null);
+  const source = n.source;
+  const externalId = n.externalId ?? null;
+  const value = n.currentValue ?? null;
+  const status = n.status ?? "PLANNING";
+  const destination = str("destination");
+  const startDate = toDate(meta.startISO);
+  const endDate = toDate(meta.endISO);
+
+  const existing = await prisma.holiday.findFirst({
+    where: { ownerId, externalId, source },
+  });
+
+  if (!existing) {
+    const created = await prisma.holiday.create({
+      data: {
+        ownerId,
+        title: n.title,
+        subtitle: n.subtitle ?? null,
+        status,
+        destination,
+        startDate,
+        endDate,
+        currentValue: value,
+        currency: n.currency ?? "EUR",
+        imageUrl: n.imageUrl ?? null,
+        source,
+        externalId,
+        lastCheckedAt: n.observedAt,
+        meta: meta as object,
+        snapshots:
+          value != null
+            ? { create: [{ value, source: source ?? "travelpayouts", observedAt: n.observedAt }] }
+            : undefined,
+      },
+    });
+    return { id: created.id, created: true, valueChanged: value != null };
+  }
+
+  // Re-importar el mismo viaje: refresca el total/datos sin pisar lo editado.
+  const valueChanged = value != null && value !== existing.currentValue;
+  await prisma.holiday.update({
+    where: { id: existing.id },
+    data: {
+      title: existing.title || n.title,
+      imageUrl: existing.imageUrl ?? n.imageUrl ?? null,
+      destination: existing.destination ?? destination,
+      startDate: existing.startDate ?? startDate,
+      endDate: existing.endDate ?? endDate,
+      currentValue: value ?? existing.currentValue,
+      lastCheckedAt: n.observedAt,
+      meta: { ...((existing.meta as Record<string, unknown>) ?? {}), ...meta } as object,
+      ...(valueChanged
+        ? {
+            snapshots: {
+              create: [{ value: value!, source: source ?? "travelpayouts", observedAt: n.observedAt }],
+            },
+          }
+        : {}),
+    },
+  });
+  return { id: existing.id, created: false, valueChanged };
+}
+
+export function getHolidayById(id: string): Promise<Holiday | null> {
+  return prisma.holiday.findUnique({ where: { id } });
 }
