@@ -180,30 +180,7 @@ export async function hotelsLookup(
   }
 }
 
-export type HotelPricesOpts = {
-  /** Nombre o id de autocomplete del destino. */
-  location: string;
-  /** "YYYY-MM-DD". */
-  checkIn: string;
-  checkOut: string;
-  adults?: number;
-  currency?: string;
-  limit?: number;
-};
-
-/**
- * PRECIOS de hotel. PENDIENTE de acceso: el endpoint público de Hotellook está
- * decomisionado y la API de precios/búsqueda de hoteles de Travelpayouts requiere
- * SOLICITAR acceso en el dashboard (cuenta ya verificada). En cuanto el dashboard
- * indique el host/endpoint concedido, se cablea aquí (probablemente mismo patrón
- * que vuelos: header `X-Access-Token`). Lanza para no pegar a un endpoint muerto.
- */
-export function hotelPrices(_opts: HotelPricesOpts): Promise<never> {
-  return Promise.reject(
-    new Error(
-      "Precios de hotel: PENDIENTE de acceso a la API de hoteles de Travelpayouts " +
-        "(engine.hotellook.com decomisionado). Solicita acceso a 'Hotels/Hotellook " +
-        "API' en el dashboard verificado; entonces se cablea el endpoint real."
-    )
-  );
-}
+// NOTA: Travelpayouts NO ofrece datos/precios de hotel (confirmado: ninguna marca
+// los provee y el viejo Hotellook está decomisionado). Los PRECIOS de hotel vienen
+// de LiteAPI → src/features/sources/providers/liteapi.ts. Aquí solo queda el
+// autocomplete (hotelsLookup) para resolver el destino (ciudad → IATA/coords).

@@ -18,8 +18,8 @@ import { existsSync, readFileSync } from "node:fs";
 import {
   flightPricesCheap,
   hotelsLookup,
-  hotelPrices,
 } from "../src/features/sources/providers/travelpayouts";
+import { liteHotelsByCity, liteHotelRates } from "../src/features/sources/providers/liteapi";
 
 // tsx no carga .env por sí solo → cargador mínimo (sin dependencias).
 function loadEnv(file: string) {
@@ -84,15 +84,34 @@ async function main() {
   if (c0) console.log(`   ej.: ${c0.name} (${c0.code}) · ${c0.country_name} · ${c0.coordinates?.lat},${c0.coordinates?.lon}`);
   console.log();
 
-  // 3) Precios de hotel — PENDIENTE de acceso (no rompe el test)
-  console.log("Precios de hotel…");
-  try {
-    await hotelPrices({ location: "Barcelona", checkIn: inDays(21), checkOut: inDays(24), limit: 5 });
-  } catch (e) {
-    console.log(`⏳ ${e instanceof Error ? e.message : e}`);
+  // 3) Hoteles con PRECIOS reales — LiteAPI (Travelpayouts no da hoteles)
+  console.log("LiteAPI: hoteles + tarifas en Barcelona…");
+  if (!process.env.LITEAPI_KEY) {
+    console.log("⏭  Define LITEAPI_KEY (liteapi.travel → Sandbox key) para probar hoteles.");
+  } else {
+    try {
+      const hotelList = await liteHotelsByCity({ countryCode: "ES", cityName: "Barcelona", limit: 20 });
+      console.log(`✓ ${hotelList.length} hoteles en el catálogo`);
+      const ids = hotelList.slice(0, 10).map((h) => h.id).filter(Boolean);
+      if (ids.length) {
+        const rates = await liteHotelRates({
+          hotelIds: ids,
+          checkin: inDays(21),
+          checkout: inDays(24),
+          adults: 2,
+          currency: "EUR",
+          margin: 10,
+        });
+        console.log(`✓ ${rates.length} hoteles con tarifa real`);
+        console.log("   (forma del 1er rate, para mapear el precio):");
+        console.log(JSON.stringify(rates[0], null, 2).slice(0, 600));
+      }
+    } catch (e) {
+      console.log(`✗ LiteAPI: ${e instanceof Error ? e.message : e}`);
+    }
   }
 
-  console.log("\n✓ Provider Travelpayouts: vuelos + autocomplete OK. Precios de hotel pendientes de acceso.");
+  console.log("\n✓ Vuelos+destino (Travelpayouts) y hoteles+precios (LiteAPI) cableados.");
 }
 
 main().catch((e) => {
