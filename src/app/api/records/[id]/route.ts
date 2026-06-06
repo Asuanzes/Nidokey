@@ -3,7 +3,7 @@ import type { RecordType } from "@nidokey/shared";
 
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth-helpers";
-import { propertyToBaseRecord, cryptoToBaseRecord, marketToBaseRecord, jobToBaseRecord, bookToBaseRecord } from "@/lib/records/mapper";
+import { propertyToBaseRecord, cryptoToBaseRecord, marketToBaseRecord, jobToBaseRecord, bookToBaseRecord, holidayToBaseRecord } from "@/lib/records/mapper";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -57,6 +57,16 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     return NextResponse.json({ ...record, meta: { ...record.meta, detail: book } });
   }
 
+  if (type === "holiday") {
+    const holiday = await prisma.holiday.findFirst({
+      where: { id, ownerId },
+      include: { snapshots: { orderBy: { observedAt: "asc" } } },
+    });
+    if (!holiday) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const record = holidayToBaseRecord(holiday);
+    return NextResponse.json({ ...record, meta: { ...record.meta, detail: holiday } });
+  }
+
   const property = await prisma.property.findFirst({
     where: { id, ownerId },
     include: {
@@ -104,6 +114,12 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
 
   if (type === "book") {
     const res = await prisma.bookRecord.deleteMany({ where: { id, ownerId } });
+    if (res.count === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (type === "holiday") {
+    const res = await prisma.holiday.deleteMany({ where: { id, ownerId } });
     if (res.count === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ ok: true });
   }

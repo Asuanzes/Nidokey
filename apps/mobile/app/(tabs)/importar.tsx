@@ -474,7 +474,21 @@ export default function ImportarScreen() {
         />
       )}
 
-      {cfg.addMode !== "soon" && (
+      {cfg.addMode === "wizard" && (
+        <Card style={{ gap: 12 }}>
+          <Text style={[styles.hintText, { color: th.textMuted }]}>
+            Elige destino y fechas; verás alojamiento y desplazamiento con sus precios
+            para montar tu viaje.
+          </Text>
+          <Button
+            label="Crear viaje"
+            icon="airplane-outline"
+            onPress={() => router.push("/viajes/nuevo" as never)}
+          />
+        </Card>
+      )}
+
+      {cfg.addMode !== "soon" && cfg.addMode !== "wizard" && (
         <>
           <TextInput
             value={value}

@@ -16,9 +16,10 @@ import type { RecordType } from "@nidokey/shared";
  *  - "url":    pegar/compartir una URL → extracción en WebView (inmuebles…).
  *  - "symbol": teclear un símbolo → fetch server-side por API (cripto).
  *  - "search": teclear nombre/ticker → buscar y elegir de una lista (mercados).
+ *  - "wizard": asistente multi-paso en pantalla propia (viajes).
  *  - "soon":   aún no disponible (se muestra "Próximamente").
  */
-export type AddMode = "url" | "symbol" | "search" | "soon";
+export type AddMode = "url" | "symbol" | "search" | "soon" | "wizard";
 
 export type RecordTypeConfig = {
   /** Etiqueta plural para listas y chips (ej. "Inmuebles"). */
@@ -45,7 +46,7 @@ export type RecordTypeConfig = {
 export const RECORD_TYPE_CONFIG: Record<RecordType, RecordTypeConfig> = {
   property: { label: "Inmuebles",  singular: "Inmueble",  color: "#3A5F8A", icon: "home-outline",         enabled: true,  addMode: "url",    addPlaceholder: "https://www.idealista.com/…" },
   renting:  { label: "Alquiler",   singular: "Alquiler",  color: "#7A5BA6", icon: "key-outline",          enabled: false, addMode: "soon",   addPlaceholder: "" },
-  holiday:  { label: "Vacaciones", singular: "Vacación",  color: "#2C7A8A", icon: "airplane-outline",     enabled: false, addMode: "soon",   addPlaceholder: "" },
+  holiday:  { label: "Viajes",     singular: "Viaje",     color: "#2C7A8A", icon: "airplane-outline",     enabled: true,  addMode: "wizard", addPlaceholder: "" },
   crypto:   { label: "Criptos",    singular: "Cripto",    color: "#B87333", icon: "logo-bitcoin",         enabled: true,  addMode: "symbol", addPlaceholder: "BTC, ETH, SOL…" },
   market:   { label: "Markets",    singular: "Mercado",   color: "#2D6A4F", icon: "trending-up-outline",  enabled: true,  addMode: "search", addPlaceholder: "Busca: sxr8, apple, vaneck space…" },
   job:      { label: "Empleos",    singular: "Empleo",    color: "#A86A17", icon: "briefcase-outline",    enabled: true,  addMode: "search", addPlaceholder: "Busca: react, enfermero/a, comercial…", searchOnSubmit: true },

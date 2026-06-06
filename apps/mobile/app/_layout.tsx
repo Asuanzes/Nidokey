@@ -289,6 +289,28 @@ function AuthGate() {
               title: "Escanear libro",
             }}
           />
+          <Stack.Screen
+            name="viajes/nuevo"
+            options={{
+              headerShown: true,
+              headerBackTitle: "Atrás",
+              headerTintColor: th.primary,
+              headerStyle: { backgroundColor: th.surface },
+              headerTitleStyle: { color: th.text },
+              title: "Nuevo viaje",
+            }}
+          />
+          <Stack.Screen
+            name="holiday/[id]"
+            options={{
+              headerShown: true,
+              headerBackTitle: "Atrás",
+              headerTintColor: th.primary,
+              headerStyle: { backgroundColor: th.surface },
+              headerTitleStyle: { color: th.text },
+              title: "Viaje",
+            }}
+          />
       </Stack>
       {showLoader ? (
         <View style={StyleSheet.absoluteFill}>

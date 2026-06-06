@@ -5,4 +5,5 @@ export * from "./types";
 export * from "./records";
 export * from "./book";
 export * from "./holiday";
+export * from "./holiday-build";
 export * from "./dedup";

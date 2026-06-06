@@ -3,7 +3,7 @@ import type { RecordType } from "@nidokey/shared";
 
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth-helpers";
-import { propertyToBaseRecord, cryptoToBaseRecord, marketToBaseRecord, jobToBaseRecord, bookToBaseRecord } from "@/lib/records/mapper";
+import { propertyToBaseRecord, cryptoToBaseRecord, marketToBaseRecord, jobToBaseRecord, bookToBaseRecord, holidayToBaseRecord } from "@/lib/records/mapper";
 
 /**
  * GET /api/records?type=property
@@ -64,6 +64,15 @@ export async function GET(req: NextRequest) {
       take: 100,
     });
     return NextResponse.json(books.map(bookToBaseRecord));
+  }
+
+  if (type === "holiday") {
+    const holidays = await prisma.holiday.findMany({
+      where: { ownerId },
+      orderBy: { updatedAt: "desc" },
+      take: 100,
+    });
+    return NextResponse.json(holidays.map(holidayToBaseRecord));
   }
 
   // Tipos reservados (workout…): sin datos todavía.
