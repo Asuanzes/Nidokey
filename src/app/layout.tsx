@@ -1,7 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import Script from "next/script";
 import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({
@@ -39,19 +38,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Script de Travelpayouts (Drive/Emerald): verifica la propiedad del
             sitio + conversión de enlaces de afiliado + analítica. Necesario para
             aprobar nidokey.es como plataforma y desbloquear programas (Booking).
-            El dominio rota (emrldtp/emrld.ltd) a propósito. `beforeInteractive`
-            emite el snippet en el HTML del servidor para que su verificación lo
-            detecte (estática o en runtime). Replica EXACTO el snippet que da
-            Travelpayouts. Solo afecta a la WEB. OJO: requiere DEPLOY para que se
-            verifique (en local no lo ve). */}
-        <Script id="travelpayouts-emerald" strategy="beforeInteractive">
-          {`(function () {
-  var script = document.createElement("script");
-  script.async = 1;
-  script.src = 'https://emrldtp.com/NTM2ODY5.js?t=536869';
-  document.head.appendChild(script);
-})();`}
-        </Script>
+            El dominio rota (emrldtp/emrld.ltd) a propósito.
+            Etiqueta <script async src> CRUDA: React 19 la sube al <head> y la emite
+            LITERAL en el HTML del servidor (checker estático) y la ejecuta (checker
+            en runtime). Es lo que `next/script` NO hacía (la ocultaba en su loader).
+            Solo afecta a la WEB. OJO: requiere DEPLOY (en local no lo ve). */}
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script async src="https://emrldtp.com/NTM2ODY5.js?t=536869" />
         {children}
         <Analytics />
       </body>
