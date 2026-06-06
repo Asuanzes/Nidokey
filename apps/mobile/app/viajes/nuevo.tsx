@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -53,7 +54,8 @@ type HotelItem = {
   lat: number | null;
   lng: number | null;
 };
-type FlightItem = {
+type FlightOption = {
+  offerId: string | null;
   origin: string;
   destination: string;
   priceCents: number;
@@ -62,8 +64,9 @@ type FlightItem = {
   flightNumber: string | null;
   departISO: string | null;
   returnISO: string | null;
+  stops: number;
   bookUrl: string;
-} | null;
+};
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -172,7 +175,8 @@ export default function NewTrip() {
   const [hotel, setHotel] = useState<HotelItem | null>(null);
 
   // Paso 3
-  const [flight, setFlight] = useState<FlightItem>(null);
+  const [flights, setFlights] = useState<FlightOption[]>([]);
+  const [flight, setFlight] = useState<FlightOption | null>(null);
 
   const totalCents = (hotel?.priceCents ?? 0) + (flight?.priceCents ?? 0);
 
@@ -251,12 +255,15 @@ export default function NewTrip() {
           adults: String(totalAdults),
         });
         if (allChildAges.length) fq.set("children", allChildAges.join(","));
-        const { item } = await api<{ item: FlightItem }>(`/api/travel/flights?${fq.toString()}`);
-        setFlight(item);
+        const { items } = await api<{ items: FlightOption[] }>(`/api/travel/flights?${fq.toString()}`);
+        setFlights(items);
+        setFlight(items[0] ?? null); // pre-selecciona el más barato; el usuario cambia
       } else {
+        setFlights([]);
         setFlight(null);
       }
     } catch {
+      setFlights([]);
       setFlight(null); // sin vuelo, no bloquea
     } finally {
       setLoading(false);
@@ -314,17 +321,71 @@ export default function NewTrip() {
     });
 
     try {
-      const { record: saved } = await api<{ created: boolean; record: { id: string } | null }>(
-        "/api/records/import",
-        { method: "POST", body: JSON.stringify({ type: "holiday", input: { kind: "record", record } }) }
+      // Reserva completa (modo prueba): el backend confirma y persiste BOOKED.
+      const { record: saved, booking } = await api<{
+        record: { id: string } | null;
+        booking: { hotelRef: string; flightRef: string | null };
+      }>("/api/travel/book", { method: "POST", body: JSON.stringify({ record }) });
+      const id = saved?.id;
+      Alert.alert(
+        "✅ ¡Reserva realizada!",
+        `Alojamiento ${booking.hotelRef}` +
+          (booking.flightRef ? ` · Vuelo ${booking.flightRef}` : "") +
+          "\n\n(Reserva de prueba — el cobro real se activará al publicar.)",
+        [{ text: "Ver viaje", onPress: () => router.replace((id ? `/holiday/${id}` : "/(tabs)") as never) }]
       );
-      if (saved?.id) router.replace(`/holiday/${saved.id}` as never);
-      else router.replace("/(tabs)" as never);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "No se pudo crear el viaje");
+      setError(e instanceof ApiError ? e.message : "No se pudo reservar el viaje");
     } finally {
       setLoading(false);
     }
+  }
+
+  const sameFlight = (a: FlightOption | null, f: FlightOption) =>
+    !!a && a.priceCents === f.priceCents && a.departISO === f.departISO && a.airline === f.airline;
+
+  function hotelCard(h: HotelItem) {
+    const sel = hotel?.hotelId === h.hotelId;
+    return (
+      <Pressable
+        key={h.hotelId}
+        onPress={() => setHotel(sel ? null : h)}
+        style={[styles.hotelRow, { backgroundColor: th.surface, borderColor: sel ? th.accent : th.border, borderWidth: sel ? 2 : 1 }]}
+      >
+        {h.thumbnail ? (
+          <Image source={{ uri: h.thumbnail }} style={styles.hotelThumb} contentFit="cover" transition={150} />
+        ) : (
+          <View style={[styles.hotelThumb, styles.center, { backgroundColor: th.imagePlaceholder }]}>
+            <Ionicons name="bed-outline" size={22} color={th.textSubtle} />
+          </View>
+        )}
+        <View style={styles.flex}>
+          <Text style={{ color: th.text, fontWeight: "600" }} numberOfLines={2}>{h.name}</Text>
+          {h.stars ? <Text style={{ color: th.textSubtle, fontSize: 12 }}>{"★".repeat(Math.round(h.stars))}</Text> : null}
+        </View>
+        <Text style={{ color: th.accent, fontWeight: "700" }}>{formatMoney(h.priceCents, h.currency)}</Text>
+      </Pressable>
+    );
+  }
+
+  function flightCard(f: FlightOption) {
+    const sel = sameFlight(flight, f);
+    const stopsLabel = f.stops === 0 ? "Directo" : `${f.stops} escala${f.stops > 1 ? "s" : ""}`;
+    const time = f.departISO ? f.departISO.slice(11, 16) : null;
+    return (
+      <Pressable
+        key={f.offerId ?? `${f.airline}|${f.departISO}|${f.priceCents}`}
+        onPress={() => setFlight(sel ? null : f)}
+        style={[styles.flightRow, { backgroundColor: th.surface, borderColor: sel ? th.accent : th.border, borderWidth: sel ? 2 : 1 }]}
+      >
+        <Ionicons name="airplane" size={18} color={th.textSubtle} />
+        <View style={styles.flex}>
+          <Text style={{ color: th.text, fontWeight: "600" }} numberOfLines={1}>{f.airline ?? "Vuelo"}</Text>
+          <Text style={{ color: th.textSubtle, fontSize: 12 }}>{[time, stopsLabel].filter(Boolean).join(" · ")}</Text>
+        </View>
+        <Text style={{ color: th.accent, fontWeight: "700" }}>{formatMoney(f.priceCents, f.currency)}</Text>
+      </Pressable>
+    );
   }
 
   const STEP_TITLES = ["Destino y fechas", "Alojamiento", "Desplazamiento", "Resumen"];
@@ -512,33 +573,16 @@ export default function NewTrip() {
                   ? `Sin hoteles para «${dest?.name ?? "ese destino"}» (en pruebas la cobertura es limitada; prueba una ciudad grande).`
                   : "No hay disponibilidad para esas fechas. Prueba otras fechas."}
               </Text>
+            ) : hotel ? (
+              <>
+                {hotelCard(hotel)}
+                <Pressable onPress={() => setHotel(null)} style={styles.linkRow}>
+                  <Ionicons name="swap-horizontal" size={16} color={th.accent} />
+                  <Text style={{ color: th.accent, fontWeight: "600" }}>Ver otros hoteles ({hotels.length})</Text>
+                </Pressable>
+              </>
             ) : (
-              hotels.map((h) => {
-                const sel = hotel?.hotelId === h.hotelId;
-                return (
-                  <Pressable
-                    key={h.hotelId}
-                    onPress={() => setHotel(h)}
-                    style={[
-                      styles.hotelRow,
-                      { backgroundColor: th.surface, borderColor: sel ? th.accent : th.border, borderWidth: sel ? 2 : 1 },
-                    ]}
-                  >
-                    {h.thumbnail ? (
-                      <Image source={{ uri: h.thumbnail }} style={styles.hotelThumb} contentFit="cover" transition={150} />
-                    ) : (
-                      <View style={[styles.hotelThumb, styles.center, { backgroundColor: th.imagePlaceholder }]}>
-                        <Ionicons name="bed-outline" size={22} color={th.textSubtle} />
-                      </View>
-                    )}
-                    <View style={styles.flex}>
-                      <Text style={{ color: th.text, fontWeight: "600" }} numberOfLines={2}>{h.name}</Text>
-                      {h.stars ? <Text style={{ color: th.textSubtle, fontSize: 12 }}>{"★".repeat(Math.round(h.stars))}</Text> : null}
-                    </View>
-                    <Text style={{ color: th.accent, fontWeight: "700" }}>{formatMoney(h.priceCents, h.currency)}</Text>
-                  </Pressable>
-                );
-              })
+              hotels.map((h) => hotelCard(h))
             )}
             <View style={styles.navRow}>
               <GhostBtn label="Atrás" onPress={() => setStep(1)} th={th} />
@@ -547,19 +591,30 @@ export default function NewTrip() {
           </View>
         )}
 
-        {/* ── Paso 3: desplazamiento ── */}
+        {/* ── Paso 3: desplazamiento (lista seleccionable) ── */}
         {step === 3 && (
-          <View style={{ gap: 10 }}>
-            {flight ? (
-              <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
-                <Row k="Trayecto" v={`${flight.origin} → ${flight.destination}`} th={th} />
-                {flight.airline ? <Row k="Aerolínea" v={flight.airline} th={th} /> : null}
-                <Row k="Precio" v={formatMoney(flight.priceCents, flight.currency)} th={th} accent />
-              </View>
-            ) : (
+          <View style={{ gap: 8 }}>
+            {flights.length === 0 ? (
               <Text style={{ color: th.textSubtle }}>
-                Sin precio de vuelo para esta ruta/fechas. Puedes continuar solo con el alojamiento.
+                Sin vuelos para esta ruta/fechas. Puedes continuar solo con el alojamiento.
               </Text>
+            ) : flight ? (
+              <>
+                {flightCard(flight)}
+                {flights.length > 1 ? (
+                  <Pressable onPress={() => setFlight(null)} style={styles.linkRow}>
+                    <Ionicons name="swap-horizontal" size={16} color={th.accent} />
+                    <Text style={{ color: th.accent, fontWeight: "600" }}>Ver otros vuelos ({flights.length})</Text>
+                  </Pressable>
+                ) : null}
+              </>
+            ) : (
+              <>
+                {flights.map((f) => flightCard(f))}
+                <Text style={{ color: th.textSubtle, fontSize: 12 }}>
+                  Elige un vuelo, o pulsa Siguiente para continuar sin vuelo.
+                </Text>
+              </>
             )}
             <View style={styles.navRow}>
               <GhostBtn label="Atrás" onPress={() => setStep(2)} th={th} />
@@ -606,7 +661,7 @@ export default function NewTrip() {
 
             <View style={styles.navRow}>
               <GhostBtn label="Atrás" onPress={() => setStep(3)} th={th} />
-              <PrimaryBtn label="Crear viaje" loading={loading} onPress={() => void createTrip()} th={th} />
+              <PrimaryBtn label="Reservar viaje" loading={loading} onPress={() => void createTrip()} th={th} />
             </View>
           </View>
         )}
@@ -707,6 +762,8 @@ const styles = StyleSheet.create({
   row: { borderWidth: 1, borderRadius: 10, padding: 12, gap: 2 },
   chip: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, alignSelf: "flex-start" },
   hotelRow: { flexDirection: "row", alignItems: "center", gap: 10, borderRadius: 10, padding: 8 },
+  flightRow: { flexDirection: "row", alignItems: "center", gap: 10, borderRadius: 10, padding: 12 },
+  linkRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 6 },
   hotelThumb: { width: 56, height: 56, borderRadius: 8 },
   card: { borderWidth: 1, borderRadius: 10, padding: 14, gap: 4 },
   kvRow: { flexDirection: "row", justifyContent: "space-between", gap: 12, paddingVertical: 4 },

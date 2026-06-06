@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireUserId } from "@/lib/auth-helpers";
 import { flightPricesCheap } from "@/features/sources/providers/travelpayouts";
-import { duffelSearchOffers, cheapestOffer } from "@/features/sources/providers/duffel";
+import { duffelSearchOffers, type DuffelOffer } from "@/features/sources/providers/duffel";
 
 /**
  * GET /api/travel/flights?origin=MAD&destination=BCN&departDate=...&returnDate=...
+ *   &adults=2&children=5,8
  *
- * Precio de vuelo. PRIMARIO: Duffel (búsqueda en vivo, cualquier ruta/fecha, EUR).
- * RESPALDO: Travelpayouts Data API cacheada (rutas populares) si Duffel falla o no
- * tiene token. La RESERVA va por enlace afiliado de Aviasales (marker en la capa
- * de monetización) — el botón abre eso en in-app browser. Owner-scoped.
+ * Devuelve una LISTA de opciones de vuelo para que el usuario elija (no solo la
+ * más barata). PRIMARIO: Duffel (en vivo, cualquier ruta, EUR). RESPALDO:
+ * Travelpayouts cacheado. La reserva real va por afiliado Aviasales (bookUrl).
  */
 const Query = z.object({
   origin: z.string().min(3).max(3),
@@ -18,11 +18,11 @@ const Query = z.object({
   departDate: z.string().optional(),
   returnDate: z.string().optional(),
   adults: z.coerce.number().int().min(1).max(9).optional(),
-  /** Edades de los niños, CSV: "5,8". */
-  children: z.string().optional(),
+  children: z.string().optional(), // edades CSV "5,8"
 });
 
-type FlightItem = {
+export type FlightOption = {
+  offerId: string | null; // id de oferta Duffel (para reserva futura)
   origin: string;
   destination: string;
   priceCents: number;
@@ -31,6 +31,7 @@ type FlightItem = {
   flightNumber: string | null;
   departISO: string | null;
   returnISO: string | null;
+  stops: number; // escalas de la ida (0 = directo)
   bookUrl: string;
 };
 
@@ -42,10 +43,46 @@ type CheapEntry = {
   return_at?: string;
 };
 
-/** Enlace de búsqueda Aviasales (afiliado/marker en la capa de monetización). */
+const MAX_OPTIONS = 6;
+
 function aviasalesUrl(origin: string, destination: string, departDate?: string): string {
-  const dep = departDate ? departDate.replace(/-/g, "").slice(2, 6) : ""; // DDMM-ish
+  const dep = departDate ? departDate.replace(/-/g, "").slice(2, 6) : "";
   return `https://www.aviasales.com/search/${origin}${dep}${destination}1`;
+}
+
+/** Duffel offers → opciones variadas (ordenadas por precio, dedup aerolínea+hora). */
+function duffelToOptions(offers: DuffelOffer[], origin: string, destination: string, bookUrl: string): FlightOption[] {
+  const sorted = offers
+    .filter((o) => Number.isFinite(parseFloat(o.total_amount)))
+    .sort((a, b) => parseFloat(a.total_amount) - parseFloat(b.total_amount));
+  const seen = new Set<string>();
+  const out: FlightOption[] = [];
+  for (const o of sorted) {
+    const segs = o.slices?.[0]?.segments ?? [];
+    const seg = segs[0];
+    const airline = o.owner?.name ?? seg?.marketing_carrier?.name ?? "—";
+    const key = `${airline}|${seg?.departing_at?.slice(0, 13) ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      offerId: o.id,
+      origin,
+      destination,
+      priceCents: Math.round(parseFloat(o.total_amount) * 100),
+      currency: o.total_currency || "EUR",
+      airline,
+      flightNumber:
+        seg?.marketing_carrier?.iata_code && seg?.marketing_carrier_flight_number
+          ? `${seg.marketing_carrier.iata_code} ${seg.marketing_carrier_flight_number}`
+          : null,
+      departISO: seg?.departing_at ?? null,
+      returnISO: o.slices?.[1]?.segments?.[0]?.departing_at ?? null,
+      stops: Math.max(0, segs.length - 1),
+      bookUrl,
+    });
+    if (out.length >= MAX_OPTIONS) break;
+  }
+  return out;
 }
 
 export async function GET(req: NextRequest) {
@@ -71,38 +108,18 @@ export async function GET(req: NextRequest) {
     .filter((n) => Number.isFinite(n) && n >= 0 && n <= 17);
   const bookUrl = aviasalesUrl(origin, destination, departDate);
 
-  // 1) PRIMARIO — Duffel (en vivo, fechas exactas, cualquier ruta).
+  // 1) PRIMARIO — Duffel (en vivo, varias opciones).
   if (departDate) {
     try {
       const offers = await duffelSearchOffers({ origin, destination, departDate, returnDate, adults, childAges });
-      const best = cheapestOffer(offers);
-      if (best) {
-        const seg = best.slices?.[0]?.segments?.[0];
-        const retSeg = best.slices?.[1]?.segments?.[0];
-        const item: FlightItem = {
-          origin,
-          destination,
-          priceCents: Math.round(parseFloat(best.total_amount) * 100),
-          currency: best.total_currency || "EUR",
-          airline: best.owner?.name ?? seg?.marketing_carrier?.name ?? null,
-          flightNumber:
-            seg?.marketing_carrier?.iata_code && seg?.marketing_carrier_flight_number
-              ? `${seg.marketing_carrier.iata_code} ${seg.marketing_carrier_flight_number}`
-              : null,
-          departISO: seg?.departing_at ?? null,
-          returnISO: retSeg?.departing_at ?? null,
-          bookUrl,
-        };
-        return NextResponse.json({ item });
-      }
+      const items = duffelToOptions(offers, origin, destination, bookUrl);
+      if (items.length) return NextResponse.json({ items });
     } catch (err) {
       console.error("[travel-flights] duffel:", err instanceof Error ? err.message : err);
-      // sigue al respaldo
     }
   }
 
-  // 2) RESPALDO — Travelpayouts cacheado (rutas populares). Precio por MES; si el
-  //    mes no tiene caché, el más barato de la ruta (indicativo).
+  // 2) RESPALDO — Travelpayouts cacheado (pocas opciones, rutas populares).
   try {
     const pick = (r: { data?: unknown }): CheapEntry[] =>
       Object.values((r.data as Record<string, Record<string, CheapEntry>> | undefined)?.[destination] ?? {}).filter(
@@ -114,22 +131,25 @@ export async function GET(req: NextRequest) {
       await flightPricesCheap({ origin, destination, departDate: departMonth, returnDate: returnMonth, currency: "eur" })
     );
     if (entries.length === 0) entries = pick(await flightPricesCheap({ origin, destination, currency: "eur" }));
-    if (entries.length === 0) return NextResponse.json({ item: null });
-    const cheapest = entries.reduce((a, b) => (a.price! <= b.price! ? a : b));
-    const item: FlightItem = {
-      origin,
-      destination,
-      priceCents: Math.round(cheapest.price! * 100),
-      currency: "EUR",
-      airline: cheapest.airline ?? null,
-      flightNumber: cheapest.flight_number != null ? String(cheapest.flight_number) : null,
-      departISO: cheapest.departure_at ?? null,
-      returnISO: cheapest.return_at ?? null,
-      bookUrl,
-    };
-    return NextResponse.json({ item });
+    const items: FlightOption[] = entries
+      .sort((a, b) => a.price! - b.price!)
+      .slice(0, MAX_OPTIONS)
+      .map((e) => ({
+        offerId: null,
+        origin,
+        destination,
+        priceCents: Math.round(e.price! * 100),
+        currency: "EUR",
+        airline: e.airline ?? null,
+        flightNumber: e.flight_number != null ? String(e.flight_number) : null,
+        departISO: e.departure_at ?? null,
+        returnISO: e.return_at ?? null,
+        stops: 0,
+        bookUrl,
+      }));
+    return NextResponse.json({ items });
   } catch (err) {
     console.error("[travel-flights] travelpayouts:", err instanceof Error ? err.message : err);
-    return NextResponse.json({ item: null });
+    return NextResponse.json({ items: [] });
   }
 }

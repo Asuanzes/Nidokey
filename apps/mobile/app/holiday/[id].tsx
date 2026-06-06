@@ -66,7 +66,13 @@ export default function HolidayDetail() {
   const transport = metaField<TransportLeg | null>(record, "transport", null);
   const tripType = metaField<string | null>(record, "tripType", null);
   const occupancy = metaField<{ adults: number; children: number[] }[] | null>(record, "occupancy", null);
+  const booking = metaField<{ hotelRef?: string; flightRef?: string | null } | null>(record, "booking", null);
   // ⚠️ NO leer metaField(record, "commission", …): es interno, no se pinta.
+
+  const statusLabel = record.status === "BOOKED" ? "Reservado" : record.status === "PLANNING" ? "Planificando" : null;
+  const bookingRefs = booking
+    ? `${booking.hotelRef ?? "—"}${booking.flightRef ? ` · ${booking.flightRef}` : ""}`
+    : null;
 
   const occSummary =
     occupancy && occupancy.length
@@ -78,10 +84,12 @@ export default function HolidayDetail() {
 
   const rows: [string, string][] = (
     [
+      ["Estado", statusLabel],
       ["Destino", destination],
       ["Tipo", tripType],
       ["Fechas", record.subtitle],
       ["Viajeros", occSummary],
+      ["Reserva", bookingRefs],
       [
         "Alojamiento",
         accommodation
