@@ -11,8 +11,10 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
+import { useTranslation } from "react-i18next";
 
 import { useCategoryPrefs } from "@/lib/records/category-prefs-context";
+import { useTypeI18n } from "@/lib/records/type-i18n";
 import { usePendingImport } from "@/lib/pending-import";
 import { isPortalUrl } from "@/lib/portal-url";
 import { bookShareQuery, firstShareUrl } from "@/lib/book-url";
@@ -49,6 +51,8 @@ export default function ImportarScreen() {
   // Categoría COMPARTIDA con la lista (contexto): al abrir Importar desde una
   // categoría (p. ej. Criptos) se abre directamente en ella.
   const { category: type, setCategory: setType, orderedVisible } = useCategoryPrefs();
+  const { t } = useTranslation();
+  const { label: typeLabel, singular: typeSingular } = useTypeI18n();
   const [value, setValue] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [okMsg, setOkMsg] = useState<string | null>(null);
@@ -136,7 +140,7 @@ export default function ImportarScreen() {
           imageUrl: manualCover,
         }),
       });
-      setOkMsg(`✅ ${r.record?.title ?? title} añadido en Libros`);
+      setOkMsg(t("importar.ok_book_added", { title: r.record?.title ?? title }));
       setStatus("ok");
       setManualOpen(false);
       setManualTitle("");
@@ -146,7 +150,7 @@ export default function ImportarScreen() {
       setManualCovers([]);
       setManualCover(null);
     } catch (e) {
-      setErrorMsg(errMsg(e, "No se pudo añadir el libro"));
+      setErrorMsg(errMsg(e, t("importar.err_add_book")));
       setStatus("error");
     } finally {
       setManualSaving(false);
@@ -227,15 +231,15 @@ export default function ImportarScreen() {
             method: "POST",
             body: JSON.stringify({ type: "book", input: { kind: "record", record: hits[0].record } }),
           });
-          setOkMsg(`✅ ${r.record?.title ?? hits[0].name ?? "Libro"} añadido. ¿No es ese? elige abajo.`);
+          setOkMsg(t("importar.ok_book_added_pick", { title: r.record?.title ?? hits[0].name ?? t("importar.book_fallback") }));
           setStatus("ok");
           setAddedKeys(new Set([0]));
         } catch (e) {
-          setErrorMsg(errMsg(e, "No se pudo añadir el libro"));
+          setErrorMsg(errMsg(e, t("importar.err_add_book")));
           setStatus("error");
         }
       } else if (hits.length === 0) {
-        setErrorMsg("No pude identificar el libro. Búscalo abajo por título/autor/ISBN o añádelo a mano.");
+        setErrorMsg(t("importar.err_book_not_identified"));
         setStatus("error");
       }
     },
@@ -352,11 +356,11 @@ export default function ImportarScreen() {
         method: "POST",
         body: JSON.stringify(data),
       });
-      setOkMsg(res.created ? "✅ Inmueble creado" : res.priceChanged ? "💶 Precio actualizado" : "👌 Ya estaba en tu catálogo");
+      setOkMsg(res.created ? t("importar.ok_property_created") : res.priceChanged ? t("importar.ok_price_updated") : t("importar.ok_already_have"));
       setStatus("ok");
       setTimeout(() => router.push(`/property/${res.propertyId}`), 800);
     } catch (e) {
-      setErrorMsg(errMsg(e, "Error al guardar el inmueble"));
+      setErrorMsg(errMsg(e, t("importar.err_save_property")));
       setStatus("error");
     }
   }
@@ -373,10 +377,15 @@ export default function ImportarScreen() {
         method: "POST",
         body: JSON.stringify({ type, input: { kind: "symbol", symbol, quote: "EUR" } }),
       });
-      setOkMsg(`✅ ${res.record?.title ?? symbol} ${res.created ? "añadido" : "actualizado"} en ${cfg.label}`);
+      setOkMsg(
+        t(res.created ? "importar.ok_symbol_added" : "importar.ok_symbol_updated", {
+          name: res.record?.title ?? symbol,
+          type: typeLabel(type),
+        })
+      );
       setStatus("ok");
     } catch (e) {
-      setErrorMsg(errMsg(e, `No se pudo añadir ${symbol}`));
+      setErrorMsg(errMsg(e, t("importar.err_add_symbol", { name: symbol })));
       setStatus("error");
     }
   }
@@ -408,7 +417,7 @@ export default function ImportarScreen() {
         return n;
       });
     } catch (e) {
-      setErrorMsg(errMsg(e, `No se pudo añadir ${hit.name ?? hit.symbol ?? ""}`));
+      setErrorMsg(errMsg(e, t("importar.err_add_symbol", { name: hit.name ?? hit.symbol ?? "" })));
       setStatus("error");
     } finally {
       setAddingIndex(null);
@@ -436,18 +445,18 @@ export default function ImportarScreen() {
         contentContainerStyle={styles.typeRow}
       >
         {orderedVisible
-          .filter((t) => t !== "chat") // "Chat" no es un tipo de registro que se añada aquí.
-          .map((t) => {
-          const c = RECORD_TYPE_CONFIG[t];
-          const active = type === t;
+          .filter((tp) => tp !== "chat") // "Chat" no es un tipo de registro que se añada aquí.
+          .map((tp) => {
+          const c = RECORD_TYPE_CONFIG[tp];
+          const active = type === tp;
           return (
             <Pressable
-              key={t}
+              key={tp}
               accessibilityRole="button"
-              accessibilityLabel={c.label}
+              accessibilityLabel={typeLabel(tp)}
               accessibilityState={{ selected: active }}
               onPress={() => {
-                setType(t);
+                setType(tp);
                 setValue("");
                 setResults([]);
                 setHasSearched(false);
@@ -466,24 +475,21 @@ export default function ImportarScreen() {
         })}
       </ScrollView>
 
-      <Text style={[styles.heading, { color: th.text }]}>Añadir {cfg.singular.toLowerCase()}</Text>
+      <Text style={[styles.heading, { color: th.text }]}>{t("importar.heading", { type: typeSingular(type).toLowerCase() })}</Text>
 
       {cfg.addMode === "soon" && (
         <EmptyState
           icon="time-outline"
-          title="Próximamente"
-          description={`Pronto podrás registrar ${cfg.label.toLowerCase()} en Nidokey.`}
+          title={t("common.soon")}
+          description={t("importar.soon_desc", { type: typeLabel(type).toLowerCase() })}
         />
       )}
 
       {cfg.addMode === "wizard" && (
         <Card style={{ gap: 12 }}>
-          <Text style={[styles.hintText, { color: th.textMuted }]}>
-            Elige destino y fechas; verás alojamiento y desplazamiento con sus precios
-            para montar tu viaje.
-          </Text>
+          <Text style={[styles.hintText, { color: th.textMuted }]}>{t("importar.wizard_hint")}</Text>
           <Button
-            label="Crear viaje"
+            label={t("importar.create_trip")}
             icon="airplane-outline"
             onPress={() => router.push("/viajes/nuevo" as never)}
           />
@@ -494,8 +500,8 @@ export default function ImportarScreen() {
         <>
           <TextInput
             value={value}
-            onChangeText={(t) => {
-              setValue(t);
+            onChangeText={(v) => {
+              setValue(v);
               reset();
               if (cfg.searchOnSubmit) setHasSearched(false);
             }}
@@ -514,7 +520,7 @@ export default function ImportarScreen() {
 
           {cfg.addMode !== "search" && (
             <Button
-              label={cfg.addMode === "url" ? "Importar" : `Añadir ${cfg.singular.toLowerCase()}`}
+              label={cfg.addMode === "url" ? t("importar.import_btn") : t("importar.heading", { type: typeSingular(type).toLowerCase() })}
               icon={cfg.addMode === "url" ? "arrow-down-circle-outline" : "add-circle-outline"}
               onPress={cfg.addMode === "url" ? startUrlImport : addSymbol}
               loading={isBusy}
@@ -570,11 +576,11 @@ export default function ImportarScreen() {
               </View>
               <TextInput
                 value={searchLocation}
-                onChangeText={(t) => {
-                  setSearchLocation(t);
+                onChangeText={(v) => {
+                  setSearchLocation(v);
                   if (cfg.searchOnSubmit) setHasSearched(false);
                 }}
-                placeholder="Ciudad o zona (opcional)"
+                placeholder={t("importar.location_placeholder")}
                 placeholderTextColor={th.textSubtle}
                 autoCapitalize="words"
                 autoCorrect={false}
@@ -594,14 +600,14 @@ export default function ImportarScreen() {
                   size={20}
                   color={searchRemote ? th.accent : th.textSubtle}
                 />
-                <Text style={[styles.remoteLabel, { color: th.textMuted }]}>Solo remoto</Text>
+                <Text style={[styles.remoteLabel, { color: th.textMuted }]}>{t("importar.remote_only")}</Text>
               </Pressable>
             </>
           )}
 
           {cfg.addMode === "search" && cfg.searchOnSubmit && (
             <Button
-              label="Buscar"
+              label={t("common.search")}
               icon="search-outline"
               onPress={() => void runSearch(value)}
               loading={searching}
@@ -616,11 +622,11 @@ export default function ImportarScreen() {
           {cfg.addMode === "search" && (searching || results.length > 0 || hasSearched) && (
             <View style={styles.results}>
               {searching && results.length === 0 && (
-                <Text style={[styles.infoSub, { color: th.textSubtle }]}>Buscando…</Text>
+                <Text style={[styles.infoSub, { color: th.textSubtle }]}>{t("importar.searching")}</Text>
               )}
               {!searching && hasSearched && results.length === 0 && (
                 <Text style={[styles.infoSub, { color: th.textSubtle }]}>
-                  Sin resultados para “{value.trim()}”.
+                  {t("importar.no_results", { q: value.trim() })}
                 </Text>
               )}
               {results.map((hit, i) => {
@@ -632,7 +638,7 @@ export default function ImportarScreen() {
                   <Pressable
                     key={`${hit.symbol}|${hit.name ?? ""}|${i}`}
                     accessibilityRole="button"
-                    accessibilityLabel={added ? `${hit.name ?? hit.symbol} añadido` : `Añadir ${hit.name ?? hit.symbol}`}
+                    accessibilityLabel={added ? t("importar.result_added", { name: hit.name ?? hit.symbol }) : t("importar.result_add", { name: hit.name ?? hit.symbol })}
                     onPress={() => void importHit(hit, i)}
                     disabled={added || addingIndex !== null}
                     style={[
@@ -693,10 +699,10 @@ export default function ImportarScreen() {
             <ActivityIndicator color={th.primary} />
             <Text style={[styles.loadingText, { color: th.text }]}>
               {isSending
-                ? `Guardando ${cfg.singular.toLowerCase()}…`
+                ? t("importar.saving", { type: typeSingular(type).toLowerCase() })
                 : progress < 1
-                ? "Cargando el anuncio…"
-                : "Leyendo datos del inmueble…"}
+                ? t("importar.loading_listing")
+                : t("importar.reading_listing")}
             </Text>
           </View>
           <View style={[styles.progressTrack, { backgroundColor: th.border }]}>
@@ -708,9 +714,7 @@ export default function ImportarScreen() {
             />
           </View>
           <Text style={[styles.infoSub, { color: th.textSubtle }]}>
-            {isExtracting
-              ? "Si aparece una verificación, la verás automáticamente."
-              : "Casi listo…"}
+            {isExtracting ? t("importar.verification_hint") : t("importar.almost_done")}
           </Text>
         </Card>
       )}
@@ -720,7 +724,7 @@ export default function ImportarScreen() {
           <Text style={[styles.resultText, { color: th.text }]}>{okMsg}</Text>
           {(cfg.addMode === "symbol" || cfg.addMode === "search") && (
             <Button
-              label={`Ver ${cfg.label}`}
+              label={t("importar.view_type", { type: typeLabel(type) })}
               variant="ghost"
               size="sm"
               fullWidth={false}
@@ -734,35 +738,27 @@ export default function ImportarScreen() {
       {status === "error" && errorMsg && (
         <Card>
           <Text style={[styles.errorText, { color: th.dangerFg }]}>{errorMsg}</Text>
-          <Button label="Intentar de nuevo" variant="ghost" size="sm" fullWidth={false} onPress={reset} style={styles.retry} />
+          <Button label={t("importar.retry")} variant="ghost" size="sm" fullWidth={false} onPress={reset} style={styles.retry} />
         </Card>
       )}
 
       {cfg.addMode === "url" && (
         <Card style={styles.hintBox}>
-          <Text style={[styles.hintTitle, { color: th.textMuted }]}>Cómo añadir inmuebles</Text>
-          <Text style={[styles.hintText, { color: th.textSubtle }]}>
-            1. Abre un anuncio en Chrome{"\n"}2. Pulsa Compartir → Nidokey{"\n"}3. La URL aparecerá aquí automáticamente
-          </Text>
+          <Text style={[styles.hintTitle, { color: th.textMuted }]}>{t("importar.how_property_title")}</Text>
+          <Text style={[styles.hintText, { color: th.textSubtle }]}>{t("importar.how_property_steps")}</Text>
         </Card>
       )}
       {cfg.addMode === "symbol" && (
         <Card style={styles.hintBox}>
-          <Text style={[styles.hintTitle, { color: th.textMuted }]}>Cómo añadir {cfg.label.toLowerCase()}</Text>
-          <Text style={[styles.hintText, { color: th.textSubtle }]}>
-            Escribe el símbolo (p. ej. BTC) y pulsa Añadir. Nidokey buscará su precio y seguirá su evolución.
-          </Text>
+          <Text style={[styles.hintTitle, { color: th.textMuted }]}>{t("importar.how_type_title", { type: typeLabel(type).toLowerCase() })}</Text>
+          <Text style={[styles.hintText, { color: th.textSubtle }]}>{t("importar.how_symbol")}</Text>
         </Card>
       )}
       {cfg.addMode === "search" && (
         <Card style={styles.hintBox}>
-          <Text style={[styles.hintTitle, { color: th.textMuted }]}>Cómo añadir {cfg.label.toLowerCase()}</Text>
+          <Text style={[styles.hintTitle, { color: th.textMuted }]}>{t("importar.how_type_title", { type: typeLabel(type).toLowerCase() })}</Text>
           <Text style={[styles.hintText, { color: th.textSubtle }]}>
-            {type === "job"
-              ? "Elige las fuentes (InfoJobs, LinkedIn, Indeed) y escribe el puesto y/o la ciudad o zona. Puedes dejar el puesto vacío y buscar todo lo que haya en esa zona. Pulsa Buscar y elige una oferta para guardarla en tus Empleos."
-              : type === "book"
-              ? "Busca por título, autor, ISBN o palabra clave (p. ej. “sapiens”, “Yuval Harari”, “9780099590088”), pulsa Buscar y elige el libro de la lista para guardarlo en tus Libros.\n\nOjo: no todas las apps comparten bien con Nidokey (la app de Amazon, por ejemplo, abre una ventana nueva y no añade el libro). Si te pasa, copia el enlace o el título y búscalo aquí."
-              : "Escribe el nombre o el ticker (p. ej. “sxr8”, “apple”, “vaneck space”) y elige el correcto de la lista — con su bolsa. Sin sufijos ni colisiones."}
+            {type === "job" ? t("importar.hint_job") : type === "book" ? t("importar.hint_book") : t("importar.hint_market")}
           </Text>
         </Card>
       )}
@@ -774,36 +770,36 @@ export default function ImportarScreen() {
               <Pressable onPress={() => router.push("/scan-book")} style={styles.manualToggle}>
                 <Ionicons name="barcode-outline" size={18} color={th.primary} />
                 <Text style={[styles.manualToggleText, { color: th.primary }]}>
-                  Escanear código de barras
+                  {t("importar.scan_barcode")}
                 </Text>
               </Pressable>
               <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: th.border }} />
               <Pressable onPress={() => setManualOpen(true)} style={styles.manualToggle}>
                 <Ionicons name="create-outline" size={16} color={th.primary} />
                 <Text style={[styles.manualToggleText, { color: th.primary }]}>
-                  ¿No aparece? Añádelo a mano
+                  {t("importar.manual_toggle")}
                 </Text>
               </Pressable>
             </View>
           ) : (
             <View style={styles.manualForm}>
-              <Text style={[styles.hintTitle, { color: th.textMuted }]}>Añadir libro a mano</Text>
+              <Text style={[styles.hintTitle, { color: th.textMuted }]}>{t("importar.manual_title")}</Text>
               <TextInput
-                placeholder="Título *"
+                placeholder={t("importar.field_title")}
                 placeholderTextColor={th.textSubtle}
                 value={manualTitle}
                 onChangeText={setManualTitle}
                 style={[styles.input, { color: th.text, borderColor: th.border, backgroundColor: th.bg }]}
               />
               <TextInput
-                placeholder="Autor"
+                placeholder={t("importar.field_author")}
                 placeholderTextColor={th.textSubtle}
                 value={manualAuthor}
                 onChangeText={setManualAuthor}
                 style={[styles.input, { color: th.text, borderColor: th.border, backgroundColor: th.bg }]}
               />
               <TextInput
-                placeholder="Sinopsis / notas (opcional)"
+                placeholder={t("importar.field_notes")}
                 placeholderTextColor={th.textSubtle}
                 value={manualNotes}
                 onChangeText={setManualNotes}
@@ -815,7 +811,7 @@ export default function ImportarScreen() {
                 ]}
               />
               <TextInput
-                placeholder="ISBN (opcional)"
+                placeholder={t("importar.field_isbn")}
                 placeholderTextColor={th.textSubtle}
                 value={manualIsbn}
                 onChangeText={setManualIsbn}
@@ -837,7 +833,7 @@ export default function ImportarScreen() {
               >
                 <Ionicons name="image-outline" size={16} color={th.primary} />
                 <Text style={[styles.manualToggleText, { color: th.primary }]}>
-                  {coverLoading ? "Buscando portadas…" : "Sugerir portada (opcional)"}
+                  {coverLoading ? t("importar.searching_covers") : t("importar.suggest_cover")}
                 </Text>
               </Pressable>
               {manualCovers.filter((c) => !coverFailed.has(c.url)).length > 0 ? (
@@ -881,12 +877,12 @@ export default function ImportarScreen() {
                 </ScrollView>
               ) : manualCovers.length > 0 ? (
                 <Text style={[styles.hintText, { color: th.textSubtle }]}>
-                  No encontré portadas; puedes guardarlo sin imagen.
+                  {t("importar.no_covers")}
                 </Text>
               ) : null}
 
               <Button
-                label={manualSaving ? "Guardando…" : "Guardar libro"}
+                label={manualSaving ? t("importar.saving_book") : t("importar.save_book")}
                 onPress={submitManual}
                 disabled={manualTitle.trim().length < 2 || manualSaving}
               />
