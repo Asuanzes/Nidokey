@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Pressable,
   RefreshControl,
@@ -19,7 +18,7 @@ import { useTheme } from "@/lib/theme";
 import { useQuery } from "@/lib/hooks/useQuery";
 import { notifyDuplicatesChanged } from "@/lib/dup-signal";
 import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
-import { Button, EmptyState, Screen } from "@/components/ui";
+import { Button, EmptyState, ResultModal, Screen } from "@/components/ui";
 
 /**
  * Pestaña "Duplicados": detección on-demand de fichas repetidas (mismo libro en
@@ -32,6 +31,8 @@ type DupGroup = {
   score: number;
   reasons: string[];
   records: BaseRecord[];
+  /** El grupo mezcla idiomas → preguntar explícitamente antes de fusionar. */
+  crossLanguage?: boolean;
 };
 
 const fetchGroups = () =>
@@ -43,27 +44,18 @@ export default function MatchesScreen() {
   const { th } = useTheme();
   const { data: groups, error, loading, refreshing, refetch } = useQuery(fetchGroups, []);
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  // Confirmación de fusión (modal de la app, no Alert nativo) + aviso de error.
+  const [confirm, setConfirm] = useState<DupGroup | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  function confirmMerge(g: DupGroup) {
+  function doMerge(g: DupGroup) {
     const keep = g.records.find((r) => r.imageUrl) ?? g.records[0];
     const dropIds = g.records.filter((r) => r.id !== keep.id).map((r) => r.id);
-    Alert.alert(
-      "Fusionar duplicados",
-      `Se conservará una ficha y se borrará${dropIds.length > 1 ? "n" : ""} ${dropIds.length}. ` +
-        "El estado y tus notas se conservan.",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Fusionar",
-          style: "destructive",
-          onPress: () => run(g, () =>
-            api("/api/records/duplicates/merge", {
-              method: "POST",
-              body: JSON.stringify({ type: g.type, keepId: keep.id, dropIds }),
-            }),
-          ),
-        },
-      ],
+    void run(g, () =>
+      api("/api/records/duplicates/merge", {
+        method: "POST",
+        body: JSON.stringify({ type: g.type, keepId: keep.id, dropIds }),
+      }),
     );
   }
 
@@ -83,7 +75,7 @@ export default function MatchesScreen() {
       await refetch();
       notifyDuplicatesChanged(); // sincroniza el badge del layout
     } catch (e) {
-      Alert.alert("No se pudo completar", e instanceof Error ? e.message : "Error");
+      setNotice(e instanceof Error ? e.message : "No se pudo completar la acción");
     } finally {
       setBusyKey(null);
     }
@@ -120,7 +112,7 @@ export default function MatchesScreen() {
             <GroupCard
               g={item}
               busy={busyKey === groupKey(item)}
-              onMerge={() => confirmMerge(item)}
+              onMerge={() => setConfirm(item)}
               onDismiss={() => dismiss(item)}
             />
           )}
@@ -130,7 +122,57 @@ export default function MatchesScreen() {
           }
         />
       )}
+
+      {/* Confirmación de fusión (pregunta explícita si solo cambia el idioma) */}
+      <ResultModal
+        visible={!!confirm}
+        tone="info"
+        icon={confirm?.crossLanguage ? "language-outline" : "git-merge-outline"}
+        title={confirm?.crossLanguage ? "¿El mismo, en distinto idioma?" : "Fusionar duplicados"}
+        message={confirm ? mergeMessage(confirm) : undefined}
+        actions={[
+          {
+            label: "Fusionar",
+            variant: "danger",
+            onPress: () => {
+              const g = confirm;
+              setConfirm(null);
+              if (g) doMerge(g);
+            },
+          },
+          { label: "Cancelar", variant: "ghost", onPress: () => setConfirm(null) },
+        ]}
+        onRequestClose={() => setConfirm(null)}
+      />
+
+      {/* Aviso de error con estilo de la app */}
+      <ResultModal
+        visible={!!notice}
+        tone="error"
+        title="No se pudo completar"
+        message={notice ?? undefined}
+        actions={[{ label: "Entendido", onPress: () => setNotice(null) }]}
+        onRequestClose={() => setNotice(null)}
+      />
     </Screen>
+  );
+}
+
+/** Texto del diálogo de fusión: explícito cuando lo único que cambia es el idioma. */
+function mergeMessage(g: DupGroup): string {
+  const drops = Math.max(1, g.records.length - 1);
+  const plural = drops > 1 ? "s" : "";
+  const singular = RECORD_TYPE_CONFIG[g.type].singular.toLowerCase();
+  if (g.crossLanguage) {
+    return (
+      `Parecen el mismo ${singular} pero en idiomas distintos. ` +
+      `¿Fusionarlas en una sola ficha? Se conservará una y se borrará${plural} ${drops}. ` +
+      "El estado y tus notas se conservan."
+    );
+  }
+  return (
+    `Se conservará una ficha y se borrará${plural} ${drops}. ` +
+    "El estado y tus notas se conservan."
   );
 }
 
@@ -164,6 +206,14 @@ function GroupCard({
         <Text style={[styles.reasons, { color: th.textMuted }]} numberOfLines={2}>
           {g.reasons.join(" · ")}
         </Text>
+      )}
+      {g.crossLanguage && (
+        <View style={[styles.langFlag, { backgroundColor: th.accentSoft }]}>
+          <Ionicons name="language-outline" size={13} color={th.accent} />
+          <Text style={[styles.langFlagText, { color: th.accent }]}>
+            Distinto idioma — confirma si es el mismo
+          </Text>
+        </View>
       )}
 
       <View style={styles.tiles}>
@@ -209,6 +259,8 @@ const styles = StyleSheet.create({
   scoreBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 },
   scoreText: { fontSize: 12, fontWeight: "700" },
   reasons: { fontSize: 11, marginTop: -2 },
+  langFlag: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
+  langFlagText: { fontSize: 11, fontWeight: "600" },
   tiles: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   tile: { width: "30%", minWidth: 92, gap: 4 },
   tileImage: { width: "100%", aspectRatio: 3 / 4, borderRadius: 6 },

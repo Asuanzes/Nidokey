@@ -26,6 +26,8 @@ export interface DuplicateGroupResult {
   score: number;
   reasons: string[];
   records: BaseRecord[];
+  /** El grupo mezcla idiomas: la UI debe preguntar antes de fusionar. */
+  crossLanguage: boolean;
 }
 
 export async function scanDuplicates(
@@ -54,7 +56,7 @@ export async function scanDuplicates(
     for (const g of groups) {
       const records = g.ids.map((id) => byId.get(id)).filter((r): r is BaseRecord => !!r);
       if (records.length < 2) continue;
-      out.push({ type: g.type, score: g.score, reasons: g.reasons, records });
+      out.push({ type: g.type, score: g.score, reasons: g.reasons, records, crossLanguage: g.crossLanguage });
     }
   }
   out.sort((a, b) => b.score - a.score);

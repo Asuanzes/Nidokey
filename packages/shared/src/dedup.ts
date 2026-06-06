@@ -64,6 +64,9 @@ export interface DedupGroup {
   score: number;
   reasons: string[];
   ids: string[];
+  /** El grupo mezcla ≥2 idiomas conocidos: lo que los diferencia es el idioma, así
+   *  que la UI debe PREGUNTAR explícitamente antes de fusionar (no auto-asumir). */
+  crossLanguage: boolean;
 }
 
 export interface FindOptions {
@@ -355,11 +358,18 @@ export function findDuplicateGroups(
       }
     }
     if (reasons.size === 0) continue; // sin arista realizada (no debería ocurrir)
+    // ¿El grupo mezcla idiomas conocidos? Genérico para cualquier tipo con
+    // `keys.language`: si hay ≥2 idiomas, lo que los diferencia es el idioma →
+    // la UI lo marca para PREGUNTAR antes de fusionar.
+    const langs = new Set(
+      members.map((m) => candidates[m].keys.language).filter((l): l is string => !!l),
+    );
     groups.push({
       type,
       score: minScore,
       reasons: [...reasons],
       ids: members.map((m) => candidates[m].id),
+      crossLanguage: langs.size >= 2,
     });
   }
   groups.sort((a, b) => b.score - a.score);
