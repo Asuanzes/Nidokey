@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,7 +18,7 @@ import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
 import { ReorderableRecordList } from "@/components/ReorderableRecordList";
 import { deleteRecord } from "@/lib/data/records-repository";
 import { getSavedOrder, saveOrder, applySavedOrder } from "@/lib/local-order";
-import { EmptyState, Screen } from "@/components/ui";
+import { EmptyState, ResultModal, Screen } from "@/components/ui";
 import { NewsSheet } from "@/components/NewsSheet";
 
 /**
@@ -56,6 +55,9 @@ export default function RecordsScreen() {
   // arrastre en curso.
   const [items, setItems] = useState<BaseRecord[] | null>(null);
   const draggingRef = useRef(false);
+  // Confirmación de borrado + aviso de error con el estilo de la app (no Alert nativo).
+  const [confirmDelete, setConfirmDelete] = useState<BaseRecord | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   useEffect(() => {
     if (!records) { setItems(null); return; }
     let cancel = false;
@@ -66,26 +68,20 @@ export default function RecordsScreen() {
     return () => { cancel = true; };
   }, [records, type]);
 
-  async function handleDelete(record: BaseRecord) {
-    Alert.alert(
-      "Eliminar registro",
-      `¿Eliminar "${record.title}"? Esta acción no se puede deshacer.`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Eliminar",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteRecord(record);
-              await refetch();
-            } catch (e) {
-              Alert.alert("No se pudo eliminar", e instanceof Error ? e.message : "Error desconocido");
-            }
-          },
-        },
-      ],
-    );
+  function handleDelete(record: BaseRecord) {
+    setConfirmDelete(record);
+  }
+
+  async function doDelete() {
+    const record = confirmDelete;
+    setConfirmDelete(null);
+    if (!record) return;
+    try {
+      await deleteRecord(record);
+      await refetch();
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : "No se pudo eliminar el registro");
+    }
   }
 
   if (state.kind !== "authed") return null;
@@ -192,6 +188,28 @@ export default function RecordsScreen() {
           }))}
         />
       )}
+
+      {/* Confirmación de borrado (modal de la app) */}
+      <ResultModal
+        visible={!!confirmDelete}
+        tone="error"
+        icon="trash-outline"
+        title="Eliminar registro"
+        message={confirmDelete ? `¿Eliminar "${confirmDelete.title}"? Esta acción no se puede deshacer.` : undefined}
+        actions={[
+          { label: "Eliminar", variant: "danger", onPress: () => void doDelete() },
+          { label: "Cancelar", variant: "ghost", onPress: () => setConfirmDelete(null) },
+        ]}
+        onRequestClose={() => setConfirmDelete(null)}
+      />
+      <ResultModal
+        visible={!!notice}
+        tone="error"
+        title="No se pudo eliminar"
+        message={notice ?? undefined}
+        actions={[{ label: "Entendido", onPress: () => setNotice(null) }]}
+        onRequestClose={() => setNotice(null)}
+      />
     </Screen>
   );
 }

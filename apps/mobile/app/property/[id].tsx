@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   Linking,
   Pressable,
@@ -24,6 +23,9 @@ import { useRecord } from "@/lib/hooks/useRecord";
 import { fetchPropertyDetail, type PropertyDetail } from "@/lib/records/property";
 import { toolsForType, type ToolDef } from "@/lib/records/tools";
 import { CategoryContextSheet } from "@/components/CategoryContextSheet";
+import { ResultModal } from "@/components/ui";
+
+type Notice = { tone: "success" | "error" | "info"; title: string; message?: string };
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
@@ -50,12 +52,13 @@ export default function PropertyDetailScreen() {
   );
   const [sheetOpen, setSheetOpen] = useState(false);
   const [busyTool, setBusyTool] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
 
   // Re-check: re-consulta cada anuncio vinculado y refresca el detalle.
   async function recheck() {
     if (!p) return;
     if (p.listings.length === 0) {
-      Alert.alert("Sin anuncios", "Este inmueble no tiene anuncios vinculados que actualizar.");
+      setNotice({ tone: "info", title: "Sin anuncios", message: "Este inmueble no tiene anuncios vinculados que actualizar." });
       return;
     }
     setBusyTool("recheck");
@@ -65,9 +68,9 @@ export default function PropertyDetailScreen() {
       }
       await refetch();
       setSheetOpen(false);
-      Alert.alert("Precio actualizado", "Se han revisado los anuncios vinculados.");
+      setNotice({ tone: "success", title: "Precio actualizado", message: "Se han revisado los anuncios vinculados." });
     } catch (e) {
-      Alert.alert("No se pudo actualizar", e instanceof Error ? e.message : "Error desconocido");
+      setNotice({ tone: "error", title: "No se pudo actualizar", message: e instanceof Error ? e.message : "Error desconocido" });
     } finally {
       setBusyTool(null);
     }
@@ -247,6 +250,15 @@ export default function PropertyDetailScreen() {
         busyToolId={busyTool}
         onClose={() => setSheetOpen(false)}
         onSelect={handleTool}
+      />
+
+      <ResultModal
+        visible={!!notice}
+        tone={notice?.tone ?? "info"}
+        title={notice?.title ?? ""}
+        message={notice?.message}
+        actions={[{ label: "Entendido", onPress: () => setNotice(null) }]}
+        onRequestClose={() => setNotice(null)}
       />
     </View>
   );

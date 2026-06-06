@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { useTheme } from "@/lib/theme";
 import { useCategoryPrefs } from "@/lib/records/category-prefs-context";
 import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
 import { ReorderableCategoryList } from "@/components/ReorderableCategoryList";
-import { Button, Chip, Section } from "@/components/ui";
+import { Button, Chip, ResultModal, Section } from "@/components/ui";
 
 /**
  * Ajustes de CATEGORÍAS (Cuenta → Categorías). Reordenar el menú arrastrando,
@@ -26,6 +26,7 @@ export default function CategorySettingsScreen() {
     reset,
   } = useCategoryPrefs();
   const [scrollOn, setScrollOn] = useState(true);
+  const [resetOpen, setResetOpen] = useState(false);
 
   // Solo se puede arrancar en una categoría DESARROLLADA (enabled) y visible — así
   // no se puede dejar la app en una pantalla "Próximamente" al abrir.
@@ -34,25 +35,14 @@ export default function CategorySettingsScreen() {
     (startCategory && startOptions.includes(startCategory) && startCategory) ||
     (startOptions.includes("property") ? "property" : startOptions[0]);
 
-  function confirmReset() {
-    Alert.alert(
-      "Restablecer preferencias",
-      "Volverán a fábrica el orden y la visibilidad de categorías, la categoría de inicio, el tema y el orden manual de tus registros. No se borra ningún registro.",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Restablecer",
-          style: "destructive",
-          onPress: () => {
-            reset();
-            setThemeMode("auto");
-          },
-        },
-      ]
-    );
+  function doReset() {
+    setResetOpen(false);
+    reset();
+    setThemeMode("auto");
   }
 
   return (
+    <>
     <ScrollView
       style={{ backgroundColor: th.bg }}
       contentContainerStyle={styles.content}
@@ -95,10 +85,24 @@ export default function CategorySettingsScreen() {
         label="Restablecer preferencias"
         variant="ghost"
         icon="refresh-outline"
-        onPress={confirmReset}
+        onPress={() => setResetOpen(true)}
         style={styles.reset}
       />
     </ScrollView>
+
+    <ResultModal
+      visible={resetOpen}
+      tone="error"
+      icon="refresh-outline"
+      title="Restablecer preferencias"
+      message="Volverán a fábrica el orden y la visibilidad de categorías, la categoría de inicio, el tema y el orden manual de tus registros. No se borra ningún registro."
+      actions={[
+        { label: "Restablecer", variant: "danger", onPress: doReset },
+        { label: "Cancelar", variant: "ghost", onPress: () => setResetOpen(false) },
+      ]}
+      onRequestClose={() => setResetOpen(false)}
+    />
+    </>
   );
 }
 
