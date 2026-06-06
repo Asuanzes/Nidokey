@@ -1,0 +1,183 @@
+import { prisma } from "@/lib/db";
+import type { RecordType, BaseRecord, Book } from "@nidokey/shared";
+import {
+  bookToBaseRecord,
+  cryptoToBaseRecord,
+  marketToBaseRecord,
+  jobToBaseRecord,
+} from "@/lib/records/mapper";
+import { isLazyCover } from "@/features/sources/upsert";
+
+/**
+ * Fusión de duplicados de REGISTROS: conserva `keepId`, vuelca al superviviente
+ * TODO lo que no degrade (estado más avanzado, portada real, notas, datos que el
+ * keep no tenga) y borra los demás. Robusto a CUALQUIER `keepId` (el cliente elige
+ * por portada, así que el backend rescata el resto). Owner-scoped + atómico
+ * ($transaction). Snapshots de los drops se REASIGNAN al superviviente (no se pierde
+ * histórico). Solo-sugerir: lo dispara el usuario desde la UI.
+ */
+export type MergeOutcome =
+  | { ok: true; record: BaseRecord; deleted: number }
+  | { ok: false; code: "INVALID" | "NOT_FOUND" | "UNSUPPORTED_TYPE" };
+
+const MERGE_TYPES: RecordType[] = ["book", "crypto", "market", "job"];
+
+// ── helpers ────────────────────────────────────────────────────────────────────
+
+/** Une las notas de usuario distintas de varias filas (separador visible). */
+function concatNotes(metas: Array<Record<string, unknown> | null | undefined>): string | undefined {
+  const notes = Array.from(
+    new Set(
+      metas
+        .map((m) => (m as { userNotes?: unknown } | null | undefined)?.userNotes)
+        .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+        .map((x) => x.trim()),
+    ),
+  );
+  return notes.length ? notes.join("\n\n———\n\n") : undefined;
+}
+
+/** Estado "más avanzado" según un ranking (mayor gana; null = 0). */
+function pickStatus(statuses: Array<string | null>, rank: (s: string | null) => number): string | null {
+  let best: string | null = null;
+  for (const s of statuses) if (rank(s) > rank(best)) best = s;
+  return best;
+}
+
+/** Rellena los campos NULL del `book` base con los de los donantes (no degrada). */
+function fillBook(base: Book | undefined, donors: Array<Book | undefined>): Book | undefined {
+  if (!base) return donors.find((d): d is Book => !!d);
+  let out: Book = { ...base };
+  for (const d of donors) {
+    if (!d) continue;
+    out = {
+      ...out,
+      description: out.description ?? d.description ?? null,
+      averageRating: out.averageRating ?? d.averageRating ?? null,
+      ratingsCount: out.ratingsCount ?? d.ratingsCount ?? null,
+      isbn13: out.isbn13 ?? d.isbn13 ?? null,
+      isbn10: out.isbn10 ?? d.isbn10 ?? null,
+      language: out.language ?? d.language ?? null,
+      publisher: out.publisher ?? d.publisher ?? null,
+      pageCount: out.pageCount ?? d.pageCount ?? null,
+      publishedYear: out.publishedYear ?? d.publishedYear ?? null,
+      publishedDate: out.publishedDate ?? d.publishedDate ?? null,
+      externalIds: { ...(d.externalIds ?? {}), ...(out.externalIds ?? {}) },
+    };
+  }
+  return out;
+}
+
+// ── merge ───────────────────────────────────────────────────────────────────────
+
+export async function mergeRecords(
+  ownerId: string,
+  type: RecordType,
+  keepId: string,
+  dropIds: string[],
+): Promise<MergeOutcome> {
+  if (!MERGE_TYPES.includes(type)) return { ok: false, code: "UNSUPPORTED_TYPE" };
+  const drops = Array.from(new Set(dropIds.filter((id) => typeof id === "string" && id)));
+  if (!keepId || drops.length === 0 || drops.includes(keepId)) return { ok: false, code: "INVALID" };
+  const ids = [keepId, ...drops];
+
+  if (type === "book") {
+    const rows = await prisma.bookRecord.findMany({ where: { id: { in: ids }, ownerId } });
+    if (rows.length !== ids.length) return { ok: false, code: "NOT_FOUND" };
+    const keep = rows.find((r) => r.id === keepId)!;
+
+    const status = pickStatus(
+      rows.map((r) => r.status),
+      (s) => (s === "READ" ? 3 : s === "READING" ? 2 : s === "WISHLIST" ? 1 : 0),
+    );
+
+    const meta = { ...((keep.meta as Record<string, unknown>) ?? {}) };
+    let book = fillBook(
+      meta.book as Book | undefined,
+      rows.map((r) => (r.meta as { book?: Book } | null)?.book),
+    );
+
+    // Portada: si la del superviviente falta/es perezosa, tomar una real de un donante
+    // (con sus imageUrls completas, para conservar la versión grande).
+    let imageUrl = keep.imageUrl;
+    if (isLazyCover(imageUrl)) {
+      const donor = rows.find((r) => r.imageUrl && !isLazyCover(r.imageUrl));
+      if (donor) {
+        imageUrl = donor.imageUrl;
+        const donorImgs = (donor.meta as { book?: Book } | null)?.book?.imageUrls;
+        if (book) book = { ...book, imageUrls: donorImgs ?? { thumbnail: imageUrl, large: imageUrl } };
+      }
+    }
+    if (book) meta.book = book;
+    const notes = concatNotes(rows.map((r) => r.meta as Record<string, unknown> | null));
+    if (notes) meta.userNotes = notes;
+
+    const [updated, del] = await prisma.$transaction([
+      prisma.bookRecord.update({ where: { id: keep.id }, data: { status, imageUrl, meta: meta as object } }),
+      prisma.bookRecord.deleteMany({ where: { id: { in: drops }, ownerId } }),
+    ]);
+    return { ok: true, record: bookToBaseRecord(updated), deleted: del.count };
+  }
+
+  if (type === "crypto") {
+    const rows = await prisma.cryptoHolding.findMany({ where: { id: { in: ids }, ownerId } });
+    if (rows.length !== ids.length) return { ok: false, code: "NOT_FOUND" };
+    const keep = rows.find((r) => r.id === keepId)!;
+    const meta = { ...((keep.meta as Record<string, unknown>) ?? {}) };
+    const notes = concatNotes(rows.map((r) => r.meta as Record<string, unknown> | null));
+    if (notes) meta.userNotes = notes;
+    const data = {
+      imageUrl: keep.imageUrl ?? rows.map((r) => r.imageUrl).find(Boolean) ?? null,
+      quantity: keep.quantity ?? rows.map((r) => r.quantity).find((q) => q != null) ?? null,
+      status: pickStatus(rows.map((r) => r.status), (s) => (s === "HOLDING" ? 2 : s === "WATCH" ? 1 : 0)),
+      meta: meta as object,
+    };
+    const [, updated, del] = await prisma.$transaction([
+      prisma.cryptoSnapshot.updateMany({ where: { holdingId: { in: drops } }, data: { holdingId: keep.id } }),
+      prisma.cryptoHolding.update({ where: { id: keep.id }, data }),
+      prisma.cryptoHolding.deleteMany({ where: { id: { in: drops }, ownerId } }),
+    ]);
+    return { ok: true, record: cryptoToBaseRecord(updated), deleted: del.count };
+  }
+
+  if (type === "market") {
+    const rows = await prisma.marketInstrument.findMany({ where: { id: { in: ids }, ownerId } });
+    if (rows.length !== ids.length) return { ok: false, code: "NOT_FOUND" };
+    const keep = rows.find((r) => r.id === keepId)!;
+    const meta = { ...((keep.meta as Record<string, unknown>) ?? {}) };
+    const notes = concatNotes(rows.map((r) => r.meta as Record<string, unknown> | null));
+    if (notes) meta.userNotes = notes;
+    const data = {
+      imageUrl: keep.imageUrl ?? rows.map((r) => r.imageUrl).find(Boolean) ?? null,
+      quantity: keep.quantity ?? rows.map((r) => r.quantity).find((q) => q != null) ?? null,
+      status: pickStatus(rows.map((r) => r.status), (s) => (s === "HOLDING" ? 2 : s === "WATCH" ? 1 : 0)),
+      meta: meta as object,
+    };
+    const [, updated, del] = await prisma.$transaction([
+      prisma.marketSnapshot.updateMany({ where: { instrumentId: { in: drops } }, data: { instrumentId: keep.id } }),
+      prisma.marketInstrument.update({ where: { id: keep.id }, data }),
+      prisma.marketInstrument.deleteMany({ where: { id: { in: drops }, ownerId } }),
+    ]);
+    return { ok: true, record: marketToBaseRecord(updated), deleted: del.count };
+  }
+
+  // job
+  const rows = await prisma.jobListing.findMany({ where: { id: { in: ids }, ownerId } });
+  if (rows.length !== ids.length) return { ok: false, code: "NOT_FOUND" };
+  const keep = rows.find((r) => r.id === keepId)!;
+  const meta = { ...((keep.meta as Record<string, unknown>) ?? {}) };
+  const notes = concatNotes(rows.map((r) => r.meta as Record<string, unknown> | null));
+  if (notes) meta.userNotes = notes;
+  const data = {
+    imageUrl: keep.imageUrl ?? rows.map((r) => r.imageUrl).find(Boolean) ?? null,
+    url: keep.url ?? rows.map((r) => r.url).find(Boolean) ?? null,
+    status: pickStatus(rows.map((r) => r.status), (s) => (s === "OPEN" ? 2 : s === "CLOSED" ? 1 : 0)),
+    meta: meta as object,
+  };
+  const [, updated, del] = await prisma.$transaction([
+    prisma.jobSnapshot.updateMany({ where: { listingId: { in: drops } }, data: { listingId: keep.id } }),
+    prisma.jobListing.update({ where: { id: keep.id }, data }),
+    prisma.jobListing.deleteMany({ where: { id: { in: drops }, ownerId } }),
+  ]);
+  return { ok: true, record: jobToBaseRecord(updated), deleted: del.count };
+}

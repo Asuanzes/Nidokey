@@ -213,7 +213,7 @@ export function getJobById(id: string): Promise<JobListing | null> {
 /** ¿Portada "perezosa" nuestra (URL OL por ISBN con `default=false`, que puede dar
  *  404) o ausente? Esas SÍ se reemplazan al reimportar si llega una portada real;
  *  las reales/manuales nunca se degradan. */
-function isLazyCover(url: string | null | undefined): boolean {
+export function isLazyCover(url: string | null | undefined): boolean {
   return !url || /covers\.openlibrary\.org\/b\/isbn\/[^?]*\?default=false/.test(url);
 }
 

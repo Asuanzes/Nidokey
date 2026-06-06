@@ -1,6 +1,9 @@
+import { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
+  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -8,39 +11,87 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { Link } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import type { BaseRecord, RecordType } from "@nidokey/shared";
 
 import { api } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 import { useQuery } from "@/lib/hooks/useQuery";
-import { formatPrice } from "@nidokey/shared";
-import { EmptyState, Screen } from "@/components/ui";
+import { notifyDuplicatesChanged } from "@/lib/dup-signal";
+import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
+import { Button, EmptyState, Screen } from "@/components/ui";
 
-type Match = {
-  id: string;
+/**
+ * Pestaña "Duplicados": detección on-demand de fichas repetidas (mismo libro en
+ * varias ediciones, misma oferta cross-plataforma, mismo activo entre fuentes…).
+ * Genérica por tipo: consume `/api/records/duplicates` (BaseRecord) y permite
+ * FUSIONAR (conserva una ficha, borra el resto) o marcar "No son duplicados".
+ */
+type DupGroup = {
+  type: RecordType;
   score: number;
   reasons: string[];
-  source: PropMin;
-  target: PropMin;
-};
-type PropMin = {
-  id: string;
-  title: string;
-  city: string;
-  currentPrice: number | null;
-  media: { url: string }[];
-  listings: { portal: string }[];
+  records: BaseRecord[];
 };
 
-const fetchMatches = () =>
-  api<{ items: Match[] }>("/api/matches").then((d) => d.items);
+const fetchGroups = () =>
+  api<{ groups: DupGroup[] }>("/api/records/duplicates").then((d) => d.groups);
+
+const groupKey = (g: DupGroup) => g.records.map((r) => r.id).slice().sort().join("|");
 
 export default function MatchesScreen() {
   const { th } = useTheme();
-  const { data: items, error, loading, refreshing, refetch } = useQuery(fetchMatches, []);
+  const { data: groups, error, loading, refreshing, refetch } = useQuery(fetchGroups, []);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+
+  function confirmMerge(g: DupGroup) {
+    const keep = g.records.find((r) => r.imageUrl) ?? g.records[0];
+    const dropIds = g.records.filter((r) => r.id !== keep.id).map((r) => r.id);
+    Alert.alert(
+      "Fusionar duplicados",
+      `Se conservará una ficha y se borrará${dropIds.length > 1 ? "n" : ""} ${dropIds.length}. ` +
+        "El estado y tus notas se conservan.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Fusionar",
+          style: "destructive",
+          onPress: () => run(g, () =>
+            api("/api/records/duplicates/merge", {
+              method: "POST",
+              body: JSON.stringify({ type: g.type, keepId: keep.id, dropIds }),
+            }),
+          ),
+        },
+      ],
+    );
+  }
+
+  function dismiss(g: DupGroup) {
+    run(g, () =>
+      api("/api/records/duplicates/dismiss", {
+        method: "POST",
+        body: JSON.stringify({ type: g.type, ids: g.records.map((r) => r.id) }),
+      }),
+    );
+  }
+
+  async function run(g: DupGroup, action: () => Promise<unknown>) {
+    setBusyKey(groupKey(g));
+    try {
+      await action();
+      await refetch();
+      notifyDuplicatesChanged(); // sincroniza el badge del layout
+    } catch (e) {
+      Alert.alert("No se pudo completar", e instanceof Error ? e.message : "Error");
+    } finally {
+      setBusyKey(null);
+    }
+  }
 
   return (
     <Screen>
-      {loading && !items && (
+      {loading && !groups && (
         <View style={styles.center}>
           <ActivityIndicator color={th.primary} />
         </View>
@@ -54,18 +105,25 @@ export default function MatchesScreen() {
           onAction={refetch}
         />
       )}
-      {items && items.length === 0 && !error && (
+      {groups && groups.length === 0 && !error && (
         <EmptyState
           icon="sparkles-outline"
-          title="Sin duplicados pendientes"
-          description="Cuando importes inmuebles parecidos a otros, aparecerán aquí."
+          title="Sin duplicados"
+          description="Cuando tengas fichas repetidas (p. ej. varias ediciones del mismo libro), aparecerán aquí para fusionarlas."
         />
       )}
-      {items && items.length > 0 && (
+      {groups && groups.length > 0 && (
         <FlatList
-          data={items}
-          keyExtractor={(m) => m.id}
-          renderItem={({ item }) => <MatchRow m={item} />}
+          data={groups}
+          keyExtractor={groupKey}
+          renderItem={({ item }) => (
+            <GroupCard
+              g={item}
+              busy={busyKey === groupKey(item)}
+              onMerge={() => confirmMerge(item)}
+              onDismiss={() => dismiss(item)}
+            />
+          )}
           contentContainerStyle={styles.list}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={th.primary} />
@@ -76,44 +134,67 @@ export default function MatchesScreen() {
   );
 }
 
-function MatchRow({ m }: { m: Match }) {
+function GroupCard({
+  g,
+  busy,
+  onMerge,
+  onDismiss,
+}: {
+  g: DupGroup;
+  busy: boolean;
+  onMerge: () => void;
+  onDismiss: () => void;
+}) {
   const { th } = useTheme();
-  const scoreColor =
-    m.score >= 90 ? "#15803D" : m.score >= 70 ? "#A86A17" : th.textMuted;
+  const cfg = RECORD_TYPE_CONFIG[g.type];
+  const scoreColor = g.score >= 90 ? "#15803D" : g.score >= 70 ? "#A86A17" : th.textMuted;
+
   return (
     <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
-      <View style={styles.scoreRow}>
-        <View style={[styles.scoreBadge, { backgroundColor: scoreColor + "22" }]}>
-          <Text style={[styles.scoreText, { color: scoreColor }]}>{m.score}%</Text>
+      <View style={styles.headerRow}>
+        <View style={[styles.catChip, { backgroundColor: cfg.color + "22" }]}>
+          <Ionicons name={cfg.icon} size={13} color={cfg.color} />
+          <Text style={[styles.catText, { color: cfg.color }]}>{cfg.label}</Text>
         </View>
-        <Text style={[styles.reasons, { color: th.textMuted }]} numberOfLines={2}>
-          {m.reasons.join(" · ")}
-        </Text>
+        <View style={[styles.scoreBadge, { backgroundColor: scoreColor + "22" }]}>
+          <Text style={[styles.scoreText, { color: scoreColor }]}>{g.score}%</Text>
+        </View>
       </View>
-      <View style={styles.row}>
-        <PropTile p={m.source} />
-        <Text style={[styles.arrow, { color: th.textSubtle }]}>↔</Text>
-        <PropTile p={m.target} />
+      {g.reasons.length > 0 && (
+        <Text style={[styles.reasons, { color: th.textMuted }]} numberOfLines={2}>
+          {g.reasons.join(" · ")}
+        </Text>
+      )}
+
+      <View style={styles.tiles}>
+        {g.records.map((r) => (
+          <Tile key={r.id} r={r} />
+        ))}
+      </View>
+
+      <View style={styles.actions}>
+        <Button label="Fusionar" icon="git-merge-outline" size="sm" loading={busy} onPress={onMerge} style={styles.action} />
+        <Button label="No son duplicados" variant="secondary" size="sm" disabled={busy} onPress={onDismiss} style={styles.action} />
       </View>
     </View>
   );
 }
 
-function PropTile({ p }: { p: PropMin }) {
+function Tile({ r }: { r: BaseRecord }) {
   const { th } = useTheme();
   return (
-    <Link href={`/property/${p.id}` as never} asChild>
-      <View style={styles.tile}>
-        {p.media[0] ? (
-          <Image source={{ uri: p.media[0].url }} style={styles.tileImage} contentFit="cover" />
+    <Link href={`/${r.type}/${r.id}` as never} asChild>
+      <Pressable style={styles.tile}>
+        {r.imageUrl ? (
+          <Image source={{ uri: r.imageUrl }} style={styles.tileImage} contentFit="cover" />
         ) : (
           <View style={[styles.tileImage, { backgroundColor: th.imagePlaceholder }]} />
         )}
-        <Text style={[styles.tileTitle, { color: th.text }]} numberOfLines={2}>{p.title}</Text>
-        <Text style={[styles.tileMeta, { color: th.textMuted }]}>
-          {p.city} · {formatPrice(p.currentPrice)}
-        </Text>
-      </View>
+        <Text style={[styles.tileTitle, { color: th.text }]} numberOfLines={2}>{r.title}</Text>
+        {r.subtitle ? (
+          <Text style={[styles.tileMeta, { color: th.textMuted }]} numberOfLines={1}>{r.subtitle}</Text>
+        ) : null}
+      </Pressable>
     </Link>
   );
 }
@@ -121,18 +202,18 @@ function PropTile({ p }: { p: PropMin }) {
 const styles = StyleSheet.create({
   list: { padding: 16, paddingTop: 0 },
   center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
-  card: {
-    borderRadius: 10, padding: 12,
-    borderWidth: 1, marginBottom: 10, gap: 12,
-  },
-  scoreRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  card: { borderRadius: 10, padding: 12, borderWidth: 1, marginBottom: 10, gap: 10 },
+  headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  catChip: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
+  catText: { fontSize: 12, fontWeight: "700" },
   scoreBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 },
   scoreText: { fontSize: 12, fontWeight: "700" },
-  reasons: { flex: 1, fontSize: 11 },
-  row: { flexDirection: "row", alignItems: "center", gap: 8 },
-  tile: { flex: 1, gap: 4 },
-  tileImage: { width: "100%", aspectRatio: 4 / 3, borderRadius: 6 },
+  reasons: { fontSize: 11, marginTop: -2 },
+  tiles: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  tile: { width: "30%", minWidth: 92, gap: 4 },
+  tileImage: { width: "100%", aspectRatio: 3 / 4, borderRadius: 6 },
   tileTitle: { fontSize: 12, fontWeight: "500" },
   tileMeta: { fontSize: 11 },
-  arrow: { fontSize: 18, paddingHorizontal: 4 },
+  actions: { flexDirection: "row", gap: 8, marginTop: 2 },
+  action: { flex: 1 },
 });

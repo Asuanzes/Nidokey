@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 import { api, ApiError } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
+import { useDuplicatesChanged } from "@/lib/dup-signal";
 
 /**
  * Navegación principal: una sola barra de pestañas con los 5 destinos clave.
@@ -28,18 +29,20 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const { th } = useTheme();
   const [dupCount, setDupCount] = useState(0);
+  const dupChanged = useDuplicatesChanged();
 
+  // Recalcula el badge al cambiar de pestaña Y tras fusionar/descartar (dupChanged).
   useEffect(() => {
     let cancelled = false;
-    api<{ items: unknown[] }>("/api/matches")
+    api<{ groups: unknown[] }>("/api/records/duplicates")
       .then((d) => {
-        if (!cancelled) setDupCount(Array.isArray(d?.items) ? d.items.length : 0);
+        if (!cancelled) setDupCount(Array.isArray(d?.groups) ? d.groups.length : 0);
       })
       .catch((e: unknown) => {
         if (e instanceof ApiError && e.status === 401) return;
       });
     return () => { cancelled = true; };
-  }, [pathname]);
+  }, [pathname, dupChanged]);
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : !!pathname?.startsWith(href);

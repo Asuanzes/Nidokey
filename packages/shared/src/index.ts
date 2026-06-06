@@ -4,3 +4,4 @@ export * from "./format";
 export * from "./types";
 export * from "./records";
 export * from "./book";
+export * from "./dedup";

@@ -495,3 +495,21 @@ model BookRecord {
   @@unique([ownerId, externalId, source])
   @@index([recordType])
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// RecordDuplicateDismissal — memoria de "no son duplicados" para la utilidad
+// de duplicados de REGISTROS (libros/cripto/market/job/…). La detección es
+// on-demand (no se almacenan sugerencias); aquí solo persisten los descartes
+// del usuario para que un par NO vuelva a agruparse. `pairKey` = "<idA>|<idB>"
+// con los ids ordenados (ver dismissPairKey en @nidokey/shared/dedup).
+// ─────────────────────────────────────────────────────────────────────────
+model RecordDuplicateDismissal {
+  id         String   @id @default(cuid())
+  ownerId    String
+  recordType String
+  pairKey    String
+  createdAt  DateTime @default(now())
+
+  @@unique([ownerId, pairKey])
+  @@index([ownerId, recordType])
+}
