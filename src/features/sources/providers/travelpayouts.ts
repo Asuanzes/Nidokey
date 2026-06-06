@@ -1,43 +1,45 @@
 /**
- * Cliente fino de Travelpayouts (Aviasales Flight Data API + Hotellook) para el
- * vertical VIAJES. Patrón del repo (igual que yahoo.ts): fetch plano, SIN SDK,
- * throttle a nivel de módulo, manejo de errores explícito.
+ * Cliente fino de Travelpayouts (Aviasales Flight Data API + autocomplete de
+ * lugares) para el vertical VIAJES. Patrón del repo (igual que yahoo.ts): fetch
+ * plano, SIN SDK, throttle a nivel de módulo, manejo de errores explícito.
  *
  * Auth de DATOS: el API token (Perfil → API token en travelpayouts.com) va en la
- * cabecera `X-Access-Token` (o como query `token`). Es server-side: vive en
- * `TRAVELPAYOUTS_TOKEN` (.env.local / Vercel), NUNCA en cliente. El token se
- * genera al registrarse y la Data API funciona SIN verificar la web.
+ * cabecera `X-Access-Token`. Es server-side: vive en `TRAVELPAYOUTS_TOKEN`
+ * (.env.local / Vercel), NUNCA en cliente. El token se genera al registrarse.
  *
  * El `marker` (ID de afiliado) NO entra aquí: solo se usa para construir enlaces
  * de afiliado (capa de monetización del bloque 2).
  *
- * NATURALEZA DE LOS DATOS: la Data API devuelve precios CACHEADOS de búsquedas
- * recientes (2–7 días), no disponibilidad en vivo. Suficiente para mostrar
- * precios indicativos + un botón "reservar" (enlace afiliado). La búsqueda en
- * vivo de Travelpayouts exige 50K MAU → no disponible aún.
+ * NATURALEZA DE LOS DATOS: la Flight Data API devuelve precios CACHEADOS de
+ * búsquedas recientes (2–7 días), no disponibilidad en vivo. Suficiente para
+ * mostrar precios indicativos + un botón "reservar" (enlace afiliado).
  *
- * Cobertura: vuelos (Aviasales) + hoteles (Hotellook). Tren/bus (Renfe/ALSA) NO
- * están en estas APIs (se cubren con enlaces de afiliado Omio/Trainline aparte).
- *
- * Endpoints verificados en travelpayouts.github.io/slate. Doc: support.travelpayouts.com.
+ * COBERTURA (verificado 2026-06-06 con token real):
+ *  - Vuelos (Aviasales Data API): OK.
+ *  - Lugares (autocomplete ciudades/hoteles): OK, host autocomplete.travelpayouts.com.
+ *  - PRECIOS de hotel: PENDIENTE. El viejo Hotellook Data API (engine.hotellook.com)
+ *    está DECOMISIONADO (404 en todo path) y la API de precios/búsqueda de hoteles
+ *    requiere SOLICITAR acceso en el dashboard (gated). Ver hotelPrices().
+ *  - Tren/bus (Renfe/ALSA) NO están: afiliación Omio/Trainline aparte.
  */
 
 const FLIGHTS_BASE = "https://api.travelpayouts.com";
-const HOTELLOOK_BASE = "https://engine.hotellook.com/api/v2";
+// Autocomplete de lugares (ciudades/hoteles) — host VIVO y sin token. Verificado
+// 2026-06-06: engine.hotellook.com/api/v2 está decomisionado (404 en todo path).
+const AUTOCOMPLETE_BASE = "https://autocomplete.travelpayouts.com";
 
 function token(): string {
   const t = process.env.TRAVELPAYOUTS_TOKEN?.trim() || "";
   if (!t) {
     throw new Error(
       "Falta TRAVELPAYOUTS_TOKEN. Cógelo en travelpayouts.com → Perfil → API token " +
-        "y ponlo en .env / Vercel. (El token está disponible sin verificar la web.)"
+        "y ponlo en .env / Vercel."
     );
   }
   return t;
 }
 
-// ── Throttle a nivel de módulo (1 proceso): respeta la cuota (Data API ≈100/h,
-//    Hotellook ≈60/min). 700ms es conservador. ──
+// ── Throttle a nivel de módulo (1 proceso): respeta la cuota (Data API ≈100/h). ──
 let lastCall = 0;
 async function throttle(ms = 700): Promise<void> {
   const wait = lastCall + ms - Date.now();
@@ -134,48 +136,52 @@ export function flightPriceCalendar(
   });
 }
 
-// ── Hotellook (engine.hotellook.com) ───────────────────────────────────────
-// Endpoints públicos estables. Auth por query `token` (API token).
+// ── Hoteles ────────────────────────────────────────────────────────────────
+// El antiguo Hotellook Data API (engine.hotellook.com/api/v2: lookup/cache/
+// static) está DECOMISIONADO — 404 en todo path (verificado 2026-06-06). Lo único
+// vivo y abierto es el AUTOCOMPLETE de lugares. Los PRECIOS de hotel requieren
+// solicitar acceso a la API de hoteles en el dashboard (gated). Ver hotelPrices().
 
-async function hotellookGet<T = unknown>(
-  path: string,
-  params: Record<string, string | number | boolean | undefined> = {}
-): Promise<T> {
-  const qs = buildQuery({ ...params, token: token() });
-  const url = `${HOTELLOOK_BASE}${path}?${qs}`;
+export type Place = {
+  id: string;
+  type: string; // "city" | "hotel" | "airport" | …
+  code: string | null; // IATA ("BCN")
+  name: string;
+  country_code?: string | null;
+  country_name?: string | null;
+  coordinates?: { lon: number; lat: number } | null;
+  main_airport_name?: string | null;
+};
+
+/**
+ * Autocomplete de lugares: texto libre ("Barcelona") → ciudades/hoteles con su
+ * id, IATA y coordenadas. Host VIVO `autocomplete.travelpayouts.com/places2`, SIN
+ * token. `types`: "city" | "hotel" (varios). Base para resolver el destino del
+ * asistente y para pedir precios de hotel cuando se tenga acceso a esa API.
+ */
+export async function hotelsLookup(
+  query: string,
+  types: Array<"city" | "hotel"> = ["city", "hotel"]
+): Promise<Place[]> {
+  const qs = new URLSearchParams({ term: query, locale: "es" });
+  for (const t of types) qs.append("types[]", t);
   await throttle();
-  const res = await fetch(url, {
+  const res = await fetch(`${AUTOCOMPLETE_BASE}/places2?${qs.toString()}`, {
     headers: { Accept: "application/json" },
     cache: "no-store",
     signal: AbortSignal.timeout(15000),
   });
   const text = await res.text();
-  if (!res.ok) {
-    throw new Error(`Hotellook ${res.status} ${path}: ${text.slice(0, 300)}`);
-  }
+  if (!res.ok) throw new Error(`Autocomplete ${res.status}: ${text.slice(0, 200)}`);
   try {
-    return JSON.parse(text) as T;
+    return JSON.parse(text) as Place[];
   } catch {
-    throw new Error(`Hotellook ${path}: respuesta no-JSON: ${text.slice(0, 200)}`);
+    throw new Error(`Autocomplete: respuesta no-JSON: ${text.slice(0, 200)}`);
   }
 }
 
-/**
- * GET /lookup.json — resuelve un texto libre ("Barcelona") a ciudades y hoteles
- * con sus ids. `lookFor`: "city" | "hotel" | "both". Respuesta:
- * `{ results: { locations: [{ id, cityName, ... }], hotels: [{ id, label, ... }] } }`.
- */
-export function hotelsLookup(query: string, lookFor: "city" | "hotel" | "both" = "both") {
-  return hotellookGet<{
-    results?: {
-      locations?: Array<Record<string, unknown>>;
-      hotels?: Array<Record<string, unknown>>;
-    };
-  }>("/lookup.json", { query, lang: "es", lookFor, limit: 10 });
-}
-
-export type HotelCacheOpts = {
-  /** Nombre de ciudad/ubicación ("Barcelona") o "lat,lng". */
+export type HotelPricesOpts = {
+  /** Nombre o id de autocomplete del destino. */
   location: string;
   /** "YYYY-MM-DD". */
   checkIn: string;
@@ -186,16 +192,18 @@ export type HotelCacheOpts = {
 };
 
 /**
- * GET /cache.json — precios CACHEADOS de hoteles por ubicación. Respuesta: array
- * de `{ hotelId, hotelName, priceFrom, priceAvg, stars, location, ... }`.
+ * PRECIOS de hotel. PENDIENTE de acceso: el endpoint público de Hotellook está
+ * decomisionado y la API de precios/búsqueda de hoteles de Travelpayouts requiere
+ * SOLICITAR acceso en el dashboard (cuenta ya verificada). En cuanto el dashboard
+ * indique el host/endpoint concedido, se cablea aquí (probablemente mismo patrón
+ * que vuelos: header `X-Access-Token`). Lanza para no pegar a un endpoint muerto.
  */
-export function hotelPricesCache(opts: HotelCacheOpts) {
-  return hotellookGet<Array<Record<string, unknown>>>("/cache.json", {
-    location: opts.location,
-    checkIn: opts.checkIn,
-    checkOut: opts.checkOut,
-    adults: opts.adults ?? 2,
-    currency: opts.currency ?? "eur",
-    limit: opts.limit ?? 10,
-  });
+export function hotelPrices(_opts: HotelPricesOpts): Promise<never> {
+  return Promise.reject(
+    new Error(
+      "Precios de hotel: PENDIENTE de acceso a la API de hoteles de Travelpayouts " +
+        "(engine.hotellook.com decomisionado). Solicita acceso a 'Hotels/Hotellook " +
+        "API' en el dashboard verificado; entonces se cablea el endpoint real."
+    )
+  );
 }

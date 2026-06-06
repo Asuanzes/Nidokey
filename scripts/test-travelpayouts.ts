@@ -18,7 +18,7 @@ import { existsSync, readFileSync } from "node:fs";
 import {
   flightPricesCheap,
   hotelsLookup,
-  hotelPricesCache,
+  hotelPrices,
 } from "../src/features/sources/providers/travelpayouts";
 
 // tsx no carga .env por sí solo → cargador mínimo (sin dependencias).
@@ -74,25 +74,25 @@ async function main() {
   if (f0) console.log(`   ej.: ${f0.price} EUR · ${f0.airline} · sale ${f0.departure_at}`);
   console.log();
 
-  // 2) Hoteles en Barcelona
-  console.log("Hotellook: lookup 'Barcelona'…");
-  const lk = await hotelsLookup("Barcelona", "both");
-  const locs = lk.results?.locations ?? [];
-  const hotels = lk.results?.hotels ?? [];
-  console.log(`✓ ${locs.length} ubicaciones · ${hotels.length} hoteles`);
+  // 2) Lugares (autocomplete) — ciudades/hoteles de "Barcelona"
+  console.log("Autocomplete: lugares de 'Barcelona'…");
+  const places = await hotelsLookup("Barcelona", ["city", "hotel"]);
+  const cities = places.filter((p) => p.type === "city");
+  const hotels = places.filter((p) => p.type === "hotel");
+  console.log(`✓ ${places.length} lugares (${cities.length} ciudades · ${hotels.length} hoteles)`);
+  const c0 = cities[0];
+  if (c0) console.log(`   ej.: ${c0.name} (${c0.code}) · ${c0.country_name} · ${c0.coordinates?.lat},${c0.coordinates?.lon}`);
+  console.log();
 
-  console.log("Hotellook: precios cacheados en Barcelona…");
-  const cache = await hotelPricesCache({
-    location: "Barcelona",
-    checkIn: inDays(21),
-    checkOut: inDays(24),
-    limit: 5,
-  });
-  console.log(`✓ ${cache.length} hoteles con precio`);
-  const h0 = cache[0] as { hotelName?: string; priceFrom?: number; stars?: number } | undefined;
-  if (h0) console.log(`   ej.: ${h0.hotelName} · desde ${h0.priceFrom} EUR · ${h0.stars}★`);
+  // 3) Precios de hotel — PENDIENTE de acceso (no rompe el test)
+  console.log("Precios de hotel…");
+  try {
+    await hotelPrices({ location: "Barcelona", checkIn: inDays(21), checkOut: inDays(24), limit: 5 });
+  } catch (e) {
+    console.log(`⏳ ${e instanceof Error ? e.message : e}`);
+  }
 
-  console.log("\n✓ Provider Travelpayouts operativo (vuelos + hoteles, solo datos).");
+  console.log("\n✓ Provider Travelpayouts: vuelos + autocomplete OK. Precios de hotel pendientes de acceso.");
 }
 
 main().catch((e) => {
