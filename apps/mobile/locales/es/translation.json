@@ -82,5 +82,45 @@
     "merge_message": "Se conservará una ficha y el resto se eliminará ({{count}}). El estado y tus notas se conservan.",
     "merge_message_cross": "Parecen el mismo {{singular}} pero en idiomas distintos. ¿Fusionarlas en una sola? El resto se eliminará ({{count}}). El estado y tus notas se conservan.",
     "merge_error": "No se pudo completar"
+  },
+  "types": {
+    "property": { "label": "Inmuebles", "singular": "Inmueble" },
+    "renting": { "label": "Alquiler", "singular": "Alquiler" },
+    "holiday": { "label": "Viajes", "singular": "Viaje" },
+    "crypto": { "label": "Criptos", "singular": "Cripto" },
+    "market": { "label": "Markets", "singular": "Mercado" },
+    "job": { "label": "Empleos", "singular": "Empleo" },
+    "workout": { "label": "Entrenos", "singular": "Producto" },
+    "chat": { "label": "Chat", "singular": "Chat" },
+    "book": { "label": "Libros", "singular": "Libro" }
+  },
+  "status": {
+    "for_sale": "En venta",
+    "reserved": "Reservado",
+    "sold": "Vendido",
+    "withdrawn": "Retirado"
+  },
+  "card": {
+    "period_day": "día",
+    "period_24h": "24h",
+    "period_7d": "7 días",
+    "exchange": "Bolsa",
+    "market_cap": "Cap. mercado",
+    "volume": "Volumen",
+    "volume_24h": "Vol. 24h",
+    "remote": "Remoto",
+    "updated_now": "Actualizado ahora",
+    "updated_min": "Actualizado hace {{n}} min",
+    "updated_h": "Actualizado hace {{n}} h",
+    "updated_d": "Actualizado hace {{n}} d"
+  },
+  "catsettings": {
+    "order_title": "Orden y visibilidad",
+    "order_help": "Mantén pulsada una categoría y arrástrala para reordenar · toca el ojo para ocultarla o mostrarla.",
+    "start_title": "Categoría de inicio",
+    "start_help": "Con qué categoría se abre la app (solo las ya disponibles).",
+    "reset": "Restablecer preferencias",
+    "reset_message": "Volverán a fábrica el orden y la visibilidad de categorías, la categoría de inicio, el tema y el orden manual de tus registros. No se borra ningún registro.",
+    "reset_confirm": "Restablecer"
   }
 }

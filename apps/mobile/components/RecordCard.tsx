@@ -4,9 +4,12 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 import { type BaseRecord, metaField } from "@nidokey/shared";
 import { useTheme } from "@/lib/theme";
+
+type TFn = ReturnType<typeof useTranslation>["t"];
 import { recordTypeConfig } from "@/lib/records/config";
 import { provinceImage } from "@/lib/records/province-images";
 import { marketLogoUrl } from "@/lib/records/market-logo";
@@ -44,12 +47,13 @@ function fireLongPress(onLongPress?: () => void) {
 
 /** Botón ✕ rojo en la esquina de la tarjeta (modo edición). */
 function DeleteBadge({ onPress }: { onPress: () => void }) {
+  const { t } = useTranslation();
   return (
     <Pressable
       onPress={onPress}
       hitSlop={10}
       accessibilityRole="button"
-      accessibilityLabel="Eliminar"
+      accessibilityLabel={t("common.delete")}
       style={styles.deleteBadge}
     >
       <Ionicons name="close" size={15} color="#fff" />
@@ -104,6 +108,7 @@ function AssetLogo({
 // ── Cripto (estilo finanzas, con logo del activo) ─────────────────────────
 function CryptoCard({ record, editing, onLongPress, onDelete }: CardProps) {
   const { th } = useTheme();
+  const { t } = useTranslation();
   const cfg = recordTypeConfig(record.type);
   const symbol = metaField<string>(record, "symbol", record.title);
   const change = fmtChange(metaField<number | null>(record, "change24h", null));
@@ -111,7 +116,7 @@ function CryptoCard({ record, editing, onLongPress, onDelete }: CardProps) {
   const marketCap = metaField<number | null>(record, "marketCap", null);
   const quote = metaField<string>(record, "quoteCurrency", "EUR");
   const spark = metaField<number[]>(record, "sparkline", []);
-  const ago = fmtAgo(metaField<string | null>(record, "lastCheckedAt", null));
+  const ago = fmtAgo(metaField<string | null>(record, "lastCheckedAt", null), t);
   const isMarket = record.type === "market";
   const exchange = metaField<string | null>(record, "exchange", null);
   // Cripto: logo de CoinGecko (ya en imageUrl). Mercado: emisor (ETF) vía CDN de
@@ -153,7 +158,7 @@ function CryptoCard({ record, editing, onLongPress, onDelete }: CardProps) {
           <Text style={[styles.price, { color: th.accent }]}>{record.primaryValue ?? "—"}</Text>
           <View style={styles.changeRow}>
             <Text style={[styles.change, { color: changeColor }]}>{change.text}</Text>
-            <Text style={[styles.periodLabel, { color: th.textSubtle }]}>{isMarket ? "día" : "24h"}</Text>
+            <Text style={[styles.periodLabel, { color: th.textSubtle }]}>{isMarket ? t("card.period_day") : t("card.period_24h")}</Text>
           </View>
         </View>
       </View>
@@ -166,19 +171,19 @@ function CryptoCard({ record, editing, onLongPress, onDelete }: CardProps) {
         ) : (
           <View />
         )}
-        <Text style={[styles.periodLabel, { color: th.textSubtle }]}>7 días</Text>
+        <Text style={[styles.periodLabel, { color: th.textSubtle }]}>{t("card.period_7d")}</Text>
       </View>
       <PriceChart price={spark} color={trendColor} height={36} />
 
       <View style={[styles.cryptoFooter, { borderTopColor: th.border }]}>
         <View>
-          <Text style={[styles.statLabel, { color: th.textSubtle }]}>{isMarket ? "Bolsa" : "Cap. mercado"}</Text>
+          <Text style={[styles.statLabel, { color: th.textSubtle }]}>{isMarket ? t("card.exchange") : t("card.market_cap")}</Text>
           <Text style={[styles.statValue, { color: th.textMuted }]}>
             {isMarket ? (exchange ?? "—") : compactMoney(marketCap, quote)}
           </Text>
         </View>
         <View style={styles.alignEnd}>
-          <Text style={[styles.statLabel, { color: th.textSubtle }]}>{isMarket ? "Volumen" : "Vol. 24h"}</Text>
+          <Text style={[styles.statLabel, { color: th.textSubtle }]}>{isMarket ? t("card.volume") : t("card.volume_24h")}</Text>
           <Text style={[styles.statValue, { color: th.textMuted }]}>
             {isMarket ? compactNumber(volume) : compactMoney(volume, quote)}
           </Text>
@@ -300,11 +305,12 @@ function movingAverage(data: number[], window: number): (number | null)[] {
 }
 
 // ── Genérica (inmuebles y resto) ──────────────────────────────────────────
-const STATUS_LABEL: Record<string, { text: string; color: string; bg: string }> = {
-  FOR_SALE: { text: "En venta", color: "#15803D", bg: "#E8F1EC" },
-  RESERVED: { text: "Reservado", color: "#A86A17", bg: "#F7EFDE" },
-  SOLD: { text: "Vendido", color: "#666", bg: "#f3f3f3" },
-  WITHDRAWN: { text: "Retirado", color: "#666", bg: "#f3f3f3" },
+type StatusKey = "status.for_sale" | "status.reserved" | "status.sold" | "status.withdrawn";
+const STATUS_STYLE: Record<string, { key: StatusKey; color: string; bg: string }> = {
+  FOR_SALE: { key: "status.for_sale", color: "#15803D", bg: "#E8F1EC" },
+  RESERVED: { key: "status.reserved", color: "#A86A17", bg: "#F7EFDE" },
+  SOLD: { key: "status.sold", color: "#666", bg: "#f3f3f3" },
+  WITHDRAWN: { key: "status.withdrawn", color: "#666", bg: "#f3f3f3" },
 };
 
 // Etiqueta del portal de origen (bajo la miniatura, en azul). Solo portales
@@ -322,8 +328,9 @@ const PORTAL_LABEL: Record<string, string> = {
 
 function DefaultCard({ record, editing, onLongPress, onDelete }: CardProps) {
   const { th } = useTheme();
+  const { t } = useTranslation();
   const cfg = recordTypeConfig(record.type);
-  const status = record.status ? STATUS_LABEL[record.status] : undefined;
+  const status = record.status ? STATUS_STYLE[record.status] : undefined;
   const footnote = metaField<string | null>(record, "footnote", null);
   // Portal de origen del inmueble (de qué web lo importamos), bajo la miniatura.
   const portal = metaField<string | null>(record, "portal", null);
@@ -374,7 +381,7 @@ function DefaultCard({ record, editing, onLongPress, onDelete }: CardProps) {
           <Text style={[styles.cardPrice, { color: th.accent }]} numberOfLines={1}>{record.primaryValue ?? "—"}</Text>
           {status && (
             <View style={[styles.statusChip, { backgroundColor: status.bg }]}>
-              <Text style={[styles.statusText, { color: status.color }]}>{status.text}</Text>
+              <Text style={[styles.statusText, { color: status.color }]}>{t(status.key)}</Text>
             </View>
           )}
         </View>
@@ -388,6 +395,7 @@ function DefaultCard({ record, editing, onLongPress, onDelete }: CardProps) {
 // ── Empleo (miniatura = capital de la provincia; estilo inmuebles, compacto) ─
 function JobCard({ record, editing, onLongPress, onDelete }: CardProps) {
   const { th } = useTheme();
+  const { t } = useTranslation();
   const company = metaField<string | null>(record, "company", null);
   const location = metaField<string | null>(record, "location", null);
   const salary = metaField<string | null>(record, "salaryLabel", null) ?? record.primaryValue ?? null;
@@ -397,7 +405,7 @@ function JobCard({ record, editing, onLongPress, onDelete }: CardProps) {
   const thumb = provinceImage(metaField<string | null>(record, "province", null));
   const sub = [company, location].filter(Boolean).join(" · ") || record.subtitle || null;
   // Pie compacto: contrato (· remoto) en gris, sueldo en BRONCE; fuente a la derecha.
-  const contractRemote = [contract, remote ? "Remoto" : null].filter(Boolean).join(" · ");
+  const contractRemote = [contract, remote ? t("card.remote") : null].filter(Boolean).join(" · ");
   const platformLabel =
     platform === "linkedin"
       ? "LinkedIn"
@@ -472,16 +480,16 @@ function fmtChange(p: number | null): { text: string; up: boolean } {
  * (`lastCheckedAt`). `stale` (≥30 min) lo pinta en ámbar para avisar de que el
  * reloj de refresco no está corriendo. Devuelve null si no hay dato.
  */
-function fmtAgo(iso: string | null): { text: string; stale: boolean } | null {
+function fmtAgo(iso: string | null, tr: TFn): { text: string; stale: boolean } | null {
   if (!iso) return null;
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return null;
-  const mins = Math.floor((Date.now() - t) / 60000);
-  if (mins < 1) return { text: "Actualizado ahora", stale: false };
-  if (mins < 60) return { text: `Actualizado hace ${mins} min`, stale: mins >= 30 };
+  const ts = Date.parse(iso);
+  if (Number.isNaN(ts)) return null;
+  const mins = Math.floor((Date.now() - ts) / 60000);
+  if (mins < 1) return { text: tr("card.updated_now"), stale: false };
+  if (mins < 60) return { text: tr("card.updated_min", { n: mins }), stale: mins >= 30 };
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return { text: `Actualizado hace ${hrs} h`, stale: true };
-  return { text: `Actualizado hace ${Math.floor(hrs / 24)} d`, stale: true };
+  if (hrs < 24) return { text: tr("card.updated_h", { n: hrs }), stale: true };
+  return { text: tr("card.updated_d", { n: Math.floor(hrs / 24) }), stale: true };
 }
 
 function compactMoney(n: number | null, currency = "EUR"): string {

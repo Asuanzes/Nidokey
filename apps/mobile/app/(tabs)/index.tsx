@@ -11,6 +11,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { metaField, type BaseRecord } from "@nidokey/shared";
 import { useCategoryPrefs } from "@/lib/records/category-prefs-context";
+import { useTypeI18n } from "@/lib/records/type-i18n";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme";
 import { useRecords } from "@/lib/hooks/useRecords";
@@ -32,6 +33,7 @@ export default function RecordsScreen() {
   const { state } = useAuth();
   const { th } = useTheme();
   const { t } = useTranslation();
+  const { label: typeLabel } = useTypeI18n();
   // Categoría activa COMPARTIDA con Importar (contexto), no estado local: así
   // Importar abre la categoría en la que estás y "Ver {categoría}" vuelve a ella.
   const { category: type, setCategory: setType, orderedVisible } = useCategoryPrefs();
@@ -115,11 +117,11 @@ export default function RecordsScreen() {
           {records && records.length === 0 && !error && (
             <EmptyState
               icon={cfg.enabled ? "file-tray-outline" : "time-outline"}
-              title={cfg.enabled ? t("records.empty_title", { type: cfg.label.toLowerCase() }) : t("common.soon")}
+              title={cfg.enabled ? t("records.empty_title", { type: typeLabel(type).toLowerCase() }) : t("common.soon")}
               description={
                 cfg.enabled
                   ? t("records.empty_desc")
-                  : t("records.soon_desc", { type: cfg.label })
+                  : t("records.soon_desc", { type: typeLabel(type) })
               }
             />
           )}

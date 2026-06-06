@@ -13,6 +13,7 @@ import * as Haptics from "expo-haptics";
 
 import type { RecordType } from "@nidokey/shared";
 import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
+import { useTypeI18n } from "@/lib/records/type-i18n";
 import { useTheme } from "@/lib/theme";
 
 /**
@@ -135,6 +136,7 @@ function Row({
 }: RowProps) {
   const id = item.type;
   const cfg = RECORD_TYPE_CONFIG[id];
+  const { label } = useTypeI18n();
   const muted = item.hidden;
 
   const animatedStyle = useAnimatedStyle(() => {
@@ -179,7 +181,7 @@ function Row({
             style={styles.catIcon}
           />
           <Text style={[styles.label, { color: muted ? th.textSubtle : th.text }]}>
-            {cfg.label}
+            {label(id)}
           </Text>
           <Pressable onPress={() => onToggleHidden(id)} hitSlop={10} style={styles.eye}>
             <Ionicons

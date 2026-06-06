@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { useTheme } from "@/lib/theme";
 import { useCategoryPrefs } from "@/lib/records/category-prefs-context";
 import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
+import { useTypeI18n } from "@/lib/records/type-i18n";
 import { ReorderableCategoryList } from "@/components/ReorderableCategoryList";
 import { Button, Chip, ResultModal, Section } from "@/components/ui";
 
@@ -15,6 +17,8 @@ import { Button, Chip, ResultModal, Section } from "@/components/ui";
  */
 export default function CategorySettingsScreen() {
   const { th, setThemeMode } = useTheme();
+  const { t } = useTranslation();
+  const { label: typeLabel } = useTypeI18n();
   const {
     managed,
     orderedVisible,
@@ -30,7 +34,7 @@ export default function CategorySettingsScreen() {
 
   // Solo se puede arrancar en una categoría DESARROLLADA (enabled) y visible — así
   // no se puede dejar la app en una pantalla "Próximamente" al abrir.
-  const startOptions = orderedVisible.filter((t) => RECORD_TYPE_CONFIG[t].enabled);
+  const startOptions = orderedVisible.filter((tp) => RECORD_TYPE_CONFIG[tp].enabled);
   const effectiveStart =
     (startCategory && startOptions.includes(startCategory) && startCategory) ||
     (startOptions.includes("property") ? "property" : startOptions[0]);
@@ -48,11 +52,8 @@ export default function CategorySettingsScreen() {
       contentContainerStyle={styles.content}
       scrollEnabled={scrollOn}
     >
-      <Section label="Orden y visibilidad">
-        <Text style={[styles.help, { color: th.textSubtle }]}>
-          Mantén pulsada una categoría y arrástrala para reordenar · toca el ojo para ocultarla o
-          mostrarla.
-        </Text>
+      <Section label={t("catsettings.order_title")}>
+        <Text style={[styles.help, { color: th.textSubtle }]}>{t("catsettings.order_help")}</Text>
         <ReorderableCategoryList
           data={managed}
           onReorder={(next) => reorder(next.map((m) => m.type))}
@@ -63,26 +64,24 @@ export default function CategorySettingsScreen() {
         />
       </Section>
 
-      <Section label="Categoría de inicio">
-        <Text style={[styles.help, { color: th.textSubtle }]}>
-          Con qué categoría se abre la app (solo las ya disponibles).
-        </Text>
+      <Section label={t("catsettings.start_title")}>
+        <Text style={[styles.help, { color: th.textSubtle }]}>{t("catsettings.start_help")}</Text>
         <View style={styles.chips}>
-          {startOptions.map((t) => (
+          {startOptions.map((tp) => (
             <Chip
-              key={t}
-              label={RECORD_TYPE_CONFIG[t].label}
-              icon={RECORD_TYPE_CONFIG[t].icon}
-              color={RECORD_TYPE_CONFIG[t].color}
-              selected={t === effectiveStart}
-              onPress={() => setStartCategory(t)}
+              key={tp}
+              label={typeLabel(tp)}
+              icon={RECORD_TYPE_CONFIG[tp].icon}
+              color={RECORD_TYPE_CONFIG[tp].color}
+              selected={tp === effectiveStart}
+              onPress={() => setStartCategory(tp)}
             />
           ))}
         </View>
       </Section>
 
       <Button
-        label="Restablecer preferencias"
+        label={t("catsettings.reset")}
         variant="ghost"
         icon="refresh-outline"
         onPress={() => setResetOpen(true)}
@@ -94,11 +93,11 @@ export default function CategorySettingsScreen() {
       visible={resetOpen}
       tone="error"
       icon="refresh-outline"
-      title="Restablecer preferencias"
-      message="Volverán a fábrica el orden y la visibilidad de categorías, la categoría de inicio, el tema y el orden manual de tus registros. No se borra ningún registro."
+      title={t("catsettings.reset")}
+      message={t("catsettings.reset_message")}
       actions={[
-        { label: "Restablecer", variant: "danger", onPress: doReset },
-        { label: "Cancelar", variant: "ghost", onPress: () => setResetOpen(false) },
+        { label: t("catsettings.reset_confirm"), variant: "danger", onPress: doReset },
+        { label: t("common.cancel"), variant: "ghost", onPress: () => setResetOpen(false) },
       ]}
       onRequestClose={() => setResetOpen(false)}
     />

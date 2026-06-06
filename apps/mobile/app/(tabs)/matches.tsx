@@ -165,7 +165,7 @@ type TFn = ReturnType<typeof useTranslation>["t"];
 /** Texto del diálogo de fusión: explícito cuando lo único que cambia es el idioma. */
 function mergeMessage(g: DupGroup, t: TFn): string {
   const count = Math.max(1, g.records.length - 1);
-  const singular = RECORD_TYPE_CONFIG[g.type].singular.toLowerCase();
+  const singular = t(`types.${g.type}.singular`).toLowerCase();
   return g.crossLanguage
     ? t("matches.merge_message_cross", { singular, count })
     : t("matches.merge_message", { count });
@@ -192,7 +192,7 @@ function GroupCard({
       <View style={styles.headerRow}>
         <View style={[styles.catChip, { backgroundColor: cfg.color + "22" }]}>
           <Ionicons name={cfg.icon} size={13} color={cfg.color} />
-          <Text style={[styles.catText, { color: cfg.color }]}>{cfg.label}</Text>
+          <Text style={[styles.catText, { color: cfg.color }]}>{t(`types.${g.type}.label`)}</Text>
         </View>
         <View style={[styles.scoreBadge, { backgroundColor: scoreColor + "22" }]}>
           <Text style={[styles.scoreText, { color: scoreColor }]}>{g.score}%</Text>

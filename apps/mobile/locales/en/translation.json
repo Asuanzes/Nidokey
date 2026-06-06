@@ -82,5 +82,45 @@
     "merge_message": "One entry is kept and the rest are removed ({{count}}). Status and your notes are preserved.",
     "merge_message_cross": "They look like the same {{singular}} in different languages. Merge into one? The rest are removed ({{count}}). Status and your notes are preserved.",
     "merge_error": "Couldn't complete"
+  },
+  "types": {
+    "property": { "label": "Properties", "singular": "Property" },
+    "renting": { "label": "Rentals", "singular": "Rental" },
+    "holiday": { "label": "Trips", "singular": "Trip" },
+    "crypto": { "label": "Crypto", "singular": "Crypto" },
+    "market": { "label": "Markets", "singular": "Market" },
+    "job": { "label": "Jobs", "singular": "Job" },
+    "workout": { "label": "Workouts", "singular": "Product" },
+    "chat": { "label": "Chat", "singular": "Chat" },
+    "book": { "label": "Books", "singular": "Book" }
+  },
+  "status": {
+    "for_sale": "For sale",
+    "reserved": "Reserved",
+    "sold": "Sold",
+    "withdrawn": "Withdrawn"
+  },
+  "card": {
+    "period_day": "day",
+    "period_24h": "24h",
+    "period_7d": "7 days",
+    "exchange": "Exchange",
+    "market_cap": "Market cap",
+    "volume": "Volume",
+    "volume_24h": "Vol. 24h",
+    "remote": "Remote",
+    "updated_now": "Updated just now",
+    "updated_min": "Updated {{n}} min ago",
+    "updated_h": "Updated {{n}} h ago",
+    "updated_d": "Updated {{n}} d ago"
+  },
+  "catsettings": {
+    "order_title": "Order and visibility",
+    "order_help": "Press and hold a category and drag to reorder · tap the eye to hide or show it.",
+    "start_title": "Start category",
+    "start_help": "Which category the app opens with (only the available ones).",
+    "reset": "Reset preferences",
+    "reset_message": "Category order and visibility, the start category, the theme and your manual record order will return to defaults. No record is deleted.",
+    "reset_confirm": "Reset"
   }
 }
