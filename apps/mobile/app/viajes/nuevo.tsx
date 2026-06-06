@@ -163,21 +163,27 @@ export default function NewTrip() {
   }
 
   async function loadHotels() {
-    if (!dest?.countryCode) {
+    if (!dest) {
       setError("Elige un destino de la lista");
       return;
     }
     if (!ISO.test(startISO) || !ISO.test(endISO)) {
-      setError("Fechas con formato AAAA-MM-DD");
+      setError("Elige las fechas en el calendario");
       return;
     }
     setLoading(true);
     setError(null);
     try {
+      // Coordenadas preferente (independiente del idioma del nombre).
+      const qs = new URLSearchParams({ checkin: startISO, checkout: endISO, adults: "2" });
+      if (dest.lat != null && dest.lng != null) {
+        qs.set("lat", String(dest.lat));
+        qs.set("lng", String(dest.lng));
+      }
+      if (dest.countryCode) qs.set("countryCode", dest.countryCode);
+      if (dest.cityName) qs.set("cityName", dest.cityName);
       const { items, reason } = await api<{ items: HotelItem[]; reason?: string }>(
-        `/api/travel/hotels?countryCode=${dest.countryCode}&cityName=${encodeURIComponent(
-          dest.cityName
-        )}&checkin=${startISO}&checkout=${endISO}&adults=2`
+        `/api/travel/hotels?${qs.toString()}`
       );
       setHotels(items);
       setHotelsReason(reason ?? null);

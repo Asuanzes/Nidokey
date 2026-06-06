@@ -45,16 +45,20 @@ export async function GET(req: NextRequest) {
     // a Aviasales con las fechas concretas).
     const departMonth = departDate ? departDate.slice(0, 7) : undefined;
     const returnMonth = returnDate ? returnDate.slice(0, 7) : undefined;
-    const res = await flightPricesCheap({
-      origin,
-      destination,
-      departDate: departMonth,
-      returnDate: returnMonth,
-      currency: "eur",
-    });
-    const destBlock =
-      (res.data as Record<string, Record<string, CheapEntry>> | undefined)?.[destination.toUpperCase()] ?? {};
-    const entries = Object.values(destBlock).filter((e) => typeof e?.price === "number");
+    const pick = (r: { data?: unknown }): CheapEntry[] =>
+      Object.values(
+        (r.data as Record<string, Record<string, CheapEntry>> | undefined)?.[destination.toUpperCase()] ?? {}
+      ).filter((e): e is CheapEntry => typeof (e as CheapEntry)?.price === "number");
+
+    // 1) Mes del viaje (más relevante).
+    let entries = pick(
+      await flightPricesCheap({ origin, destination, departDate: departMonth, returnDate: returnMonth, currency: "eur" })
+    );
+    // 2) Fallback: la caché de Travelpayouts es escasa por mes; si ese mes no
+    //    tiene datos, pedimos el más barato de la ruta SIN fecha (indicativo).
+    if (entries.length === 0) {
+      entries = pick(await flightPricesCheap({ origin, destination, currency: "eur" }));
+    }
     if (entries.length === 0) return NextResponse.json({ item: null });
     const cheapest = entries.reduce((a, b) => (a.price! <= b.price! ? a : b));
     const dep = departDate ? departDate.replace(/-/g, "").slice(2, 6) : ""; // DDMM-ish para deeplink

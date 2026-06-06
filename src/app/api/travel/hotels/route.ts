@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireUserId } from "@/lib/auth-helpers";
-import { liteHotelsByCity, liteHotelRates, type LiteHotel } from "@/features/sources/providers/liteapi";
+import { liteHotelsByCity, liteHotelsByCoords, liteHotelRates, type LiteHotel } from "@/features/sources/providers/liteapi";
 
 /**
  * GET /api/travel/hotels?countryCode=ES&cityName=Barcelona&checkin=...&checkout=...
@@ -14,8 +14,11 @@ import { liteHotelsByCity, liteHotelRates, type LiteHotel } from "@/features/sou
  * precio retail. La comisión nunca se expone.
  */
 const Query = z.object({
-  countryCode: z.string().min(2).max(2),
-  cityName: z.string().min(1),
+  // Coordenadas (preferente, independiente del idioma) o countryCode+cityName.
+  lat: z.coerce.number().optional(),
+  lng: z.coerce.number().optional(),
+  countryCode: z.string().min(2).max(2).optional(),
+  cityName: z.string().min(1).optional(),
   checkin: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   checkout: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   adults: z.coerce.number().int().min(1).max(8).optional(),
@@ -65,10 +68,20 @@ export async function GET(req: NextRequest) {
       { status: 400 }
     );
   }
-  const { countryCode, cityName, checkin, checkout, adults } = parsed.data;
+  const { lat, lng, countryCode, cityName, checkin, checkout, adults } = parsed.data;
+  if ((lat == null || lng == null) && (!countryCode || !cityName)) {
+    return NextResponse.json(
+      { error: "Falta destino: lat/lng o countryCode+cityName" },
+      { status: 400 }
+    );
+  }
   try {
-    const hotels = await liteHotelsByCity({ countryCode, cityName, limit: 15 });
-    // En sandbox la cobertura de ciudades es limitada: 0 hoteles = ciudad sin datos.
+    // Coordenadas preferente (robusto con nombres localizados: "Londres" vs "London").
+    const hotels =
+      lat != null && lng != null
+        ? await liteHotelsByCoords({ lat, lng, limit: 15 })
+        : await liteHotelsByCity({ countryCode: countryCode!, cityName: cityName!, limit: 15 });
+    // 0 hoteles = destino sin datos (cobertura limitada en sandbox).
     if (hotels.length === 0) return NextResponse.json({ items: [], reason: "no_city" });
 
     const byId = new Map<string, LiteHotel>(hotels.map((h) => [h.id, h]));
@@ -92,8 +105,8 @@ export async function GET(req: NextRequest) {
           name: h.name ?? "Hotel",
           stars: h.stars ?? null,
           thumbnail: h.thumbnail ?? h.main_photo ?? null,
-          city: h.city ?? cityName,
-          country: h.country ?? countryCode,
+          city: h.city ?? cityName ?? null,
+          country: h.country ?? countryCode ?? null,
           lat: h.latitude ?? null,
           lng: h.longitude ?? null,
           priceCents, // precio RETAIL al usuario (sin desglose de comisión)

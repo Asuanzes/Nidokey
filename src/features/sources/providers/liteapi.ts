@@ -101,6 +101,28 @@ export async function liteHotelsByCity(opts: {
   return json.data ?? [];
 }
 
+/**
+ * Hoteles por COORDENADAS (lat/lng + radio en metros). Más robusto que cityName:
+ * `cityName` exige el nombre en INGLÉS ("London", no "Londres") y falla con
+ * nombres localizados; las coordenadas del autocomplete no dependen del idioma.
+ */
+export async function liteHotelsByCoords(opts: {
+  lat: number;
+  lng: number;
+  radius?: number; // metros
+  limit?: number;
+}): Promise<LiteHotel[]> {
+  const json = await liteFetch<{ data?: LiteHotel[] }>("/data/hotels", {
+    query: {
+      latitude: opts.lat,
+      longitude: opts.lng,
+      radius: opts.radius ?? 20000,
+      limit: opts.limit ?? 30,
+    },
+  });
+  return json.data ?? [];
+}
+
 // ── Tarifas reales por hotel ───────────────────────────────────────────────
 export type LiteRatesOpts = {
   hotelIds: string[];
