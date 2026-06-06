@@ -68,7 +68,8 @@ export async function GET(req: NextRequest) {
   const { countryCode, cityName, checkin, checkout, adults } = parsed.data;
   try {
     const hotels = await liteHotelsByCity({ countryCode, cityName, limit: 15 });
-    if (hotels.length === 0) return NextResponse.json({ items: [] });
+    // En sandbox la cobertura de ciudades es limitada: 0 hoteles = ciudad sin datos.
+    if (hotels.length === 0) return NextResponse.json({ items: [], reason: "no_city" });
 
     const byId = new Map<string, LiteHotel>(hotels.map((h) => [h.id, h]));
     const rates = (await liteHotelRates({
@@ -105,6 +106,8 @@ export async function GET(req: NextRequest) {
       .filter((x): x is NonNullable<typeof x> => x !== null)
       .sort((a, b) => a.priceCents - b.priceCents);
 
+    // Hay hoteles en el catálogo pero ninguno con tarifa para esas fechas.
+    if (items.length === 0) return NextResponse.json({ items: [], reason: "no_rates" });
     return NextResponse.json({ items });
   } catch (err) {
     console.error("[travel-hotels] error:", err);

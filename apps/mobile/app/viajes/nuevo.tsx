@@ -127,6 +127,7 @@ export default function NewTrip() {
 
   // Paso 2
   const [hotels, setHotels] = useState<HotelItem[]>([]);
+  const [hotelsReason, setHotelsReason] = useState<string | null>(null);
   const [hotel, setHotel] = useState<HotelItem | null>(null);
 
   // Paso 3
@@ -173,12 +174,13 @@ export default function NewTrip() {
     setLoading(true);
     setError(null);
     try {
-      const { items } = await api<{ items: HotelItem[] }>(
+      const { items, reason } = await api<{ items: HotelItem[]; reason?: string }>(
         `/api/travel/hotels?countryCode=${dest.countryCode}&cityName=${encodeURIComponent(
           dest.cityName
         )}&checkin=${startISO}&checkout=${endISO}&adults=2`
       );
       setHotels(items);
+      setHotelsReason(reason ?? null);
       setHotel(null);
       setStep(2);
     } catch (e) {
@@ -386,7 +388,11 @@ export default function NewTrip() {
         {step === 2 && (
           <View style={{ gap: 8 }}>
             {hotels.length === 0 ? (
-              <Text style={{ color: th.textSubtle }}>No hay hoteles para esas fechas.</Text>
+              <Text style={{ color: th.textSubtle }}>
+                {hotelsReason === "no_city"
+                  ? `Sin hoteles para «${dest?.name ?? "ese destino"}» (en pruebas la cobertura es limitada; prueba una ciudad grande).`
+                  : "No hay disponibilidad para esas fechas. Prueba otras fechas."}
+              </Text>
             ) : (
               hotels.map((h) => {
                 const sel = hotel?.hotelId === h.hotelId;

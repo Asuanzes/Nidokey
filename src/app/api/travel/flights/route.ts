@@ -39,7 +39,19 @@ export async function GET(req: NextRequest) {
   }
   const { origin, destination, departDate, returnDate } = parsed.data;
   try {
-    const res = await flightPricesCheap({ origin, destination, departDate, returnDate, currency: "eur" });
+    // La Data API cacheada de Travelpayouts tiene precios por MES, no por día
+    // exacto: consultar "YYYY-MM-DD" devuelve casi siempre 0. Usamos el MES del
+    // viaje → cubre muchas más rutas (el precio es indicativo; la reserva real va
+    // a Aviasales con las fechas concretas).
+    const departMonth = departDate ? departDate.slice(0, 7) : undefined;
+    const returnMonth = returnDate ? returnDate.slice(0, 7) : undefined;
+    const res = await flightPricesCheap({
+      origin,
+      destination,
+      departDate: departMonth,
+      returnDate: returnMonth,
+      currency: "eur",
+    });
     const destBlock =
       (res.data as Record<string, Record<string, CheapEntry>> | undefined)?.[destination.toUpperCase()] ?? {};
     const entries = Object.values(destBlock).filter((e) => typeof e?.price === "number");
