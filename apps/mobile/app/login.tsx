@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui";
 
@@ -15,6 +16,7 @@ type Phase = "email" | "code";
 
 export default function LoginScreen() {
   const { requestOtp, verifyOtp } = useAuth();
+  const { t } = useTranslation();
   const [phase, setPhase] = useState<Phase>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -30,7 +32,7 @@ export default function LoginScreen() {
       await requestOtp(email.trim().toLowerCase());
       setPhase("code");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error de red");
+      setError(e instanceof Error ? e.message : t("login.error_network"));
     } finally {
       setLoading(false);
     }
@@ -44,7 +46,7 @@ export default function LoginScreen() {
       await verifyOtp(email.trim().toLowerCase(), code);
       // useAuth cambiará el estado y el root layout redirigirá a tabs
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Código incorrecto");
+      setError(e instanceof Error ? e.message : t("login.error_code"));
     } finally {
       setLoading(false);
     }
@@ -67,12 +69,12 @@ export default function LoginScreen() {
         <View style={styles.card}>
           {phase === "email" ? (
             <>
-              <Text style={styles.heading}>Accede a tu cuenta</Text>
-              <Text style={styles.sub}>Te enviaremos un código por email</Text>
+              <Text style={styles.heading}>{t("login.heading")}</Text>
+              <Text style={styles.sub}>{t("login.sub")}</Text>
               <TextInput
                 value={email}
                 onChangeText={setEmail}
-                placeholder="tu@email.com"
+                placeholder={t("login.email_placeholder")}
                 placeholderTextColor="#999"
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -83,7 +85,7 @@ export default function LoginScreen() {
               />
               {error && <Text style={styles.error}>{error}</Text>}
               <Button
-                label="Enviarme el código"
+                label={t("login.send_code")}
                 onPress={handleEmail}
                 loading={loading}
                 disabled={!email.includes("@")}
@@ -92,12 +94,12 @@ export default function LoginScreen() {
             </>
           ) : (
             <>
-              <Text style={styles.heading}>Código de 6 dígitos</Text>
-              <Text style={styles.sub}>Enviado a {email}</Text>
+              <Text style={styles.heading}>{t("login.code_heading")}</Text>
+              <Text style={styles.sub}>{t("login.code_sub", { email })}</Text>
               <TextInput
                 value={code}
-                onChangeText={(t) => setCode(t.replace(/\D/g, "").slice(0, 6))}
-                placeholder="123456"
+                onChangeText={(v) => setCode(v.replace(/\D/g, "").slice(0, 6))}
+                placeholder={t("login.code_placeholder")}
                 placeholderTextColor="#999"
                 keyboardType="number-pad"
                 autoFocus
@@ -107,14 +109,14 @@ export default function LoginScreen() {
               />
               {error && <Text style={styles.error}>{error}</Text>}
               <Button
-                label="Acceder"
+                label={t("login.enter")}
                 onPress={handleCode}
                 loading={loading}
                 disabled={code.length !== 6}
                 style={styles.cta}
               />
               <Button
-                label="← Cambiar email"
+                label={t("login.change_email")}
                 variant="ghost"
                 size="sm"
                 onPress={() => {
@@ -127,9 +129,7 @@ export default function LoginScreen() {
           )}
         </View>
 
-        <Text style={styles.footer}>
-          Sin contraseñas. Cada acceso pide un código por email.
-        </Text>
+        <Text style={styles.footer}>{t("login.footer")}</Text>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

@@ -11,6 +11,7 @@ import {
 import { Image } from "expo-image";
 import { Link } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import type { BaseRecord, RecordType } from "@nidokey/shared";
 
 import { api } from "@/lib/api";
@@ -42,6 +43,7 @@ const groupKey = (g: DupGroup) => g.records.map((r) => r.id).slice().sort().join
 
 export default function MatchesScreen() {
   const { th } = useTheme();
+  const { t } = useTranslation();
   const { data: groups, error, loading, refreshing, refetch } = useQuery(fetchGroups, []);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   // Confirmación de fusión (modal de la app, no Alert nativo) + aviso de error.
@@ -91,17 +93,17 @@ export default function MatchesScreen() {
       {error && (
         <EmptyState
           icon="cloud-offline-outline"
-          title="No se pudieron cargar los duplicados"
+          title={t("matches.load_error")}
           description={error.message}
-          actionLabel="Reintentar"
+          actionLabel={t("common.retry")}
           onAction={refetch}
         />
       )}
       {groups && groups.length === 0 && !error && (
         <EmptyState
           icon="sparkles-outline"
-          title="Sin duplicados"
-          description="Cuando tengas fichas repetidas (p. ej. varias ediciones del mismo libro), aparecerán aquí para fusionarlas."
+          title={t("matches.empty_title")}
+          description={t("matches.empty_desc")}
         />
       )}
       {groups && groups.length > 0 && (
@@ -128,11 +130,11 @@ export default function MatchesScreen() {
         visible={!!confirm}
         tone="info"
         icon={confirm?.crossLanguage ? "language-outline" : "git-merge-outline"}
-        title={confirm?.crossLanguage ? "¿El mismo, en distinto idioma?" : "Fusionar duplicados"}
-        message={confirm ? mergeMessage(confirm) : undefined}
+        title={confirm?.crossLanguage ? t("matches.cross_language_title") : t("matches.merge_title")}
+        message={confirm ? mergeMessage(confirm, t) : undefined}
         actions={[
           {
-            label: "Fusionar",
+            label: t("matches.merge"),
             variant: "danger",
             onPress: () => {
               const g = confirm;
@@ -140,7 +142,7 @@ export default function MatchesScreen() {
               if (g) doMerge(g);
             },
           },
-          { label: "Cancelar", variant: "ghost", onPress: () => setConfirm(null) },
+          { label: t("common.cancel"), variant: "ghost", onPress: () => setConfirm(null) },
         ]}
         onRequestClose={() => setConfirm(null)}
       />
@@ -149,31 +151,24 @@ export default function MatchesScreen() {
       <ResultModal
         visible={!!notice}
         tone="error"
-        title="No se pudo completar"
+        title={t("matches.merge_error")}
         message={notice ?? undefined}
-        actions={[{ label: "Entendido", onPress: () => setNotice(null) }]}
+        actions={[{ label: t("common.understood"), onPress: () => setNotice(null) }]}
         onRequestClose={() => setNotice(null)}
       />
     </Screen>
   );
 }
 
+type TFn = ReturnType<typeof useTranslation>["t"];
+
 /** Texto del diálogo de fusión: explícito cuando lo único que cambia es el idioma. */
-function mergeMessage(g: DupGroup): string {
-  const drops = Math.max(1, g.records.length - 1);
-  const plural = drops > 1 ? "s" : "";
+function mergeMessage(g: DupGroup, t: TFn): string {
+  const count = Math.max(1, g.records.length - 1);
   const singular = RECORD_TYPE_CONFIG[g.type].singular.toLowerCase();
-  if (g.crossLanguage) {
-    return (
-      `Parecen el mismo ${singular} pero en idiomas distintos. ` +
-      `¿Fusionarlas en una sola ficha? Se conservará una y se borrará${plural} ${drops}. ` +
-      "El estado y tus notas se conservan."
-    );
-  }
-  return (
-    `Se conservará una ficha y se borrará${plural} ${drops}. ` +
-    "El estado y tus notas se conservan."
-  );
+  return g.crossLanguage
+    ? t("matches.merge_message_cross", { singular, count })
+    : t("matches.merge_message", { count });
 }
 
 function GroupCard({
@@ -188,6 +183,7 @@ function GroupCard({
   onDismiss: () => void;
 }) {
   const { th } = useTheme();
+  const { t } = useTranslation();
   const cfg = RECORD_TYPE_CONFIG[g.type];
   const scoreColor = g.score >= 90 ? "#15803D" : g.score >= 70 ? "#A86A17" : th.textMuted;
 
@@ -211,7 +207,7 @@ function GroupCard({
         <View style={[styles.langFlag, { backgroundColor: th.accentSoft }]}>
           <Ionicons name="language-outline" size={13} color={th.accent} />
           <Text style={[styles.langFlagText, { color: th.accent }]}>
-            Distinto idioma — confirma si es el mismo
+            {t("matches.cross_language_flag")}
           </Text>
         </View>
       )}
@@ -223,8 +219,8 @@ function GroupCard({
       </View>
 
       <View style={styles.actions}>
-        <Button label="Fusionar" icon="git-merge-outline" size="sm" loading={busy} onPress={onMerge} style={styles.action} />
-        <Button label="No son duplicados" variant="secondary" size="sm" disabled={busy} onPress={onDismiss} style={styles.action} />
+        <Button label={t("matches.merge")} icon="git-merge-outline" size="sm" loading={busy} onPress={onMerge} style={styles.action} />
+        <Button label={t("matches.not_duplicates")} variant="secondary" size="sm" disabled={busy} onPress={onDismiss} style={styles.action} />
       </View>
     </View>
   );

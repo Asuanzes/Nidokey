@@ -37,5 +37,50 @@
       "automatic": "Machine translation",
       "partial": "Partial translation"
     }
+  },
+  "login": {
+    "heading": "Sign in to your account",
+    "sub": "We'll email you a code",
+    "email_placeholder": "you@email.com",
+    "send_code": "Send me the code",
+    "code_heading": "6-digit code",
+    "code_sub": "Sent to {{email}}",
+    "code_placeholder": "123456",
+    "enter": "Enter",
+    "change_email": "← Change email",
+    "footer": "No passwords. Each sign-in asks for a code by email.",
+    "error_network": "Network error",
+    "error_code": "Incorrect code"
+  },
+  "search": {
+    "placeholder": "Search your records…",
+    "no_results": "No results for “{{q}}”"
+  },
+  "screens": {
+    "dashboard_desc": "The KPI dashboard is coming in a future update.",
+    "activity_desc": "Price-change history is coming in a future update."
+  },
+  "records": {
+    "empty_title": "No {{type}} yet",
+    "empty_desc": "Share a portal URL to Nidokey from the Add tab.",
+    "soon_desc": "The “{{type}}” type will be available soon.",
+    "load_error": "Couldn't load records",
+    "edit_hint": "Drag to reorder · ✕ deletes",
+    "delete_title": "Delete record",
+    "delete_message": "Delete “{{title}}”? This can't be undone.",
+    "delete_error": "Couldn't delete the record"
+  },
+  "matches": {
+    "load_error": "Couldn't load duplicates",
+    "empty_title": "No duplicates",
+    "empty_desc": "When you have repeated entries (e.g. several editions of the same book), they'll appear here to merge.",
+    "cross_language_flag": "Different language — confirm it's the same",
+    "merge": "Merge",
+    "not_duplicates": "Not duplicates",
+    "merge_title": "Merge duplicates",
+    "cross_language_title": "Same one, different language?",
+    "merge_message": "One entry is kept and the rest are removed ({{count}}). Status and your notes are preserved.",
+    "merge_message_cross": "They look like the same {{singular}} in different languages. Merge into one? The rest are removed ({{count}}). Status and your notes are preserved.",
+    "merge_error": "Couldn't complete"
   }
 }

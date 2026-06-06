@@ -37,5 +37,50 @@
       "automatic": "Traducción automática",
       "partial": "Traducción parcial"
     }
+  },
+  "login": {
+    "heading": "Accede a tu cuenta",
+    "sub": "Te enviaremos un código por email",
+    "email_placeholder": "tu@email.com",
+    "send_code": "Enviarme el código",
+    "code_heading": "Código de 6 dígitos",
+    "code_sub": "Enviado a {{email}}",
+    "code_placeholder": "123456",
+    "enter": "Acceder",
+    "change_email": "← Cambiar email",
+    "footer": "Sin contraseñas. Cada acceso pide un código por email.",
+    "error_network": "Error de red",
+    "error_code": "Código incorrecto"
+  },
+  "search": {
+    "placeholder": "Buscar en tus registros…",
+    "no_results": "Sin resultados para «{{q}}»"
+  },
+  "screens": {
+    "dashboard_desc": "El panel de KPIs llegará en una próxima actualización.",
+    "activity_desc": "El historial de cambios de precio llegará en una próxima actualización."
+  },
+  "records": {
+    "empty_title": "Sin {{type}} todavía",
+    "empty_desc": "Comparte una URL de un portal a Nidokey desde la pestaña Importar.",
+    "soon_desc": "El tipo «{{type}}» estará disponible pronto.",
+    "load_error": "No se pudieron cargar los registros",
+    "edit_hint": "Arrastra para reordenar · ✕ borra",
+    "delete_title": "Eliminar registro",
+    "delete_message": "¿Eliminar «{{title}}»? Esta acción no se puede deshacer.",
+    "delete_error": "No se pudo eliminar el registro"
+  },
+  "matches": {
+    "load_error": "No se pudieron cargar los duplicados",
+    "empty_title": "Sin duplicados",
+    "empty_desc": "Cuando tengas fichas repetidas (p. ej. varias ediciones del mismo libro), aparecerán aquí para fusionarlas.",
+    "cross_language_flag": "Distinto idioma — confirma si es el mismo",
+    "merge": "Fusionar",
+    "not_duplicates": "No son duplicados",
+    "merge_title": "Fusionar duplicados",
+    "cross_language_title": "¿El mismo, en distinto idioma?",
+    "merge_message": "Se conservará una ficha y el resto se eliminará ({{count}}). El estado y tus notas se conservan.",
+    "merge_message_cross": "Parecen el mismo {{singular}} pero en idiomas distintos. ¿Fusionarlas en una sola? El resto se eliminará ({{count}}). El estado y tus notas se conservan.",
+    "merge_error": "No se pudo completar"
   }
 }

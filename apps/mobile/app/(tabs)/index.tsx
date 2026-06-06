@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import { metaField, type BaseRecord } from "@nidokey/shared";
 import { useCategoryPrefs } from "@/lib/records/category-prefs-context";
 import { useAuth } from "@/lib/auth-context";
@@ -30,6 +31,7 @@ import { NewsSheet } from "@/components/NewsSheet";
 export default function RecordsScreen() {
   const { state } = useAuth();
   const { th } = useTheme();
+  const { t } = useTranslation();
   // Categoría activa COMPARTIDA con Importar (contexto), no estado local: así
   // Importar abre la categoría en la que estás y "Ver {categoría}" vuelve a ella.
   const { category: type, setCategory: setType, orderedVisible } = useCategoryPrefs();
@@ -103,9 +105,9 @@ export default function RecordsScreen() {
           {error && (
             <EmptyState
               icon="cloud-offline-outline"
-              title="No se pudieron cargar los registros"
+              title={t("records.load_error")}
               description={error.message}
-              actionLabel="Reintentar"
+              actionLabel={t("common.retry")}
               onAction={refetch}
             />
           )}
@@ -113,11 +115,11 @@ export default function RecordsScreen() {
           {records && records.length === 0 && !error && (
             <EmptyState
               icon={cfg.enabled ? "file-tray-outline" : "time-outline"}
-              title={cfg.enabled ? `Sin ${cfg.label.toLowerCase()} todavía` : "Próximamente"}
+              title={cfg.enabled ? t("records.empty_title", { type: cfg.label.toLowerCase() }) : t("common.soon")}
               description={
                 cfg.enabled
-                  ? "Comparte una URL de un portal a Nidokey desde la pestaña Importar."
-                  : `El tipo "${cfg.label}" estará disponible pronto.`
+                  ? t("records.empty_desc")
+                  : t("records.soon_desc", { type: cfg.label })
               }
             />
           )}
@@ -127,10 +129,10 @@ export default function RecordsScreen() {
               {editing && (
                 <View style={[styles.editBar, { backgroundColor: th.accentSoft, borderBottomColor: th.border }]}>
                   <Text style={[styles.editHint, { color: th.textMuted }]} numberOfLines={1}>
-                    Arrastra para reordenar · ✕ borra
+                    {t("records.edit_hint")}
                   </Text>
                   <Pressable onPress={() => setEditing(false)} hitSlop={8}>
-                    <Text style={[styles.editDone, { color: th.accent }]}>Listo</Text>
+                    <Text style={[styles.editDone, { color: th.accent }]}>{t("common.done")}</Text>
                   </Pressable>
                 </View>
               )}
@@ -194,20 +196,20 @@ export default function RecordsScreen() {
         visible={!!confirmDelete}
         tone="error"
         icon="trash-outline"
-        title="Eliminar registro"
-        message={confirmDelete ? `¿Eliminar "${confirmDelete.title}"? Esta acción no se puede deshacer.` : undefined}
+        title={t("records.delete_title")}
+        message={confirmDelete ? t("records.delete_message", { title: confirmDelete.title }) : undefined}
         actions={[
-          { label: "Eliminar", variant: "danger", onPress: () => void doDelete() },
-          { label: "Cancelar", variant: "ghost", onPress: () => setConfirmDelete(null) },
+          { label: t("common.delete"), variant: "danger", onPress: () => void doDelete() },
+          { label: t("common.cancel"), variant: "ghost", onPress: () => setConfirmDelete(null) },
         ]}
         onRequestClose={() => setConfirmDelete(null)}
       />
       <ResultModal
         visible={!!notice}
         tone="error"
-        title="No se pudo eliminar"
+        title={t("records.delete_error")}
         message={notice ?? undefined}
-        actions={[{ label: "Entendido", onPress: () => setNotice(null) }]}
+        actions={[{ label: t("common.understood"), onPress: () => setNotice(null) }]}
         onRequestClose={() => setNotice(null)}
       />
     </Screen>

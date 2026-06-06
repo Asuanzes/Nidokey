@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, StyleSheet, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 import { useTheme } from "@/lib/theme";
 import { useQuery } from "@/lib/hooks/useQuery";
@@ -10,6 +11,7 @@ import { EmptyState, Screen } from "@/components/ui";
 
 export default function SearchScreen() {
   const { th } = useTheme();
+  const { t } = useTranslation();
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
 
@@ -33,7 +35,7 @@ export default function SearchScreen() {
         <TextInput
           value={q}
           onChangeText={setQ}
-          placeholder="Buscar en tus registros…"
+          placeholder={t("search.placeholder")}
           placeholderTextColor={th.textSubtle}
           style={[styles.input, { color: th.text }]}
           autoCorrect={false}
@@ -43,7 +45,7 @@ export default function SearchScreen() {
       </View>
 
       {ready && results && results.length === 0 && !loading && (
-        <EmptyState icon="search-outline" title={`Sin resultados para "${debounced}"`} />
+        <EmptyState icon="search-outline" title={t("search.no_results", { q: debounced })} />
       )}
 
       <FlatList
