@@ -67,12 +67,13 @@ export async function POST(req: NextRequest) {
   const r = parsed.data.record;
   const meta = (r.meta ?? {}) as Record<string, unknown>;
   const hasFlight = Boolean(meta.transport);
+  const hasHotel = Boolean(meta.accommodation);
 
   // Confirmación SIMULADA (modo prueba). Aquí irán Duffel + LiteAPI cuando haya saldo.
   const booking = {
     mode: "test" as const,
     status: "confirmed" as const,
-    hotelRef: testRef("H"),
+    hotelRef: hasHotel ? testRef("H") : null,
     flightRef: hasFlight ? testRef("F") : null,
     bookedAtISO: new Date().toISOString(),
   };

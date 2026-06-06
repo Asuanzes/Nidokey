@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,7 +11,6 @@ import {
 import { Image } from "expo-image";
 import { Stack, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import * as WebBrowser from "expo-web-browser";
 import { Calendar, LocaleConfig, type DateData } from "react-native-calendars";
 
 import {
@@ -23,6 +21,8 @@ import {
 } from "@nidokey/shared";
 import { api, ApiError } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
+import { ResultModal } from "@/components/ui";
+import { HotelDetailModal } from "@/components/travel/HotelDetailModal";
 
 /**
  * Asistente de VIAJES (record interno `holiday`). 4 pasos:
@@ -75,6 +75,17 @@ type Room = { adults: number; children: number[] };
 /** Tipos de viaje sugeridos (el usuario puede escribir uno propio). */
 const TRIP_TYPES = ["Vacaciones", "Negocios", "Trabajo", "Familia", "Pareja", "Grupo", "Amigos"];
 
+/** Paquete del viaje: qué se reserva (decide qué pasos se muestran). */
+type Pkg = "flight_hotel" | "hotel" | "flight" | "flight_hotel_transfer";
+const PKGS: { id: Pkg; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { id: "flight_hotel", label: "Vuelo + Hotel", icon: "airplane" },
+  { id: "hotel", label: "Solo Hotel", icon: "bed" },
+  { id: "flight", label: "Solo Vuelo", icon: "airplane-outline" },
+  { id: "flight_hotel_transfer", label: "Vuelo + Hotel + Traslado", icon: "car" },
+];
+/** Traslado aeropuerto↔hotel: estimación mientras no haya proveedor en vivo. */
+const TRANSFER_ESTIMATE_CENTS = 4000; // ~40 € ida y vuelta (estimado)
+
 // Calendario en español (react-native-calendars, JS puro).
 LocaleConfig.locales.es = {
   monthNames: ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"],
@@ -123,6 +134,12 @@ export default function NewTrip() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pkg, setPkg] = useState<Pkg>("flight_hotel");
+
+  // Qué incluye el paquete (decide los pasos visibles).
+  const wantHotel = pkg !== "flight";
+  const wantFlight = pkg !== "hotel";
+  const wantTransfer = pkg === "flight_hotel_transfer";
 
   // Paso 1
   const [placeQuery, setPlaceQuery] = useState("");
@@ -173,12 +190,22 @@ export default function NewTrip() {
   const [hotels, setHotels] = useState<HotelItem[]>([]);
   const [hotelsReason, setHotelsReason] = useState<string | null>(null);
   const [hotel, setHotel] = useState<HotelItem | null>(null);
+  const [exploreHotel, setExploreHotel] = useState<HotelItem | null>(null); // hotel abierto en el modal de detalle
+  const [roomLabel, setRoomLabel] = useState<string | null>(null); // habitación elegida en el modal
 
   // Paso 3
   const [flights, setFlights] = useState<FlightOption[]>([]);
   const [flight, setFlight] = useState<FlightOption | null>(null);
 
-  const totalCents = (hotel?.priceCents ?? 0) + (flight?.priceCents ?? 0);
+  // Resultado de reserva (modal app-styled, sustituye al Alert nativo).
+  const [booked, setBooked] = useState<{ id: string | null; hotelRef: string; flightRef: string | null } | null>(null);
+
+  const transferCents = wantTransfer ? TRANSFER_ESTIMATE_CENTS : 0;
+  const totalCents = (hotel?.priceCents ?? 0) + (flight?.priceCents ?? 0) + transferCents;
+
+  // Pasos activos según el paquete → para la etiqueta "Paso X de N".
+  const activeSteps: number[] = [1, ...(wantHotel ? [2] : []), ...(wantFlight ? [3] : []), 4];
+  const stepIndex = Math.max(1, activeSteps.indexOf(step) + 1);
 
   async function searchPlaces() {
     const q = placeQuery.trim();
@@ -271,27 +298,60 @@ export default function NewTrip() {
     }
   }
 
+  // Navegación dependiente del paquete: salta los pasos que no aplican.
+  function startFromStep1() {
+    if (!dest) {
+      setError("Elige un destino de la lista");
+      return;
+    }
+    if (!ISO.test(startISO) || !ISO.test(endISO)) {
+      setError("Elige las fechas en el calendario");
+      return;
+    }
+    setError(null);
+    if (wantHotel) void loadHotels();
+    else if (wantFlight) void loadFlight();
+    else setStep(4);
+  }
+  function afterHotels() {
+    if (wantFlight) void loadFlight();
+    else setStep(4);
+  }
+  function backFromStep4() {
+    setStep(wantFlight ? 3 : wantHotel ? 2 : 1);
+  }
+
   async function createTrip() {
-    if (!dest || !hotel) {
+    if (!dest) {
+      setError("Falta el destino");
+      return;
+    }
+    if (wantHotel && !hotel) {
       setError("Falta el alojamiento");
+      return;
+    }
+    if (pkg === "flight" && !flight) {
+      setError("Falta el vuelo");
       return;
     }
     setLoading(true);
     setError(null);
 
-    const accommodation: AccommodationChoice = {
-      kind: "hotel",
-      name: hotel.name,
-      city: dest.cityName,
-      country: dest.countryCode,
-      geoCode: hotel.lat != null && hotel.lng != null ? { lat: hotel.lat, lng: hotel.lng } : null,
-      checkInISO: startISO,
-      checkOutISO: endISO,
-      priceCents: hotel.priceCents,
-      currency: hotel.currency,
-      imageUrls: { thumbnail: hotel.thumbnail },
-      affiliateUrl: hotel.bookUrl,
-    };
+    const accommodation: AccommodationChoice | null = hotel
+      ? {
+          kind: "hotel",
+          name: hotel.name,
+          city: dest.cityName,
+          country: dest.countryCode,
+          geoCode: hotel.lat != null && hotel.lng != null ? { lat: hotel.lat, lng: hotel.lng } : null,
+          checkInISO: startISO,
+          checkOutISO: endISO,
+          priceCents: hotel.priceCents,
+          currency: hotel.currency,
+          imageUrls: { thumbnail: hotel.thumbnail },
+          affiliateUrl: hotel.bookUrl,
+        }
+      : null;
     const transport: TransportLeg | null = flight
       ? {
           mode: "flight",
@@ -306,6 +366,17 @@ export default function NewTrip() {
           affiliateUrl: flight.bookUrl,
         }
       : null;
+    const transfer: TransportLeg | null = wantTransfer
+      ? {
+          mode: "car",
+          provider: "Traslado aeropuerto ↔ hotel",
+          from: dest.iata,
+          to: hotel?.name ?? null,
+          priceCents: TRANSFER_ESTIMATE_CENTS,
+          currency: "EUR",
+          affiliateUrl: null,
+        }
+      : null;
 
     // buildHolidayImport calcula la comisión y la guarda en meta.commission
     // (INTERNA). El payload visible (currentValue) es solo el total.
@@ -316,24 +387,19 @@ export default function NewTrip() {
       tripType,
       occupancy: rooms.map((r) => ({ adults: r.adults, children: r.children })),
       transport,
+      transfer,
       accommodation,
-      imageUrl: hotel.thumbnail,
+      imageUrl: hotel?.thumbnail ?? null,
     });
 
     try {
       // Reserva completa (modo prueba): el backend confirma y persiste BOOKED.
       const { record: saved, booking } = await api<{
         record: { id: string } | null;
-        booking: { hotelRef: string; flightRef: string | null };
+        booking: { hotelRef: string | null; flightRef: string | null };
       }>("/api/travel/book", { method: "POST", body: JSON.stringify({ record }) });
-      const id = saved?.id;
-      Alert.alert(
-        "✅ ¡Reserva realizada!",
-        `Alojamiento ${booking.hotelRef}` +
-          (booking.flightRef ? ` · Vuelo ${booking.flightRef}` : "") +
-          "\n\n(Reserva de prueba — el cobro real se activará al publicar.)",
-        [{ text: "Ver viaje", onPress: () => router.replace((id ? `/holiday/${id}` : "/(tabs)") as never) }]
-      );
+      // Confirmación con modal de la app (no Alert nativo).
+      setBooked({ id: saved?.id ?? null, hotelRef: booking.hotelRef ?? "", flightRef: booking.flightRef });
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "No se pudo reservar el viaje");
     } finally {
@@ -347,24 +413,34 @@ export default function NewTrip() {
   function hotelCard(h: HotelItem) {
     const sel = hotel?.hotelId === h.hotelId;
     return (
-      <Pressable
-        key={h.hotelId}
-        onPress={() => setHotel(sel ? null : h)}
-        style={[styles.hotelRow, { backgroundColor: th.surface, borderColor: sel ? th.accent : th.border, borderWidth: sel ? 2 : 1 }]}
-      >
-        {h.thumbnail ? (
-          <Image source={{ uri: h.thumbnail }} style={styles.hotelThumb} contentFit="cover" transition={150} />
-        ) : (
-          <View style={[styles.hotelThumb, styles.center, { backgroundColor: th.imagePlaceholder }]}>
-            <Ionicons name="bed-outline" size={22} color={th.textSubtle} />
+      <View key={h.hotelId} style={{ gap: 2 }}>
+        <Pressable
+          onPress={() => {
+            setHotel(sel ? null : h);
+            setRoomLabel(null); // al cambiar de hotel se olvida la habitación elegida
+          }}
+          style={[styles.hotelRow, { backgroundColor: th.surface, borderColor: sel ? th.accent : th.border, borderWidth: sel ? 2 : 1 }]}
+        >
+          {h.thumbnail ? (
+            <Image source={{ uri: h.thumbnail }} style={styles.hotelThumb} contentFit="cover" transition={150} />
+          ) : (
+            <View style={[styles.hotelThumb, styles.center, { backgroundColor: th.imagePlaceholder }]}>
+              <Ionicons name="bed-outline" size={22} color={th.textSubtle} />
+            </View>
+          )}
+          <View style={styles.flex}>
+            <Text style={{ color: th.text, fontWeight: "600" }} numberOfLines={2}>{h.name}</Text>
+            {h.stars ? <Text style={{ color: th.textSubtle, fontSize: 12 }}>{"★".repeat(Math.round(h.stars))}</Text> : null}
+            {sel && roomLabel ? <Text style={{ color: th.accent, fontSize: 12 }} numberOfLines={1}>{roomLabel}</Text> : null}
           </View>
-        )}
-        <View style={styles.flex}>
-          <Text style={{ color: th.text, fontWeight: "600" }} numberOfLines={2}>{h.name}</Text>
-          {h.stars ? <Text style={{ color: th.textSubtle, fontSize: 12 }}>{"★".repeat(Math.round(h.stars))}</Text> : null}
-        </View>
-        <Text style={{ color: th.accent, fontWeight: "700" }}>{formatMoney(h.priceCents, h.currency)}</Text>
-      </Pressable>
+          {sel ? <Ionicons name="checkmark-circle" size={18} color={th.accent} /> : null}
+          <Text style={{ color: th.accent, fontWeight: "700" }}>{formatMoney(h.priceCents, h.currency)}</Text>
+        </Pressable>
+        <Pressable onPress={() => setExploreHotel(h)} style={styles.linkRow} hitSlop={4}>
+          <Ionicons name="information-circle-outline" size={15} color={th.accent} />
+          <Text style={{ color: th.accent, fontSize: 12, fontWeight: "600" }}>Ver habitaciones y detalles</Text>
+        </Pressable>
+      </View>
     );
   }
 
@@ -395,7 +471,7 @@ export default function NewTrip() {
       <Stack.Screen options={{ title: "Nuevo viaje" }} />
       <ScrollView style={{ backgroundColor: th.bg }} contentContainerStyle={styles.content}>
         <Text style={[styles.stepLabel, { color: th.textSubtle }]}>
-          Paso {step} de 4 · {STEP_TITLES[step - 1]}
+          Paso {stepIndex} de {activeSteps.length} · {STEP_TITLES[step - 1]}
         </Text>
 
         {error && <Text style={[styles.error, { color: th.dangerFg }]}>{error}</Text>}
@@ -403,7 +479,24 @@ export default function NewTrip() {
         {/* ── Paso 1 ── */}
         {step === 1 && (
           <View style={{ gap: 10 }}>
-            <Text style={[styles.label, { color: th.textMuted }]}>Destino</Text>
+            <Text style={[styles.label, { color: th.textMuted }]}>¿Qué quieres reservar?</Text>
+            <View style={styles.chipsWrap}>
+              {PKGS.map((p) => {
+                const on = pkg === p.id;
+                return (
+                  <Pressable
+                    key={p.id}
+                    onPress={() => setPkg(p.id)}
+                    style={[styles.pkgChip, { borderColor: on ? th.accent : th.border, backgroundColor: on ? th.accentSoft : th.surface }]}
+                  >
+                    <Ionicons name={p.icon} size={15} color={on ? th.accent : th.textMuted} />
+                    <Text style={{ color: on ? th.accent : th.textMuted, fontSize: 13, fontWeight: "600" }}>{p.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={[styles.label, { color: th.textMuted, marginTop: 6 }]}>Destino</Text>
             {dest ? (
               <Pressable
                 onPress={() => setDest(null)}
@@ -483,16 +576,20 @@ export default function NewTrip() {
               style={[styles.input, { backgroundColor: th.surface, borderColor: th.border, color: th.text }]}
             />
 
-            <Text style={[styles.label, { color: th.textMuted, marginTop: 6 }]}>Origen (IATA)</Text>
-            <TextInput
-              value={origin}
-              onChangeText={(t) => setOrigin(t.toUpperCase().slice(0, 3))}
-              placeholder="MAD"
-              placeholderTextColor={th.textSubtle}
-              autoCapitalize="characters"
-              autoCorrect={false}
-              style={[styles.input, { backgroundColor: th.surface, borderColor: th.border, color: th.text }]}
-            />
+            {wantFlight && (
+              <>
+                <Text style={[styles.label, { color: th.textMuted, marginTop: 6 }]}>Origen (IATA)</Text>
+                <TextInput
+                  value={origin}
+                  onChangeText={(t) => setOrigin(t.toUpperCase().slice(0, 3))}
+                  placeholder="MAD"
+                  placeholderTextColor={th.textSubtle}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  style={[styles.input, { backgroundColor: th.surface, borderColor: th.border, color: th.text }]}
+                />
+              </>
+            )}
 
             <Text style={[styles.label, { color: th.textMuted, marginTop: 6 }]}>Fechas</Text>
             <Text style={{ color: startISO ? th.text : th.textSubtle, fontSize: 13, fontWeight: "500" }}>
@@ -560,7 +657,7 @@ export default function NewTrip() {
               </Pressable>
             ) : null}
 
-            <PrimaryBtn label="Siguiente" loading={loading} onPress={() => void loadHotels()} th={th} />
+            <PrimaryBtn label="Siguiente" loading={loading} onPress={() => startFromStep1()} th={th} />
           </View>
         )}
 
@@ -586,7 +683,7 @@ export default function NewTrip() {
             )}
             <View style={styles.navRow}>
               <GhostBtn label="Atrás" onPress={() => setStep(1)} th={th} />
-              <PrimaryBtn label="Siguiente" loading={loading} disabled={!hotel} onPress={() => void loadFlight()} th={th} />
+              <PrimaryBtn label="Siguiente" loading={loading} disabled={!hotel} onPress={() => afterHotels()} th={th} />
             </View>
           </View>
         )}
@@ -617,55 +714,155 @@ export default function NewTrip() {
               </>
             )}
             <View style={styles.navRow}>
-              <GhostBtn label="Atrás" onPress={() => setStep(2)} th={th} />
+              <GhostBtn label="Atrás" onPress={() => setStep(wantHotel ? 2 : 1)} th={th} />
               <PrimaryBtn label="Siguiente" onPress={() => setStep(4)} th={th} />
             </View>
           </View>
         )}
 
-        {/* ── Paso 4: resumen (SIN comisión) ── */}
-        {step === 4 && dest && hotel && (
+        {/* ── Paso 4: resumen / previsualización de la reserva (SIN comisión) ── */}
+        {step === 4 && dest && (hotel || !wantHotel) && (
           <View style={{ gap: 12 }}>
+            <Text style={[styles.label, { color: th.textMuted }]}>Revisa tu reserva</Text>
+
+            {/* Datos del viaje */}
             <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
               <Row k="Destino" v={dest.name} th={th} />
               {tripType.trim() ? <Row k="Tipo" v={tripType.trim()} th={th} /> : null}
-              <Row k="Fechas" v={`${startISO} – ${endISO}`} th={th} />
+              <Row k="Fechas" v={`${fmtDay(startISO)} → ${fmtDay(endISO)}`} th={th} />
               <Row k="Viajeros" v={occSummary} th={th} />
-              <Row k="Alojamiento" v={`${hotel.name} · ${formatMoney(hotel.priceCents, hotel.currency)}`} th={th} />
-              {flight ? (
-                <Row k="Vuelo" v={`${flight.airline ?? "Vuelo"} · ${formatMoney(flight.priceCents, flight.currency)}`} th={th} />
-              ) : null}
-              {/* ⚠️ NO renderizar comisión/margen aquí. Solo el Total. */}
-              <View style={[styles.totalRow, { borderTopColor: th.border }]}>
-                <Text style={{ color: th.text, fontWeight: "700" }}>Total</Text>
-                <Text style={{ color: th.accent, fontWeight: "700", fontSize: 17 }}>{formatMoney(totalCents, "EUR")}</Text>
-              </View>
             </View>
 
-            <Pressable
-              onPress={() => void WebBrowser.openBrowserAsync(hotel.bookUrl)}
-              style={[styles.outlineBtn, { borderColor: th.border }]}
-            >
-              <Ionicons name="bed-outline" size={18} color={th.accent} />
-              <Text style={{ color: th.accent, fontWeight: "600" }}>Reservar alojamiento</Text>
-            </Pressable>
-            {flight ? (
+            {/* Alojamiento (previsualización con foto) */}
+            {hotel ? (
               <Pressable
-                onPress={() => void WebBrowser.openBrowserAsync(flight.bookUrl)}
-                style={[styles.outlineBtn, { borderColor: th.border }]}
+                onPress={() => setExploreHotel(hotel)}
+                style={[styles.previewRow, { backgroundColor: th.surface, borderColor: th.border }]}
               >
-                <Ionicons name="airplane-outline" size={18} color={th.accent} />
-                <Text style={{ color: th.accent, fontWeight: "600" }}>Ver vuelo</Text>
+                {hotel.thumbnail ? (
+                  <Image source={{ uri: hotel.thumbnail }} style={styles.hotelThumb} contentFit="cover" transition={150} />
+                ) : (
+                  <View style={[styles.hotelThumb, styles.center, { backgroundColor: th.imagePlaceholder }]}>
+                    <Ionicons name="bed-outline" size={22} color={th.textSubtle} />
+                  </View>
+                )}
+                <View style={styles.flex}>
+                  <Text style={{ color: th.textSubtle, fontSize: 11, fontWeight: "600" }}>ALOJAMIENTO</Text>
+                  <Text style={{ color: th.text, fontWeight: "600" }} numberOfLines={2}>{hotel.name}</Text>
+                  <Text style={{ color: th.textSubtle, fontSize: 12 }}>
+                    {[hotel.stars ? "★".repeat(Math.round(hotel.stars)) : null, roomLabel ?? "Ver habitaciones"].filter(Boolean).join(" · ")}
+                  </Text>
+                </View>
+                <Text style={{ color: th.accent, fontWeight: "700" }}>{formatMoney(hotel.priceCents, hotel.currency)}</Text>
               </Pressable>
             ) : null}
 
+            {/* Vuelo (previsualización) */}
+            {flight ? (
+              <View style={[styles.previewRow, { backgroundColor: th.surface, borderColor: th.border }]}>
+                <View style={[styles.hotelThumb, styles.center, { backgroundColor: th.imagePlaceholder }]}>
+                  <Ionicons name="airplane" size={22} color={th.textSubtle} />
+                </View>
+                <View style={styles.flex}>
+                  <Text style={{ color: th.textSubtle, fontSize: 11, fontWeight: "600" }}>VUELO</Text>
+                  <Text style={{ color: th.text, fontWeight: "600" }} numberOfLines={1}>{flight.airline ?? "Vuelo"}</Text>
+                  <Text style={{ color: th.textSubtle, fontSize: 12 }}>
+                    {[
+                      `${origin.trim().toUpperCase()} → ${dest.iata ?? ""}`,
+                      flight.departISO ? flight.departISO.slice(11, 16) : null,
+                      flight.stops === 0 ? "Directo" : `${flight.stops} escala${flight.stops > 1 ? "s" : ""}`,
+                    ].filter(Boolean).join(" · ")}
+                  </Text>
+                </View>
+                <Text style={{ color: th.accent, fontWeight: "700" }}>{formatMoney(flight.priceCents, flight.currency)}</Text>
+              </View>
+            ) : null}
+
+            {/* Traslado (estimado) */}
+            {wantTransfer ? (
+              <View style={[styles.previewRow, { backgroundColor: th.surface, borderColor: th.border }]}>
+                <View style={[styles.hotelThumb, styles.center, { backgroundColor: th.imagePlaceholder }]}>
+                  <Ionicons name="car" size={22} color={th.textSubtle} />
+                </View>
+                <View style={styles.flex}>
+                  <Text style={{ color: th.textSubtle, fontSize: 11, fontWeight: "600" }}>TRASLADO</Text>
+                  <Text style={{ color: th.text, fontWeight: "600" }}>Aeropuerto ↔ hotel</Text>
+                  <Text style={{ color: th.textSubtle, fontSize: 12 }}>Ida y vuelta · estimado</Text>
+                </View>
+                <Text style={{ color: th.accent, fontWeight: "700" }}>{formatMoney(TRANSFER_ESTIMATE_CENTS, "EUR")}</Text>
+              </View>
+            ) : null}
+
+            {/* Total (⚠️ NUNCA comisión aquí) */}
+            <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
+              <View style={styles.totalRowTop}>
+                <Text style={{ color: th.text, fontWeight: "700" }}>Total</Text>
+                <Text style={{ color: th.accent, fontWeight: "700", fontSize: 19 }}>{formatMoney(totalCents, "EUR")}</Text>
+              </View>
+              <Text style={{ color: th.textSubtle, fontSize: 11 }}>
+                Reserva de prueba — el cobro real se activará al publicar.
+              </Text>
+            </View>
+
             <View style={styles.navRow}>
-              <GhostBtn label="Atrás" onPress={() => setStep(3)} th={th} />
+              <GhostBtn label="Atrás" onPress={() => backFromStep4()} th={th} />
               <PrimaryBtn label="Reservar viaje" loading={loading} onPress={() => void createTrip()} th={th} />
             </View>
           </View>
         )}
       </ScrollView>
+
+      {/* Explorar hotel: fotos, servicios y habitaciones (in-app) */}
+      <HotelDetailModal
+        visible={!!exploreHotel}
+        hotelId={exploreHotel?.hotelId ?? null}
+        fallbackName={exploreHotel?.name ?? ""}
+        fallbackPriceCents={exploreHotel?.priceCents ?? 0}
+        checkin={startISO}
+        checkout={endISO}
+        occupancies={rooms}
+        onClose={() => setExploreHotel(null)}
+        onChoose={(priceCents, roomName) => {
+          if (exploreHotel) {
+            setHotel({ ...exploreHotel, priceCents });
+            setRoomLabel(roomName);
+          }
+          setExploreHotel(null);
+        }}
+      />
+
+      {/* Confirmación de reserva con estilo de la app (no Alert nativo) */}
+      <ResultModal
+        visible={!!booked}
+        tone="success"
+        title="¡Reserva realizada!"
+        message="Reserva de prueba — el cobro real se activará al publicar."
+        detail={
+          booked
+            ? [
+                booked.hotelRef ? `Alojamiento ${booked.hotelRef}` : null,
+                booked.flightRef ? `Vuelo ${booked.flightRef}` : null,
+              ]
+                .filter(Boolean)
+                .join("   ·   ") || null
+            : null
+        }
+        actions={[
+          {
+            label: "Ver viaje",
+            onPress: () => {
+              const id = booked?.id;
+              setBooked(null);
+              router.replace((id ? `/holiday/${id}` : "/(tabs)") as never);
+            },
+          },
+        ]}
+        onRequestClose={() => {
+          const id = booked?.id;
+          setBooked(null);
+          router.replace((id ? `/holiday/${id}` : "/(tabs)") as never);
+        }}
+      />
     </>
   );
 }
@@ -774,6 +971,9 @@ const styles = StyleSheet.create({
   navRow: { flexDirection: "row", gap: 10, alignItems: "center", marginTop: 8 },
   chipsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   typeChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
+  pkgChip: { flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
+  previewRow: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderRadius: 10, padding: 10 },
+  totalRowTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   roomCard: { borderWidth: 1, borderRadius: 10, padding: 12, gap: 8 },
   roomHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   stepperRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },

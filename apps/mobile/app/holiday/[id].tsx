@@ -64,14 +64,20 @@ export default function HolidayDetail() {
   const destination = metaField<string | null>(record, "destination", null);
   const accommodation = metaField<AccommodationChoice | null>(record, "accommodation", null);
   const transport = metaField<TransportLeg | null>(record, "transport", null);
+  const transfer = metaField<TransportLeg | null>(record, "transfer", null);
   const tripType = metaField<string | null>(record, "tripType", null);
   const occupancy = metaField<{ adults: number; children: number[] }[] | null>(record, "occupancy", null);
-  const booking = metaField<{ hotelRef?: string; flightRef?: string | null } | null>(record, "booking", null);
+  const booking = metaField<{ hotelRef?: string | null; flightRef?: string | null } | null>(record, "booking", null);
   // ⚠️ NO leer metaField(record, "commission", …): es interno, no se pinta.
 
   const statusLabel = record.status === "BOOKED" ? "Reservado" : record.status === "PLANNING" ? "Planificando" : null;
   const bookingRefs = booking
-    ? `${booking.hotelRef ?? "—"}${booking.flightRef ? ` · ${booking.flightRef}` : ""}`
+    ? [
+        booking.hotelRef ? `Hotel ${booking.hotelRef}` : null,
+        booking.flightRef ? `Vuelo ${booking.flightRef}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ") || null
     : null;
 
   const occSummary =
@@ -100,6 +106,12 @@ export default function HolidayDetail() {
         "Desplazamiento",
         transport
           ? `${transport.provider ?? "Vuelo"}${transport.priceCents != null ? ` · ${formatMoney(transport.priceCents, transport.currency ?? "EUR")}` : ""}`
+          : null,
+      ],
+      [
+        "Traslado",
+        transfer
+          ? `${transfer.provider ?? "Traslado"}${transfer.priceCents != null ? ` · ${formatMoney(transfer.priceCents, transfer.currency ?? "EUR")}` : ""}`
           : null,
       ],
     ] as [string, string | null][]
@@ -134,7 +146,7 @@ export default function HolidayDetail() {
             style={[styles.outlineBtn, { borderColor: th.border }]}
           >
             <Ionicons name="bed-outline" size={18} color={th.accent} />
-            <Text style={{ color: th.accent, fontWeight: "600" }}>Reservar alojamiento</Text>
+            <Text style={{ color: th.accent, fontWeight: "600" }}>Ver hotel</Text>
           </Pressable>
         ) : null}
         {transport?.affiliateUrl ? (

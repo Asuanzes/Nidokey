@@ -138,9 +138,11 @@ export interface HolidayTripMeta {
   occupancy?: TravelOccupancy[] | null;
   /** Desplazamiento elegido. */
   transport?: TransportLeg | null;
+  /** Traslado aeropuerto↔alojamiento (estimado; sin proveedor en vivo aún). */
+  transfer?: TransportLeg | null;
   /** Alojamiento elegido. */
   accommodation?: AccommodationChoice | null;
-  /** Total del viaje en céntimos (transporte + alojamiento). */
+  /** Total del viaje en céntimos (transporte + traslado + alojamiento). */
   totalCents?: number | null;
   currency?: string | null;
   /** Comisión estimada (afiliación). */
@@ -153,9 +155,10 @@ export interface HolidayTripMeta {
 /** Suma de las patas de precio de un viaje (céntimos). Ignora nulos. */
 export function holidayTotalCents(
   transport?: TransportLeg | null,
-  accommodation?: AccommodationChoice | null
+  accommodation?: AccommodationChoice | null,
+  transfer?: TransportLeg | null
 ): number {
-  return (transport?.priceCents ?? 0) + (accommodation?.priceCents ?? 0);
+  return (transport?.priceCents ?? 0) + (accommodation?.priceCents ?? 0) + (transfer?.priceCents ?? 0);
 }
 
 /** Comisión estimada sobre el total (céntimos). `rate` por defecto 6%. */

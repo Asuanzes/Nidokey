@@ -123,6 +123,37 @@ export async function liteHotelsByCoords(opts: {
   return json.data ?? [];
 }
 
+// ── Detalle de un hotel (descripción, fotos, servicios) ────────────────────
+export type LiteHotelDetails = {
+  id?: string;
+  name?: string;
+  hotelDescription?: string;
+  country?: string;
+  city?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  stars?: number;
+  main_photo?: string;
+  thumbnail?: string;
+  /** Galería: la API mezcla formas; cubrimos las habituales. */
+  hotelImages?: { url?: string; urlHd?: string }[];
+  hotel_facilities?: string[];
+  facilities?: ({ name?: string } | string)[];
+};
+
+/**
+ * GET /data/hotel?hotelId=… — ficha completa de UN hotel (descripción larga,
+ * galería de fotos y servicios). Para la pantalla "explorar hotel". Devuelve
+ * `{ data: LiteHotelDetails }` (o el objeto directo según versión).
+ */
+export async function liteHotelDetails(hotelId: string): Promise<LiteHotelDetails | null> {
+  const json = await liteFetch<{ data?: LiteHotelDetails } & LiteHotelDetails>("/data/hotel", {
+    query: { hotelId },
+  });
+  return json.data ?? (json.id ? json : null);
+}
+
 // ── Tarifas reales por hotel ───────────────────────────────────────────────
 /** Ocupación de UNA habitación: adultos + edades de los niños. */
 export type Occupancy = { adults: number; children?: number[] };

@@ -97,6 +97,15 @@ function titleSim(a: string, b: string): number {
   return jaccard(bigrams(na), bigrams(nb));
 }
 
+/** Título-núcleo: lo que va ANTES del primer separador de subtítulo (":", ".",
+ *  "-", "(", "|"). Normaliza el resultado. Así "Sapiens: De animales a dioses",
+ *  "Sapiens. Breve historia" y "Sapiens" comparten núcleo "sapiens". Se corta
+ *  ANTES de normalizar porque normalizeForMatch ya borra la puntuación. */
+function primaryTitle(raw: string): string {
+  const head = raw.split(/[:.\-–—(|]/)[0] ?? raw;
+  return normalizeForMatch(head);
+}
+
 /** Nº de tokens significativos de autor (≥3 chars) compartidos. Robusto a orden
  *  ("Gabriel García Márquez" vs "García Márquez, Gabriel") y a iniciales. Un solo
  *  token (apellido común: "garcia", "lopez") es señal DÉBIL; ≥2 es fuerte. */
@@ -136,6 +145,17 @@ const bookDescriptor: DedupDescriptor = (a, b) => {
   //  - el tier bajo exige ≥2 tokens de autor compartidos (un apellido común no basta).
   const shared = authorSharedTokens(a.keys.authors, b.keys.authors);
   if (shared >= 1) {
+    // (a) Variantes de la MISMA obra: idéntico título-núcleo + autor compartido.
+    //     Captura ediciones que solo difieren en el subtítulo —el caso real de
+    //     "Sapiens: De animales a dioses" / "Sapiens. Breve historia" / "Sapiens"—
+    //     que el jaccard del título completo no detecta. Núcleo ≥5 chars para no
+    //     agrupar por palabras sueltas comunes.
+    const pa = primaryTitle(a.title);
+    const pb = primaryTitle(b.title);
+    if (pa.length >= 5 && pa === pb) {
+      return { score: shared >= 2 ? 90 : 82, reasons: ["Misma obra (título y autor)"] };
+    }
+    // (b) Título COMPLETO muy parecido.
     const t = titleSim(a.title, b.title);
     const shortTitle =
       Math.min(normalizeForMatch(a.title).length, normalizeForMatch(b.title).length) < 10;
@@ -199,16 +219,25 @@ export function descriptorFor(type: RecordType): DedupDescriptor {
   return DEDUP_DESCRIPTORS[type] ?? defaultDescriptor;
 }
 
-// ── Agrupado (enlace COMPLETO / clique) ────────────────────────────────────────
+// ── Agrupado (híbrido: identidad transitiva + difuso por enlace completo) ──────
+
+/** Score a partir del cual una arista es IDENTIDAD (mismo ISBN/obra/URL/símbolo):
+ *  transitiva segura (A=B y B=C ⇒ A,B,C son el mismo ítem aunque A,C no se hayan
+ *  comparado por la misma clave). Por debajo es difusa → enlace completo. */
+const EXACT_GROUP_SCORE = 95;
 
 /** Agrupa candidatos del MISMO tipo en grupos de duplicados (≥2). O(n²) por tipo,
  *  apto para escala personal (n≤~500).
  *
- *  Usa enlace COMPLETO (clique): un candidato entra en un grupo solo si casa con
- *  TODOS sus miembros, NO por transitividad. Así se evita el falso positivo
- *  "A~B y B~C ⇒ A,C juntos" aunque A≁C (p.ej. dos novelas distintas del mismo
- *  autor que comparten un eslabón difuso). La fusión borra fichas, así que un
- *  grupo de más es destructivo: preferimos cliques estrictas (greedy, seguro). */
+ *  Híbrido, para ser robusto Y conservador:
+ *   1. IDENTIDAD (score ≥ 95: mismo ISBN, misma obra, misma URL, mismo símbolo)
+ *      → unión TRANSITIVA (union-find). Tres ediciones encadenadas por claves
+ *      exactas distintas (A=B por ISBN, B=C por obra) acaban en el mismo grupo
+ *      aunque A,C no compartan clave. Resuelve el típico "3 'Sapiens' sueltos".
+ *   2. DIFUSO (título/autor) → solo fusiona dos componentes si TODOS los pares
+ *      cruzados casan (enlace completo). Evita "A~B y B~C ⇒ A,C" cuando A≁C
+ *      (dos novelas distintas del mismo autor). La fusión borra fichas, así que
+ *      lo difuso se mantiene estricto. */
 export function findDuplicateGroups(
   candidates: DedupCandidate[],
   opts: FindOptions = {},
@@ -235,29 +264,85 @@ export function findDuplicateGroups(
     }
   }
 
-  const assigned = new Array<boolean>(n).fill(false);
-  const groups: DedupGroup[] = [];
-  for (let i = 0; i < n; i++) {
-    if (assigned[i]) continue;
-    // Construye una clique semilla en i: añade j solo si casa con TODOS los miembros.
-    const members = [i];
-    for (let j = i + 1; j < n; j++) {
-      if (assigned[j]) continue;
-      if (members.every((m) => edge[m][j] !== null)) members.push(j);
+  // Union-find.
+  const parent = Array.from({ length: n }, (_, i) => i);
+  const find = (x: number): number => {
+    let r = x;
+    while (parent[r] !== r) r = parent[r];
+    while (parent[x] !== r) {
+      const next = parent[x];
+      parent[x] = r;
+      x = next;
     }
-    if (members.length < 2) continue;
-    members.forEach((m) => (assigned[m] = true));
+    return r;
+  };
+  const union = (a: number, b: number): void => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent[ra] = rb;
+  };
 
-    // score = mínimo entre TODOS los pares de la clique (real, no por transitividad).
+  // 1) Identidad exacta → unión transitiva.
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      if (edge[i][j] && edge[i][j]!.score >= EXACT_GROUP_SCORE) union(i, j);
+    }
+  }
+
+  const components = (): number[][] => {
+    const map = new Map<number, number[]>();
+    for (let i = 0; i < n; i++) {
+      const r = find(i);
+      const arr = map.get(r);
+      if (arr) arr.push(i);
+      else map.set(r, [i]);
+    }
+    return [...map.values()];
+  };
+
+  // 2) Difuso: fusiona dos componentes solo si TODOS sus pares cruzados casan.
+  let merged = true;
+  while (merged) {
+    merged = false;
+    const comps = components();
+    for (let x = 0; x < comps.length && !merged; x++) {
+      for (let y = x + 1; y < comps.length && !merged; y++) {
+        const A = comps[x];
+        const B = comps[y];
+        let full = true;
+        for (const a of A) {
+          for (const b of B) {
+            if (!edge[a][b]) {
+              full = false;
+              break;
+            }
+          }
+          if (!full) break;
+        }
+        if (full) {
+          union(A[0], B[0]);
+          merged = true;
+        }
+      }
+    }
+  }
+
+  // 3) Emite grupos ≥2. score = mínimo entre las aristas REALIZADAS del grupo.
+  const groups: DedupGroup[] = [];
+  for (const members of components()) {
+    if (members.length < 2) continue;
     let minScore = 100;
     const reasons = new Set<string>();
     for (let x = 0; x < members.length; x++) {
       for (let y = x + 1; y < members.length; y++) {
-        const e = edge[members[x]][members[y]]!;
-        minScore = Math.min(minScore, e.score);
-        e.reasons.forEach((r) => reasons.add(r));
+        const e = edge[members[x]][members[y]];
+        if (e) {
+          minScore = Math.min(minScore, e.score);
+          e.reasons.forEach((r) => reasons.add(r));
+        }
       }
     }
+    if (reasons.size === 0) continue; // sin arista realizada (no debería ocurrir)
     groups.push({
       type,
       score: minScore,

@@ -435,7 +435,9 @@ export default function ImportarScreen() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.typeRow}
       >
-        {orderedVisible.map((t) => {
+        {orderedVisible
+          .filter((t) => t !== "chat") // "Chat" no es un tipo de registro que se añada aquí.
+          .map((t) => {
           const c = RECORD_TYPE_CONFIG[t];
           const active = type === t;
           return (
