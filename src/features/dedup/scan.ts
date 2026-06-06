@@ -80,6 +80,7 @@ async function loadCandidates(
         title: r.title,
         keys: {
           isbn13: b?.isbn13 ?? r.isbn13 ?? null,
+          isbn10: b?.isbn10 ?? null,
           workId: b?.externalIds?.openLibraryWorkId ?? null,
           authors: b?.authors ?? (r.authors ? [r.authors] : []),
           language: b?.language ?? null,

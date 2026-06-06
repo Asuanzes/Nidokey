@@ -23,10 +23,12 @@ import { bigrams, jaccard } from "./similarity";
 export interface DedupKeys {
   // Libros
   isbn13?: string | null;
+  isbn10?: string | null;
   /** Open Library work id — agrupa TODAS las ediciones de una obra. */
   workId?: string | null;
   authors?: string[];
-  /** ISO 639-1 ("es"/"en"). Discriminador: idiomas distintos ⇒ no duplicados. */
+  /** ISO 639-1 ("es"/"en"). Señal: el difuso por título se limita al mismo idioma,
+   *  pero la MISMA obra (ISBN/workId o título-núcleo+autor) agrupa entre idiomas. */
   language?: string | null;
   // Cripto / bolsa
   symbol?: string | null;
@@ -97,12 +99,13 @@ function titleSim(a: string, b: string): number {
   return jaccard(bigrams(na), bigrams(nb));
 }
 
-/** Título-núcleo: lo que va ANTES del primer separador de subtítulo (":", ".",
- *  "-", "(", "|"). Normaliza el resultado. Así "Sapiens: De animales a dioses",
- *  "Sapiens. Breve historia" y "Sapiens" comparten núcleo "sapiens". Se corta
+/** Título-núcleo: lo que va ANTES del primer separador de subtítulo o anotación
+ *  de edición (":", ".", "-", "(", "[", "|", ","). Normaliza el resultado. Así
+ *  "Sapiens: De animales a dioses", "Sapiens. Breve historia", "Sapiens" y
+ *  "Sapiens [Tenth Anniversary Edition]" comparten núcleo "sapiens". Se corta
  *  ANTES de normalizar porque normalizeForMatch ya borra la puntuación. */
 function primaryTitle(raw: string): string {
-  const head = raw.split(/[:.\-–—(|]/)[0] ?? raw;
+  const head = raw.split(/[:.\-–—(\[\]|,]/)[0] ?? raw;
   return normalizeForMatch(head);
 }
 
@@ -132,37 +135,46 @@ export function dismissPairKey(idA: string, idB: string): string {
 const bookDescriptor: DedupDescriptor = (a, b) => {
   const la = a.keys.language;
   const lb = b.keys.language;
-  if (la && lb && la !== lb) return null; // gate duro de idioma
+  const sameLang = !la || !lb || la === lb; // idioma desconocido = compatible
 
+  // IDENTIDAD de edición/obra → el idioma es IRRELEVANTE (es el mismo libro):
+  // mismo ISBN-13/10 (edición exacta) o misma obra (Open Library workId).
   if (a.keys.isbn13 && b.keys.isbn13 && a.keys.isbn13 === b.keys.isbn13) {
     return { score: 100, reasons: ["Mismo ISBN"] };
   }
-  if (a.keys.workId && b.keys.workId && a.keys.workId === b.keys.workId) {
-    return { score: 96, reasons: ["Misma obra (Open Library)"] };
+  if (a.keys.isbn10 && b.keys.isbn10 && a.keys.isbn10 === b.keys.isbn10) {
+    return { score: 100, reasons: ["Mismo ISBN"] };
   }
-  // Fuzzy: título + autor. Para evitar agrupar libros DISTINTOS del mismo autor:
+  if (a.keys.workId && b.keys.workId && a.keys.workId === b.keys.workId) {
+    return { score: 96, reasons: ["Misma obra"] };
+  }
+
+  // Para evitar agrupar libros DISTINTOS del mismo autor:
   //  - títulos cortos (<10 chars) inflan el jaccard de bigramas → exigir casi igualdad;
   //  - el tier bajo exige ≥2 tokens de autor compartidos (un apellido común no basta).
   const shared = authorSharedTokens(a.keys.authors, b.keys.authors);
   if (shared >= 1) {
-    // (a) Variantes de la MISMA obra: idéntico título-núcleo + autor compartido.
-    //     Captura ediciones que solo difieren en el subtítulo —el caso real de
-    //     "Sapiens: De animales a dioses" / "Sapiens. Breve historia" / "Sapiens"—
-    //     que el jaccard del título completo no detecta. Núcleo ≥5 chars para no
-    //     agrupar por palabras sueltas comunes.
+    // (a) MISMA OBRA por título-núcleo + autor. Vale AUNQUE el idioma sea distinto:
+    //     "Sapiens" (en), "Sapiens. De animales a dioses" (es) y
+    //     "Sapiens [Tenth Anniversary Edition]" (en) de Harari son el mismo libro.
+    //     El núcleo (primaryTitle) ignora subtítulos y anotaciones de edición.
+    //     Núcleo ≥5 chars para no agrupar por palabras sueltas comunes.
     const pa = primaryTitle(a.title);
     const pb = primaryTitle(b.title);
     if (pa.length >= 5 && pa === pb) {
       return { score: shared >= 2 ? 90 : 82, reasons: ["Misma obra (título y autor)"] };
     }
-    // (b) Título COMPLETO muy parecido.
-    const t = titleSim(a.title, b.title);
-    const shortTitle =
-      Math.min(normalizeForMatch(a.title).length, normalizeForMatch(b.title).length) < 10;
-    const highBar = shortTitle ? 0.92 : 0.85;
-    if (t >= highBar) return { score: 88, reasons: ["Mismo título y autor"] };
-    if (shared >= 2 && !shortTitle && t >= 0.75) {
-      return { score: 70, reasons: ["Título y autor similares"] };
+    // (b) Título COMPLETO muy parecido → SOLO dentro del mismo idioma (evita unir
+    //     libros distintos pero parecidos, o traducciones de títulos diferentes).
+    if (sameLang) {
+      const t = titleSim(a.title, b.title);
+      const shortTitle =
+        Math.min(normalizeForMatch(a.title).length, normalizeForMatch(b.title).length) < 10;
+      const highBar = shortTitle ? 0.92 : 0.85;
+      if (t >= highBar) return { score: 88, reasons: ["Mismo título y autor"] };
+      if (shared >= 2 && !shortTitle && t >= 0.75) {
+        return { score: 70, reasons: ["Título y autor similares"] };
+      }
     }
   }
   return null;
