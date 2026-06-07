@@ -34,16 +34,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [token, userJson] = await Promise.all([getItem(TOKEN_KEY), getItem(USER_KEY)]);
+      let token: string | null = null;
+      let userJson: string | null = null;
+      try {
+        [token, userJson] = await Promise.all([getItem(TOKEN_KEY), getItem(USER_KEY)]);
+      } catch (e) {
+        // SecureStore ilegible (Keychain / EncryptedSharedPreferences). Sin este
+        // try/catch la promesa se rechazaba sin manejar y el estado quedaba en
+        // "loading" para siempre (app colgada). Lo tratamos como sin sesión.
+        if (__DEV__) console.warn("[auth] no se pudo leer SecureStore:", e);
+      }
       if (cancelled) return;
       if (token && userJson) {
         try {
           const user = JSON.parse(userJson) as User;
           setState({ kind: "authed", token, user });
           return;
+        } catch {
+          // user corrupto → cae a limpieza + unauthed (abajo).
+        }
+      }
+      // Sesión ausente, ilegible o a medias (solo token o solo user, o user
+      // corrupto): limpiar ambos para no arrastrar un estado inconsistente.
+      if (token || userJson) {
+        try {
+          await Promise.all([deleteItem(TOKEN_KEY), deleteItem(USER_KEY)]);
         } catch {}
       }
-      setState({ kind: "unauthed" });
+      if (!cancelled) setState({ kind: "unauthed" });
     })();
     return () => { cancelled = true; };
   }, []);
