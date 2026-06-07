@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,6 +12,7 @@ import {
   type AccommodationChoice,
 } from "@nidokey/shared";
 import { api } from "@/lib/api";
+import { useRecord } from "@/lib/hooks/useRecord";
 import { useTheme } from "@/lib/theme";
 
 /**
@@ -23,26 +23,10 @@ import { useTheme } from "@/lib/theme";
 export default function HolidayDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { th } = useTheme();
-  const [record, setRecord] = useState<BaseRecord | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const r = await api<BaseRecord>(`/api/records/${id}?type=holiday`);
-        if (alive) setRecord(r);
-      } catch (e) {
-        if (alive) setError(e instanceof Error ? e.message : "No se pudo cargar");
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [id]);
+  const { data: record, error, loading } = useRecord<BaseRecord>(
+    () => api<BaseRecord>(`/api/records/${id}?type=holiday`),
+    [id]
+  );
 
   if (loading) {
     return (
@@ -56,7 +40,7 @@ export default function HolidayDetail() {
     return (
       <View style={[styles.center, { backgroundColor: th.bg }]}>
         <Stack.Screen options={{ title: "Viaje" }} />
-        <Text style={{ color: th.dangerFg }}>{error ?? "No encontrado"}</Text>
+        <Text style={{ color: th.dangerFg }}>{error?.message ?? "No encontrado"}</Text>
       </View>
     );
   }

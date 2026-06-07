@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -16,6 +16,7 @@ import RNShare from "react-native-share";
 
 import { type BaseRecord, type Book, metaField } from "@nidokey/shared";
 import { api } from "@/lib/api";
+import { useRecord } from "@/lib/hooks/useRecord";
 import { useTheme } from "@/lib/theme";
 import { ShareOpenActions } from "@/components/ShareOpenActions";
 
@@ -27,9 +28,10 @@ import { ShareOpenActions } from "@/components/ShareOpenActions";
 export default function BookDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { th } = useTheme();
-  const [record, setRecord] = useState<BaseRecord | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: record, error, loading } = useRecord<BaseRecord>(
+    () => api<BaseRecord>(`/api/records/${id}?type=book`),
+    [id]
+  );
   const [descExpanded, setDescExpanded] = useState(false);
   // Comentario propio del usuario (meta.userNotes). Sin caja a la vista: si no hay,
   // solo un "＋ Añadir comentario"; al tocar aparece el editor.
@@ -38,25 +40,15 @@ export default function BookDetail() {
   const [draftNote, setDraftNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
 
+  // Inicializa la nota desde el record UNA sola vez (primer load). No se reasigna
+  // en revalidaciones por foco para no pisar una edición en curso del usuario.
+  const noteInit = useRef(false);
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const r = await api<BaseRecord>(`/api/records/${id}?type=book`);
-        if (alive) {
-          setRecord(r);
-          setNote(metaField<string | null>(r, "userNotes", null));
-        }
-      } catch (e) {
-        if (alive) setError(e instanceof Error ? e.message : "No se pudo cargar");
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [id]);
+    if (record && !noteInit.current) {
+      noteInit.current = true;
+      setNote(metaField<string | null>(record, "userNotes", null));
+    }
+  }, [record]);
 
   async function saveNote() {
     const text = draftNote.trim();
@@ -89,7 +81,7 @@ export default function BookDetail() {
     return (
       <View style={[styles.center, { backgroundColor: th.bg }]}>
         <Stack.Screen options={{ title: "Libro" }} />
-        <Text style={{ color: th.dangerFg }}>{error ?? "No encontrado"}</Text>
+        <Text style={{ color: th.dangerFg }}>{error?.message ?? "No encontrado"}</Text>
       </View>
     );
   }

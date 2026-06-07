@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -13,6 +12,7 @@ import RNShare from "react-native-share";
 
 import { type BaseRecord, metaField } from "@nidokey/shared";
 import { api } from "@/lib/api";
+import { useRecord } from "@/lib/hooks/useRecord";
 import { useTheme } from "@/lib/theme";
 import { provinceImage } from "@/lib/records/province-images";
 import { ShareOpenActions } from "@/components/ShareOpenActions";
@@ -25,26 +25,10 @@ import { ShareOpenActions } from "@/components/ShareOpenActions";
 export default function JobDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { th } = useTheme();
-  const [record, setRecord] = useState<BaseRecord | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const r = await api<BaseRecord>(`/api/records/${id}?type=job`);
-        if (alive) setRecord(r);
-      } catch (e) {
-        if (alive) setError(e instanceof Error ? e.message : "No se pudo cargar");
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [id]);
+  const { data: record, error, loading } = useRecord<BaseRecord>(
+    () => api<BaseRecord>(`/api/records/${id}?type=job`),
+    [id]
+  );
 
   if (loading) {
     return (
@@ -58,7 +42,7 @@ export default function JobDetail() {
     return (
       <View style={[styles.center, { backgroundColor: th.bg }]}>
         <Stack.Screen options={{ title: "Empleo" }} />
-        <Text style={{ color: th.dangerFg }}>{error ?? "No encontrado"}</Text>
+        <Text style={{ color: th.dangerFg }}>{error?.message ?? "No encontrado"}</Text>
       </View>
     );
   }
