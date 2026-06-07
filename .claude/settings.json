@@ -10,5 +10,8 @@
       "Read(//c/c/Users/suanz/Desktop/**)",
       "Bash(xargs wc -l)"
     ]
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true
   }
 }
