@@ -1,15 +1,17 @@
-// Genera el icono de la app con una línea de brillo MUY FINA alrededor del borde,
-// consistente en iOS y Android. Reproducible e idempotente: lee de los *.base.png
-// (originales pre-brillo) y escribe los PNG que referencia app.json.
+// Genera el icono de la app con una LÍNEA finísima y brillante que recorre todo
+// el contorno exterior, consistente en iOS y Android. Reproducible e idempotente:
+// lee de los *.base.png (originales pre-brillo) y escribe los PNG de app.json.
 //   `node scripts/icon-glow.mjs`
 //
-// Técnica: banda blanca estrecha (no un degradado ancho) pegada al borde visible,
-// con alfa baja. El radio se ajusta a la máscara de cada sistema:
-//   - iOS muestra el cuadrado completo enmascarado a squircle  -> línea en ~0.93–1.0
-//     (más allá de 1.0 se mantiene el valor: rellena las esquinas redondeadas)
-//   - Android (adaptive) solo enseña el viewport central ~72dp -> línea en ~0.59–0.66
-// Subir/bajar PEAK = más/menos brillante; mover el primer offset de cada banda
-// hacia 1.0/0.66 = línea más fina.
+// Técnica: trazo (stroke) que sigue la FORMA real de la máscara mediante el SDF
+// de un rectángulo redondeado (rounded-rect ≈ squircle). Al seguir la forma, la
+// línea abraza todo el borde (incluidas las esquinas), no invade hacia dentro y
+// queda nítida/antialiased — a diferencia de un degradado radial (curvas de nivel
+// circulares, que no encajan en un squircle).
+//   - iOS muestra el cuadrado completo enmascarado a squircle  -> B=512, R≈229
+//   - Android (adaptive) solo enseña el viewport central ~72dp -> B≈341, R≈120
+// La línea se sitúa unos px POR DENTRO del borde (INSET) para que la máscara del
+// sistema no la recorte.
 import sharp from "sharp";
 import path from "node:path";
 
@@ -17,32 +19,27 @@ const dir = path.resolve("apps/mobile/assets/images");
 const SIZE = 1024;
 const STEEL = "#3A5F8A"; // --primary
 
-const PEAK = 0.13; // intensidad de la línea (muy tenue, pero nítida)
+const PEAK = 0.34;        // brillo de la línea (blanco sobre acero)
+const STROKE_HALF = 5;    // semigrosor en px @1024 (línea ≈ 10px -> hairline al render)
+const INSET = 12;         // px que la línea entra desde el borde (evita el recorte)
+const AA = 1.4;           // suavizado de bordes del trazo
 
-// Interpolación lineal por tramos: stops = [[offsetRadial, alfaBlanco], ...]
-function ramp(stops, r) {
-  if (r <= stops[0][0]) return stops[0][1];
-  for (let i = 1; i < stops.length; i++) {
-    if (r <= stops[i][0]) {
-      const [o0, a0] = stops[i - 1];
-      const [o1, a1] = stops[i];
-      return a0 + (a1 - a0) * ((r - o0) / (o1 - o0));
-    }
-  }
-  return stops[stops.length - 1][1]; // pad: r > último offset mantiene el valor
-}
-
-// Overlay RGBA (blanco) cuyo alfa depende del radio normalizado (1.0 = medio lado).
-function glowOverlay(stops) {
+// SDF de rounded-rect centrado: <0 dentro, 0 en el borde, >0 fuera.
+function strokeOverlay({ B, R }) {
   const buf = Buffer.alloc(SIZE * SIZE * 4);
   const c = (SIZE - 1) / 2;
-  const half = SIZE / 2;
   for (let y = 0; y < SIZE; y++) {
     for (let x = 0; x < SIZE; x++) {
-      const dx = x - c;
-      const dy = y - c;
-      const r = Math.sqrt(dx * dx + dy * dy) / half;
-      const a = Math.max(0, Math.min(1, ramp(stops, r)));
+      const px = x - c;
+      const py = y - c;
+      const ax = Math.abs(px) - B + R;
+      const ay = Math.abs(py) - B + R;
+      const ox = Math.max(ax, 0);
+      const oy = Math.max(ay, 0);
+      const dist = Math.hypot(ox, oy) + Math.min(Math.max(ax, ay), 0) - R;
+      // distancia a la línea-centro (situada en dist = -INSET, es decir, dentro)
+      const d = Math.abs(dist + INSET);
+      const a = Math.max(0, Math.min(1, (STROKE_HALF - d) / AA)) * PEAK;
       const i = (y * SIZE + x) * 4;
       buf[i] = 255;
       buf[i + 1] = 255;
@@ -53,29 +50,14 @@ function glowOverlay(stops) {
   return sharp(buf, { raw: { width: SIZE, height: SIZE, channels: 4 } }).png().toBuffer();
 }
 
-// Banda fina pegada al borde del squircle (iOS).
-const IOS_GLOW = [
-  [0.0, 0.0],
-  [0.93, 0.0],
-  [0.995, PEAK],
-  [1.0, PEAK],
-];
-// Banda fina pegada al borde del viewport adaptativo (Android).
-const ANDROID_GLOW = [
-  [0.0, 0.0],
-  [0.59, 0.0],
-  [0.66, PEAK],
-  [1.0, PEAK],
-];
-
-const iosGlow = await glowOverlay(IOS_GLOW);
-const andGlow = await glowOverlay(ANDROID_GLOW);
+const iosStroke = await strokeOverlay({ B: 512, R: 229 }); // squircle iOS
+const androidStroke = await strokeOverlay({ B: 341, R: 120 }); // rounded-square viewport
 
 // iOS / icono global: a sangre completa, opaco, con la línea fina en el squircle.
 await sharp(path.join(dir, "icon.base.png"))
   .resize(SIZE, SIZE)
   .flatten({ background: STEEL })
-  .composite([{ input: iosGlow }])
+  .composite([{ input: iosStroke }])
   .png()
   .toFile(path.join(dir, "icon.png"));
 
@@ -83,8 +65,8 @@ await sharp(path.join(dir, "icon.base.png"))
 await sharp(path.join(dir, "android-icon-foreground.base.png"))
   .resize(SIZE, SIZE)
   .flatten({ background: STEEL })
-  .composite([{ input: andGlow }])
+  .composite([{ input: androidStroke }])
   .png()
   .toFile(path.join(dir, "android-icon-foreground.png"));
 
-console.log(`✔ iconos regenerados — línea fina, PEAK=${PEAK} (iOS + Android)`);
+console.log(`✔ iconos regenerados — línea fina trazada, PEAK=${PEAK}, grosor≈${STROKE_HALF * 2}px`);
