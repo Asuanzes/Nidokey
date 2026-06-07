@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { metaField, type BaseRecord } from "@nidokey/shared";
 import { useCategoryPrefs } from "@/lib/records/category-prefs-context";
@@ -123,6 +124,8 @@ export default function RecordsScreen() {
                   ? t("records.empty_desc")
                   : t("records.soon_desc", { type: typeLabel(type) })
               }
+              actionLabel={cfg.enabled ? t("tabs.import") : undefined}
+              onAction={cfg.enabled ? () => router.navigate("/importar") : undefined}
             />
           )}
 
