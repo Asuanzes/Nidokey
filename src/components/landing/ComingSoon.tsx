@@ -2,6 +2,7 @@ import { IconKey } from "@/components/brand/icons";
 import {
   BRAND_PHRASES_LEFT,
   BRAND_PHRASES_RIGHT,
+  BRAND_WORDS,
   type BrandPhrase,
 } from "./brand-phrases";
 
@@ -20,22 +21,26 @@ import {
 
 const APP_NAME = "Nidokey";
 
-// Resalta las palabras de marca "nido" y "key" (donde aparecen en alfabeto latino)
-// con el cobre de la marca. En idiomas con otro alfabeto (árabe) no hay match y la
-// frase se muestra tal cual.
+// Resalta las palabras de marca en cobre — "nido"/"key" en alfabeto latino y su
+// transliteración en árabe (نيدو/كِي), tomadas de BRAND_WORDS para no descuadrar.
+const BRAND_RE = new RegExp(`(${BRAND_WORDS.join("|")})`, "gi");
+const BRAND_SET = new Set(BRAND_WORDS.map((w) => w.toLowerCase()));
+
 function Slogan({ text }: { text: string }) {
-  const parts = text.split(/(\bnido\b|\bkey\b)/gi);
   return (
     <>
-      {parts.map((part, i) =>
-        /^(nido|key)$/i.test(part) ? (
-          <span key={i} className="font-medium text-accent">
-            {part}
-          </span>
-        ) : (
-          <span key={i}>{part}</span>
-        ),
-      )}
+      {text
+        .split(BRAND_RE)
+        .filter(Boolean)
+        .map((part, i) =>
+          BRAND_SET.has(part.toLowerCase()) ? (
+            <span key={i} className="font-medium text-accent">
+              {part}
+            </span>
+          ) : (
+            <span key={i}>{part}</span>
+          ),
+        )}
     </>
   );
 }
@@ -60,13 +65,12 @@ function PhraseList({
       ].join(" ")}
     >
       {phrases.map((p) => (
-        <li key={p.code} dir="auto" className="leading-snug">
-          <div className="text-[11px] font-medium uppercase tracking-wide text-text-subtle">
-            {p.label}
-          </div>
-          <div className="text-sm text-text-muted">
-            <Slogan text={p.slogan} />
-          </div>
+        <li
+          key={p.code}
+          dir="auto"
+          className="text-sm leading-snug text-text-muted"
+        >
+          <Slogan text={p.slogan} />
         </li>
       ))}
     </ul>
@@ -99,8 +103,11 @@ export function ComingSoon() {
           </span>
           <div className="mt-4 text-lg font-semibold text-accent">{APP_NAME}</div>
 
-          <h1 className="mt-10 text-[40px] font-bold uppercase leading-none tracking-tight text-primary sm:text-[56px]">
-            Próximamente
+          <h1
+            lang="en"
+            className="mt-10 text-[40px] font-bold uppercase leading-none tracking-tight text-primary sm:text-[56px]"
+          >
+            Coming soon
           </h1>
 
           <p

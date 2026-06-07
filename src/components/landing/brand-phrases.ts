@@ -12,6 +12,13 @@ export type BrandPhrase = {
   slogan: string;
 };
 
+// Palabras de marca que se resaltan en cobre. "nido"/"key" cubren los 17 idiomas
+// en alfabeto latino; el árabe usa su transliteración, definida aquí UNA sola vez
+// para que el resaltado coincida exactamente con el texto del eslogan.
+const AR_NIDO = "نيدو";
+const AR_KEY = "كِي";
+export const BRAND_WORDS = ["nido", "key", AR_NIDO, AR_KEY];
+
 export const BRAND_PHRASES_LEFT: BrandPhrase[] = [
   { code: "es", label: "Español", slogan: "Tu nido, tu key." },
   { code: "en", label: "English", slogan: "Your nido, your key." },
@@ -21,17 +28,16 @@ export const BRAND_PHRASES_LEFT: BrandPhrase[] = [
   { code: "pt", label: "Português", slogan: "O teu nido, a tua key." },
   { code: "nl", label: "Nederlands", slogan: "Je nido, je key." },
   { code: "pl", label: "Polski", slogan: "Twój nido, twoja key." },
-  { code: "ru", label: "Русский", slogan: "Твой nido, твоя key." },
 ];
 
 export const BRAND_PHRASES_RIGHT: BrandPhrase[] = [
-  { code: "ar", label: "العربية", slogan: "تو نيدو، تو كِي." },
+  { code: "ru", label: "Русский", slogan: "Твой nido, твоя key." },
+  { code: "ar", label: "العربية", slogan: `تو ${AR_NIDO}، تو ${AR_KEY}.` },
   { code: "zh", label: "中文", slogan: "你的 nido, 你的 key." },
   { code: "ja", label: "日本語", slogan: "あなたの nido、あなたの key." },
   { code: "ko", label: "한국어", slogan: "너의 nido, 너의 key." },
   { code: "hi", label: "हिन्दी", slogan: "तुम्हारा nido, तुम्हारी key." },
   { code: "tr", label: "Türkçe", slogan: "Senin nido, senin key." },
+  // sueco/noruego/danés comparten la MISMA frase ("Din nido, din key.") → una sola
   { code: "sv", label: "Svenska", slogan: "Din nido, din key." },
-  { code: "no", label: "Norsk", slogan: "Din nido, din key." },
-  { code: "da", label: "Dansk", slogan: "Din nido, din key." },
 ];
