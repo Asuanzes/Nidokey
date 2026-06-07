@@ -464,7 +464,8 @@ export async function importListing(
 
       address: payload.address ?? null,
       city: payload.city ?? "Desconocida",
-      province: payload.province ?? "Asturias",
+      // Sin default regional: provincia desconocida = "" (la columna es NOT NULL).
+      province: payload.province ?? "",
       postalCode: payload.postalCode ?? null,
       neighborhood: payload.neighborhood ?? null,
       latitude: payload.latitude ?? null,
