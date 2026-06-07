@@ -3,12 +3,13 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native
 import { Stack, useRouter, useSegments, useRootNavigationState } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { Appearance, StyleSheet, View } from "react-native";
+import { Appearance, Platform, StyleSheet, View } from "react-native";
 import "react-native-reanimated";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as SecureStore from "expo-secure-store";
 import * as Linking from "expo-linking";
 import * as SplashScreen from "expo-splash-screen";
+import * as NavigationBar from "expo-navigation-bar";
 import { ShareIntentProvider, useShareIntentContext } from "expo-share-intent";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -70,6 +71,16 @@ export default function RootLayout() {
   const toggleTheme = () => setThemeMode(dark ? "light" : "dark");
 
   const th = dark ? TD : T;
+
+  // Barra de navegación de Android (edge-to-edge): por defecto sus botones siguen
+  // al SISTEMA, no a la app → en tema claro con el sistema en oscuro quedaban
+  // claros e invisibles. Forzamos los iconos según el tema de la app: OSCUROS en
+  // claro (visibles sobre fondo claro), CLAROS en oscuro. (Solo button style es
+  // aplicable en edge-to-edge.)
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    NavigationBar.setButtonStyleAsync(dark ? "light" : "dark").catch(() => {});
+  }, [dark]);
 
   return (
     // ShareIntentProvider entrega el contenido compartido al hook (un solo root)
