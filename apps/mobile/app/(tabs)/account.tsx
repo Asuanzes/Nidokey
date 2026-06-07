@@ -1,11 +1,10 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/lib/auth-context";
 import { useTheme, type ThemeMode } from "@/lib/theme";
-import { API_URL } from "@/lib/api";
 import { Button, Chip, Screen, Section } from "@/components/ui";
 import { LanguageSelector } from "@/components/LanguageSelector";
 
@@ -26,7 +25,11 @@ export default function AccountScreen() {
   if (state.kind !== "authed") return null;
 
   return (
-    <Screen contentStyle={styles.content}>
+    <Screen>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
       <Section>
         <View style={styles.profile}>
           <View style={[styles.avatar, { backgroundColor: th.primarySoft }]}>
@@ -67,10 +70,6 @@ export default function AccountScreen() {
         </Pressable>
       </Section>
 
-      <Section label={t("account.server")}>
-        <Text style={[styles.code, { color: th.text }]}>{API_URL}</Text>
-      </Section>
-
       <Button
         label={t("account.logout")}
         icon="log-out-outline"
@@ -80,12 +79,13 @@ export default function AccountScreen() {
       />
 
       <Text style={[styles.footer, { color: th.textSubtle }]}>{t("account.footer")}</Text>
+      </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16, gap: 12 },
+  content: { padding: 16, gap: 12, flexGrow: 1 },
   profile: { alignItems: "center", gap: 8 },
   avatar: {
     width: 56,
@@ -100,7 +100,6 @@ const styles = StyleSheet.create({
   toggleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   toggleLabel: { flex: 1, fontSize: 15 },
   modeRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  code: { fontSize: 12, fontFamily: "monospace" },
   logout: { marginTop: 4 },
   footer: { marginTop: "auto", textAlign: "center", fontSize: 11, paddingBottom: 16 },
 });
