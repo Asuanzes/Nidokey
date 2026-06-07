@@ -212,8 +212,9 @@ function AuthGate() {
             options={{
               headerShown: true,
               headerBackTitle: "Atrás",
-              headerTintColor: "#B87333",
-              headerStyle: { backgroundColor: "#fff" },
+              headerTintColor: th.primary,
+              headerStyle: { backgroundColor: th.surface },
+              headerTitleStyle: { color: th.text },
               title: "",
             }}
           />
@@ -222,8 +223,9 @@ function AuthGate() {
             options={{
               headerShown: true,
               headerBackTitle: "Atrás",
-              headerTintColor: "#B87333",
-              headerStyle: { backgroundColor: "#fff" },
+              headerTintColor: th.primary,
+              headerStyle: { backgroundColor: th.surface },
+              headerTitleStyle: { color: th.text },
               title: "Empleo",
             }}
           />
