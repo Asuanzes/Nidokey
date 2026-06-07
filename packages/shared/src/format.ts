@@ -51,3 +51,23 @@ export function formatDate(d: Date | string | null | undefined, locale?: string)
   if (!d) return "—";
   return new Intl.DateTimeFormat(locale ?? currentLocale, { dateStyle: "medium" }).format(new Date(d));
 }
+
+/**
+ * Número COMPACTO (k / M / B) con sufijo opcional. Pensado para cap. de mercado,
+ * volumen, etc. en las tarjetas/detalles financieros.
+ *   - suffix "EUR" → " €"; cualquier otro string → ese símbolo en mayúsculas;
+ *     vacío → sin sufijo.
+ *   - null → "—".
+ * Nota: usa coma decimal fija (es); el locale completo queda pendiente (igual que
+ * estaba en las copias locales de AssetDetail/RecordCard que esto unifica).
+ */
+export function compactNumber(n: number | null, suffix = ""): string {
+  if (n == null) return "—";
+  const sym = suffix.toUpperCase() === "EUR" ? " €" : suffix ? ` ${suffix.toUpperCase()}` : "";
+  const abs = Math.abs(n);
+  const fmt = (x: number) => x.toFixed(x >= 100 ? 0 : 1).replace(".", ",");
+  if (abs >= 1e9) return `${fmt(n / 1e9)} B${sym}`;
+  if (abs >= 1e6) return `${fmt(n / 1e6)} M${sym}`;
+  if (abs >= 1e3) return `${fmt(n / 1e3)} k${sym}`;
+  return `${Math.round(n)}${sym}`;
+}

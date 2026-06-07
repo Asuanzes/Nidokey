@@ -16,7 +16,7 @@ import { LineChart } from "react-native-wagmi-charts";
 import { captureRef } from "react-native-view-shot";
 import RNShare from "react-native-share";
 
-import { type BaseRecord, metaField } from "@nidokey/shared";
+import { type BaseRecord, metaField, compactNumber } from "@nidokey/shared";
 import { api } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 import { marketLogoUrl } from "@/lib/records/market-logo";
@@ -392,16 +392,6 @@ function formatPrice(n: number, quote = "EUR"): string {
 }
 function formatNum(n: number): string {
   return n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-function compactNumber(n: number | null, suffix = ""): string {
-  if (n == null) return "—";
-  const sym = suffix.toUpperCase() === "EUR" ? " €" : suffix ? ` ${suffix.toUpperCase()}` : "";
-  const abs = Math.abs(n);
-  const fmt = (x: number) => x.toFixed(x >= 100 ? 0 : 1).replace(".", ",");
-  if (abs >= 1e9) return `${fmt(n / 1e9)} B${sym}`;
-  if (abs >= 1e6) return `${fmt(n / 1e6)} M${sym}`;
-  if (abs >= 1e3) return `${fmt(n / 1e3)} k${sym}`;
-  return `${Math.round(n)}${sym}`;
 }
 
 const styles = StyleSheet.create({

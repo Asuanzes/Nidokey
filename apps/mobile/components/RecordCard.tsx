@@ -6,7 +6,7 @@ import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
-import { type BaseRecord, metaField } from "@nidokey/shared";
+import { type BaseRecord, metaField, compactNumber } from "@nidokey/shared";
 import { useTheme } from "@/lib/theme";
 
 type TFn = ReturnType<typeof useTranslation>["t"];
@@ -179,13 +179,13 @@ function CryptoCard({ record, editing, onLongPress, onDelete }: CardProps) {
         <View>
           <Text style={[styles.statLabel, { color: th.textSubtle }]}>{isMarket ? t("card.exchange") : t("card.market_cap")}</Text>
           <Text style={[styles.statValue, { color: th.textMuted }]}>
-            {isMarket ? (exchange ?? "—") : compactMoney(marketCap, quote)}
+            {isMarket ? (exchange ?? "—") : compactNumber(marketCap, quote)}
           </Text>
         </View>
         <View style={styles.alignEnd}>
           <Text style={[styles.statLabel, { color: th.textSubtle }]}>{isMarket ? t("card.volume") : t("card.volume_24h")}</Text>
           <Text style={[styles.statValue, { color: th.textMuted }]}>
-            {isMarket ? compactNumber(volume) : compactMoney(volume, quote)}
+            {isMarket ? compactNumber(volume) : compactNumber(volume, quote)}
           </Text>
         </View>
       </View>
@@ -492,27 +492,8 @@ function fmtAgo(iso: string | null, tr: TFn): { text: string; stale: boolean } |
   return { text: tr("card.updated_d", { n: Math.floor(hrs / 24) }), stale: true };
 }
 
-function compactMoney(n: number | null, currency = "EUR"): string {
-  if (n == null) return "—";
-  const sym = currency.toUpperCase() === "EUR" ? "€" : currency.toUpperCase();
-  const abs = Math.abs(n);
-  const fmt = (x: number) => x.toFixed(x >= 100 ? 0 : 1).replace(".", ",");
-  if (abs >= 1e9) return `${fmt(n / 1e9)} B ${sym}`;
-  if (abs >= 1e6) return `${fmt(n / 1e6)} M ${sym}`;
-  if (abs >= 1e3) return `${fmt(n / 1e3)} k ${sym}`;
-  return `${Math.round(n)} ${sym}`;
-}
-
-/** Número compacto SIN moneda (p. ej. volumen de bolsa en acciones). */
-function compactNumber(n: number | null): string {
-  if (n == null) return "—";
-  const abs = Math.abs(n);
-  const fmt = (x: number) => x.toFixed(x >= 100 ? 0 : 1).replace(".", ",");
-  if (abs >= 1e9) return `${fmt(n / 1e9)} B`;
-  if (abs >= 1e6) return `${fmt(n / 1e6)} M`;
-  if (abs >= 1e3) return `${fmt(n / 1e3)} k`;
-  return `${Math.round(n)}`;
-}
+// compactNumber se importa de @nidokey/shared (antes había copias locales en
+// AssetDetail y RecordCard; unificadas en shared).
 
 const styles = StyleSheet.create({
   card: { borderRadius: 10, borderWidth: 1, marginBottom: 8 },
