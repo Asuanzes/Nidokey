@@ -8,6 +8,12 @@
     "scheme": "nidokey",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/bfbe4a8a-1899-44b5-b5a3-5e3742aabf4b"
+    },
     "ios": {
       "bundleIdentifier": "es.nidokey.app",
       "supportsTablet": true
@@ -83,6 +89,11 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "bfbe4a8a-1899-44b5-b5a3-5e3742aabf4b"
+      }
     }
   }
 }
