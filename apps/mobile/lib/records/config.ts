@@ -48,7 +48,7 @@ export type RecordTypeConfig = {
 };
 
 export const RECORD_TYPE_CONFIG: Record<RecordType, RecordTypeConfig> = {
-  property: { label: "Inmuebles y Alquiler", singular: "Inmueble", color: "#3A5F8A", colorDark: "#6E93C0", icon: "home-outline",         enabled: true,  addMode: "url",    addPlaceholder: "https://www.idealista.com/…" },
+  property: { label: "Inmuebles y Alquiler", singular: "Inmueble", color: "#3A5F8A", colorDark: "#6E93C0", icon: "home-outline",         enabled: true,  addMode: "url",    addPlaceholder: "Pega el enlace del anuncio" },
   holiday:  { label: "Viajes",     singular: "Viaje",     color: "#2C7A8A", colorDark: "#5FAEBE", icon: "airplane-outline",     enabled: true,  addMode: "wizard", addPlaceholder: "" },
   crypto:   { label: "Criptos",    singular: "Cripto",    color: "#B5893B", colorDark: "#D4A95A", icon: "logo-bitcoin",         enabled: true,  addMode: "symbol", addPlaceholder: "BTC, ETH, SOL…" },
   market:   { label: "Markets",    singular: "Mercado",   color: "#2D6A4F", colorDark: "#5FA383", icon: "trending-up-outline",  enabled: true,  addMode: "search", addPlaceholder: "Busca: sxr8, apple, vaneck space…" },

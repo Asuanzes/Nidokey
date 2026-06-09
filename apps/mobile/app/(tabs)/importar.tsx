@@ -235,6 +235,7 @@ export default function ImportarScreen() {
           });
           setOkMsg(t("importar.ok_book_added_pick", { title: r.record?.title ?? hits[0].name ?? t("importar.book_fallback") }));
           setStatus("ok");
+          setValue(""); // A1: limpiar la caja tras añadir el libro compartido.
           setAddedKeys(new Set([0]));
         } catch (e) {
           setErrorMsg(errMsg(e, t("importar.err_add_book")));
@@ -360,7 +361,13 @@ export default function ImportarScreen() {
       });
       setOkMsg(res.created ? t("importar.ok_property_created") : res.priceChanged ? t("importar.ok_price_updated") : t("importar.ok_already_have"));
       setStatus("ok");
-      setTimeout(() => router.push(`/property/${res.propertyId}`), 800);
+      setValue(""); // A1: limpiar el enlace de la caja tras importar.
+      // A2: deja el listado (tab Registros, ya en esta categoría) como pantalla de
+      // fondo y abre el detalle encima → "volver" regresa al listado, no a Importar.
+      setTimeout(() => {
+        router.navigate("/");
+        router.push(`/property/${res.propertyId}`);
+      }, 800);
     } catch (e) {
       setErrorMsg(errMsg(e, t("importar.err_save_property")));
       setStatus("error");
@@ -386,6 +393,7 @@ export default function ImportarScreen() {
         })
       );
       setStatus("ok");
+      setValue(""); // A1: limpiar la caja tras añadir el símbolo.
     } catch (e) {
       setErrorMsg(errMsg(e, t("importar.err_add_symbol", { name: symbol })));
       setStatus("error");
