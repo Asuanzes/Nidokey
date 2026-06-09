@@ -11,7 +11,9 @@
     "understood": "Got it",
     "done": "Done",
     "soon": "Coming soon",
-    "share": "Share"
+    "share": "Share",
+    "close": "Close",
+    "go_back": "Back"
   },
   "tabs": {
     "records": "Records",
@@ -214,7 +216,45 @@
     }
   },
   "news": {
-    "article_open_error": "Couldn't open the article."
+    "article_open_error": "Couldn't open the article.",
+    "title": "Economy news",
+    "source_yahoo": "From Yahoo! Finance",
+    "empty": "No news about your assets right now.",
+    "ago_now": "now",
+    "ago_min": "{{n}} min ago",
+    "ago_h": "{{n}} h ago",
+    "ago_d": "{{n}} d ago"
+  },
+  "asset": {
+    "load_error": "Couldn't load",
+    "no_history": "No history for the chart yet.",
+    "stat_change": "Change ({{range}})",
+    "currency": "Currency",
+    "open_yahoo": "Open in Yahoo Finance",
+    "range_1D": "1D",
+    "range_1S": "1W",
+    "range_1M": "1M",
+    "range_3M": "3M",
+    "range_6M": "6M",
+    "range_1A": "1Y",
+    "range_MAX": "Max"
+  },
+  "scan": {
+    "permission_title": "Allow the camera to scan",
+    "permission_body": "Nidokey only uses the camera to read the book's barcode.",
+    "permission_btn": "Allow camera",
+    "manual_link": "Enter ISBN manually",
+    "frame_hint": "Point at the book's barcode",
+    "searching": "Looking up the book…",
+    "added": "✓ Added to Books",
+    "keep_scanning": "Keep scanning",
+    "view_record": "View record",
+    "notfound": "We couldn't find this book in our providers.",
+    "add_manual": "Add manually",
+    "conn_error": "Connection error. Try again.",
+    "isbn_placeholder": "ISBN (13 digits)",
+    "unavailable_title": "Scanner not available yet",
+    "unavailable_body": "The app needs a native rebuild (expo run:android) to enable the camera. Meanwhile, add books from search or the manual form."
   },
   "catsettings": {
     "order_title": "Order and visibility",

@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 
 import { router } from "expo-router";
+import { useTranslation } from "react-i18next";
 
 import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
@@ -23,6 +24,7 @@ export type NewsAsset = { symbol: string; name: string };
  */
 export function NewsSheet({ type, assets }: { type: "crypto" | "market"; assets: NewsAsset[] }) {
   const { th } = useTheme();
+  const { t } = useTranslation();
   const { items, loading, error } = useNews(type);
   const snapPoints = useMemo(() => ["11%", "42%", "90%"], []);
   const keywords = useMemo(() => buildKeywords(assets), [assets]);
@@ -50,15 +52,15 @@ export function NewsSheet({ type, assets }: { type: "crypto" | "market"; assets:
       style={styles.sheetShadow}
     >
       <BottomSheetScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.header, { color: th.text }]}>Noticias de economía</Text>
-        <Text style={[styles.sub, { color: th.textMuted }]}>De Yahoo! Finanzas</Text>
+        <Text style={[styles.header, { color: th.text }]}>{t("news.title")}</Text>
+        <Text style={[styles.sub, { color: th.textMuted }]}>{t("news.source_yahoo")}</Text>
         <View style={[styles.divider, { backgroundColor: th.border }]} />
 
         {loading && items.length === 0 && <ActivityIndicator color={th.primary} style={styles.loader} />}
         {error && <Text style={[styles.empty, { color: th.dangerFg }]}>{error}</Text>}
         {!loading && !error && items.length === 0 && (
           <Text style={[styles.empty, { color: th.textSubtle }]}>
-            No hay noticias de tus activos ahora mismo.
+            {t("news.empty")}
           </Text>
         )}
 
@@ -102,7 +104,7 @@ export function NewsSheet({ type, assets }: { type: "crypto" | "market"; assets:
                   {it.summary}
                 </Text>
               )}
-              <Text style={[styles.itemTime, { color: th.textSubtle }]}>{timeAgo(it.publishedAt)}</Text>
+              <Text style={[styles.itemTime, { color: th.textSubtle }]}>{timeAgo(it.publishedAt, t)}</Text>
             </Pressable>
           );
         })}
@@ -147,16 +149,20 @@ function matchAssets(text: string, keywords: Kw[]): string[] {
   return [...hits];
 }
 
-function timeAgo(iso: string | null): string {
+type TFn = ReturnType<typeof useTranslation>["t"];
+
+/** "hace X" relativo. Recibe `t` como parámetro (patrón TFn): así re-renderiza
+ *  al cambiar el idioma (no usar i18n.t directo). */
+function timeAgo(iso: string | null, t: TFn): string {
   if (!iso) return "";
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return "";
-  const mins = Math.floor((Date.now() - t) / 60000);
-  if (mins < 1) return "ahora";
-  if (mins < 60) return `hace ${mins} min`;
+  const ts = Date.parse(iso);
+  if (Number.isNaN(ts)) return "";
+  const mins = Math.floor((Date.now() - ts) / 60000);
+  if (mins < 1) return t("news.ago_now");
+  if (mins < 60) return t("news.ago_min", { n: mins });
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `hace ${hrs} h`;
-  return `hace ${Math.floor(hrs / 24)} d`;
+  if (hrs < 24) return t("news.ago_h", { n: hrs });
+  return t("news.ago_d", { n: Math.floor(hrs / 24) });
 }
 
 const styles = StyleSheet.create({

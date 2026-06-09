@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { useTranslation } from "react-i18next";
 
 import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
@@ -56,6 +57,7 @@ export default function ScanBookScreen() {
 
 function Scanner() {
   const { th } = useTheme();
+  const { t } = useTranslation();
   const [permission, requestPermission] = useCameraPermissions();
   const [state, setState] = useState<ScanState>({ kind: "scanning" });
   const [manualOpen, setManualOpen] = useState(false);
@@ -110,13 +112,13 @@ function Scanner() {
     return (
       <View style={[styles.fill, styles.center, { backgroundColor: th.bg, padding: 24, gap: 14 }]}>
         <Ionicons name="camera-outline" size={40} color={th.textMuted} />
-        <Text style={[styles.permTitle, { color: th.text }]}>Permite la cámara para escanear</Text>
+        <Text style={[styles.permTitle, { color: th.text }]}>{t("scan.permission_title")}</Text>
         <Text style={[styles.permText, { color: th.textSubtle }]}>
-          Nidokey usa la cámara solo para leer el código de barras del libro.
+          {t("scan.permission_body")}
         </Text>
-        <Button label="Permitir cámara" icon="camera-outline" onPress={requestPermission} />
+        <Button label={t("scan.permission_btn")} icon="camera-outline" onPress={requestPermission} />
         <Pressable onPress={() => setManualOpen((v) => !v)} hitSlop={8}>
-          <Text style={[styles.link, { color: th.primary }]}>Introducir ISBN a mano</Text>
+          <Text style={[styles.link, { color: th.primary }]}>{t("scan.manual_link")}</Text>
         </Pressable>
         {manualOpen ? (
           <ManualBar
@@ -145,14 +147,14 @@ function Scanner() {
       {/* Guía visual */}
       <View style={styles.overlay} pointerEvents="box-none">
         <View style={styles.frame} />
-        <Text style={styles.hint}>Apunta al código de barras del libro</Text>
+        <Text style={styles.hint}>{t("scan.frame_hint")}</Text>
       </View>
 
       {/* Botón de entrada manual (solo mientras escanea) */}
       {state.kind === "scanning" ? (
         <Pressable style={styles.manualBtn} onPress={() => setManualOpen((v) => !v)} hitSlop={8}>
           <Ionicons name="keypad-outline" size={16} color="#fff" />
-          <Text style={styles.manualBtnText}>Introducir ISBN a mano</Text>
+          <Text style={styles.manualBtnText}>{t("scan.manual_link")}</Text>
         </Pressable>
       ) : null}
 
@@ -162,7 +164,7 @@ function Scanner() {
           {state.kind === "importing" ? (
             <View style={styles.row}>
               <ActivityIndicator color={th.primary} />
-              <Text style={[styles.cardText, { color: th.text }]}>Buscando el libro…</Text>
+              <Text style={[styles.cardText, { color: th.text }]}>{t("scan.searching")}</Text>
             </View>
           ) : state.kind === "added" ? (
             <>
@@ -173,7 +175,7 @@ function Scanner() {
                   <View style={[styles.cover, { backgroundColor: th.imagePlaceholder }]} />
                 )}
                 <View style={styles.rowText}>
-                  <Text style={[styles.added, { color: th.primary }]}>✓ Añadido a Libros</Text>
+                  <Text style={[styles.added, { color: th.primary }]}>{t("scan.added")}</Text>
                   <Text style={[styles.cardText, { color: th.text }]} numberOfLines={2}>
                     {state.title}
                   </Text>
@@ -181,24 +183,24 @@ function Scanner() {
               </View>
               <View style={styles.actions}>
                 <View style={styles.flex1}>
-                  <Button label="Seguir escaneando" variant="secondary" icon="scan-outline" onPress={resume} />
+                  <Button label={t("scan.keep_scanning")} variant="secondary" icon="scan-outline" onPress={resume} />
                 </View>
                 <View style={styles.flex1}>
-                  <Button label="Ver ficha" icon="arrow-forward" onPress={() => router.replace(`/book/${state.id}` as never)} />
+                  <Button label={t("scan.view_record")} icon="arrow-forward" onPress={() => router.replace(`/book/${state.id}` as never)} />
                 </View>
               </View>
             </>
           ) : state.kind === "notfound" ? (
             <>
               <Text style={[styles.cardText, { color: th.text }]}>
-                No encontramos este libro en nuestros proveedores.
+                {t("scan.notfound")}
               </Text>
               <View style={styles.actions}>
                 <View style={styles.flex1}>
-                  <Button label="Seguir escaneando" variant="secondary" icon="scan-outline" onPress={resume} />
+                  <Button label={t("scan.keep_scanning")} variant="secondary" icon="scan-outline" onPress={resume} />
                 </View>
                 <View style={styles.flex1}>
-                  <Button label="Añadir a mano" icon="create-outline" onPress={() => router.back()} />
+                  <Button label={t("scan.add_manual")} icon="create-outline" onPress={() => router.back()} />
                 </View>
               </View>
             </>
@@ -206,15 +208,15 @@ function Scanner() {
             <>
               <Text style={[styles.cardText, { color: th.text }]}>
                 {state.kind === "error" && state.serviceDown
-                  ? "El servicio de libros no está disponible ahora mismo. Inténtalo de nuevo en unos minutos."
-                  : "Error de conexión. Inténtalo de nuevo."}
+                  ? t("importar.err_book_service_down")
+                  : t("scan.conn_error")}
               </Text>
               <View style={styles.actions}>
                 <View style={styles.flex1}>
-                  <Button label="Cancelar" variant="secondary" onPress={resume} />
+                  <Button label={t("common.cancel")} variant="secondary" onPress={resume} />
                 </View>
                 <View style={styles.flex1}>
-                  <Button label="Reintentar" icon="refresh-outline" onPress={() => importIsbn(state.isbn)} />
+                  <Button label={t("common.retry")} icon="refresh-outline" onPress={() => importIsbn(state.isbn)} />
                 </View>
               </View>
             </>
@@ -242,18 +244,19 @@ function ManualBar({
   onChange: (v: string) => void;
   onSubmit: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <View style={[styles.manualBar, { backgroundColor: th.surface, borderColor: th.border }]}>
       <TextInput
         value={value}
         onChangeText={onChange}
-        placeholder="ISBN (13 dígitos)"
+        placeholder={t("scan.isbn_placeholder")}
         placeholderTextColor={th.textSubtle}
         keyboardType="number-pad"
         autoFocus
         style={[styles.manualInput, { color: th.text, borderColor: th.border, backgroundColor: th.bg }]}
       />
-      <Button label="Buscar" icon="search" onPress={onSubmit} fullWidth={false} disabled={value.replace(/[^0-9Xx]/g, "").length < 10} />
+      <Button label={t("common.search")} icon="search" onPress={onSubmit} fullWidth={false} disabled={value.replace(/[^0-9Xx]/g, "").length < 10} />
     </View>
   );
 }
@@ -261,15 +264,15 @@ function ManualBar({
 /** Aviso cuando expo-camera (nativo) no está en el build → no rompe la app. */
 function CameraUnavailable() {
   const { th } = useTheme();
+  const { t } = useTranslation();
   return (
     <View style={[styles.fill, styles.center, { backgroundColor: th.bg, padding: 24, gap: 14 }]}>
       <Ionicons name="camera-outline" size={40} color={th.textMuted} />
-      <Text style={[styles.permTitle, { color: th.text }]}>Escáner no disponible aún</Text>
+      <Text style={[styles.permTitle, { color: th.text }]}>{t("scan.unavailable_title")}</Text>
       <Text style={[styles.permText, { color: th.textSubtle }]}>
-        Hay que recompilar la app (expo run:android) para activar la cámara. Mientras, añade
-        libros desde la búsqueda o el alta manual.
+        {t("scan.unavailable_body")}
       </Text>
-      <Button label="Volver" icon="arrow-back" onPress={() => router.back()} fullWidth={false} />
+      <Button label={t("common.go_back")} icon="arrow-back" onPress={() => router.back()} fullWidth={false} />
     </View>
   );
 }

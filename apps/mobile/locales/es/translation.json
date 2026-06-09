@@ -11,7 +11,9 @@
     "understood": "Entendido",
     "done": "Listo",
     "soon": "Próximamente",
-    "share": "Compartir"
+    "share": "Compartir",
+    "close": "Cerrar",
+    "go_back": "Volver"
   },
   "tabs": {
     "records": "Registros",
@@ -214,7 +216,45 @@
     }
   },
   "news": {
-    "article_open_error": "No se pudo abrir el artículo."
+    "article_open_error": "No se pudo abrir el artículo.",
+    "title": "Noticias de economía",
+    "source_yahoo": "De Yahoo! Finanzas",
+    "empty": "No hay noticias de tus activos ahora mismo.",
+    "ago_now": "ahora",
+    "ago_min": "hace {{n}} min",
+    "ago_h": "hace {{n}} h",
+    "ago_d": "hace {{n}} d"
+  },
+  "asset": {
+    "load_error": "No se pudo cargar",
+    "no_history": "Aún no hay histórico para el gráfico.",
+    "stat_change": "Cambio ({{range}})",
+    "currency": "Moneda",
+    "open_yahoo": "Abrir en Yahoo Finanzas",
+    "range_1D": "1D",
+    "range_1S": "1S",
+    "range_1M": "1M",
+    "range_3M": "3M",
+    "range_6M": "6M",
+    "range_1A": "1A",
+    "range_MAX": "Máx"
+  },
+  "scan": {
+    "permission_title": "Permite la cámara para escanear",
+    "permission_body": "Nidokey usa la cámara solo para leer el código de barras del libro.",
+    "permission_btn": "Permitir cámara",
+    "manual_link": "Introducir ISBN a mano",
+    "frame_hint": "Apunta al código de barras del libro",
+    "searching": "Buscando el libro…",
+    "added": "✓ Añadido a Libros",
+    "keep_scanning": "Seguir escaneando",
+    "view_record": "Ver ficha",
+    "notfound": "No encontramos este libro en nuestros proveedores.",
+    "add_manual": "Añadir a mano",
+    "conn_error": "Error de conexión. Inténtalo de nuevo.",
+    "isbn_placeholder": "ISBN (13 dígitos)",
+    "unavailable_title": "Escáner no disponible aún",
+    "unavailable_body": "Hay que recompilar la app (expo run:android) para activar la cámara. Mientras, añade libros desde la búsqueda o el alta manual."
   },
   "catsettings": {
     "order_title": "Orden y visibilidad",

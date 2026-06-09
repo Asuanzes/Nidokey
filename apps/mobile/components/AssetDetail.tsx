@@ -16,6 +16,7 @@ import { Image } from "expo-image";
 import { LineChart } from "react-native-wagmi-charts";
 import { captureRef } from "react-native-view-shot";
 import RNShare from "react-native-share";
+import { useTranslation } from "react-i18next";
 
 import { type BaseRecord, metaField, compactNumber } from "@nidokey/shared";
 import { api } from "@/lib/api";
@@ -39,24 +40,29 @@ const DOWN = "#B91C1C";
 type Snapshot = { value: number; observedAt: string };
 type Point = { timestamp: number; value: number };
 
-const RANGES: { key: string; label: string; days: number | null }[] = [
-  { key: "1D", label: "1D", days: 1 },
-  { key: "1S", label: "1S", days: 7 },
-  { key: "1M", label: "1M", days: 30 },
-  { key: "3M", label: "3M", days: 90 },
-  { key: "6M", label: "6M", days: 180 },
-  { key: "1A", label: "1A", days: 365 },
-  { key: "MAX", label: "Máx", days: null },
+// La `key` viaja a la API (/chart?range=) y NO se traduce; el label visible sale
+// de i18n (`asset.range_*`, p. ej. ES "1S"/"Máx" → EN "1W"/"Max"). Union literal
+// para que el template literal de la clave quede tipado.
+type RangeKey = "1D" | "1S" | "1M" | "3M" | "6M" | "1A" | "MAX";
+const RANGES: { key: RangeKey; days: number | null }[] = [
+  { key: "1D", days: 1 },
+  { key: "1S", days: 7 },
+  { key: "1M", days: 30 },
+  { key: "3M", days: 90 },
+  { key: "6M", days: 180 },
+  { key: "1A", days: 365 },
+  { key: "MAX", days: null },
 ];
 
 export function AssetDetail({ type }: { type: "crypto" | "market" }) {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { th } = useTheme();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [record, setRecord] = useState<BaseRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [rangeKey, setRangeKey] = useState("1S");
+  const [rangeKey, setRangeKey] = useState<RangeKey>("1S");
   const shotRef = useRef<View>(null);
   const [capturing, setCapturing] = useState(false);
 
@@ -68,7 +74,7 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
         const r = await api<BaseRecord>(`/api/records/${id}?type=${type}`);
         if (alive) setRecord(r);
       } catch (e) {
-        if (alive) setError(e instanceof Error ? e.message : "No se pudo cargar");
+        if (alive) setError(e instanceof Error ? e.message : t("asset.load_error"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -135,6 +141,7 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
   }, [record]);
 
   const range = RANGES.find((r) => r.key === rangeKey) ?? RANGES[1];
+  const rangeLabel = t(`asset.range_${range.key}`);
   // Fallback local (snapshots) mientras carga el histórico real o si Yahoo falla.
   const localSeries = useMemo<Point[]>(() => {
     if (range.days == null) return fullSeries;
@@ -155,9 +162,9 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
   if (error || !record) {
     return (
       <View style={[styles.center, { backgroundColor: th.bg }]}>
-        <Text style={{ color: th.dangerFg }}>{error ?? "No encontrado"}</Text>
+        <Text style={{ color: th.dangerFg }}>{error ?? t("detail.not_found")}</Text>
         <Pressable onPress={() => router.back()} style={styles.backLink}>
-          <Text style={{ color: th.primary }}>Volver</Text>
+          <Text style={{ color: th.primary }}>{t("common.go_back")}</Text>
         </Pressable>
       </View>
     );
@@ -187,10 +194,10 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
   const trendColor = up ? UP : DOWN;
 
   const stats: [string, string][] = [
-    [`Cambio (${range.label})`, rangePct != null ? `${up ? "+" : ""}${rangePct.toFixed(2).replace(".", ",")} %` : "—"],
-    [isMarket ? "Volumen" : "Vol. 24h", compactNumber(volume, isMarket ? "" : quoteCur)],
-    [isMarket ? "Bolsa" : "Cap. mercado", isMarket ? exchange ?? "—" : compactNumber(marketCap, quoteCur)],
-    ["Moneda", quoteCur],
+    [t("asset.stat_change", { range: rangeLabel }), rangePct != null ? `${up ? "+" : ""}${rangePct.toFixed(2).replace(".", ",")} %` : "—"],
+    [isMarket ? t("card.volume") : t("card.volume_24h"), compactNumber(volume, isMarket ? "" : quoteCur)],
+    [isMarket ? t("card.exchange") : t("card.market_cap"), isMarket ? exchange ?? "—" : compactNumber(marketCap, quoteCur)],
+    [t("asset.currency"), quoteCur],
   ];
 
   // Compartir = captura del bloque (nombre + precio + gráfico, con el pie
@@ -262,7 +269,7 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
               : "—"}
           </Text>
           <Text style={[styles.subMuted, { color: th.textSubtle }]}>
-            {[range.label, isMarket ? exchange : null, quoteCur].filter(Boolean).join(" · ")}
+            {[rangeLabel, isMarket ? exchange : null, quoteCur].filter(Boolean).join(" · ")}
           </Text>
         </View>
 
@@ -276,7 +283,9 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
                 onPress={() => setRangeKey(r.key)}
                 style={[styles.pill, active && { backgroundColor: th.accentSoft }]}
               >
-                <Text style={[styles.pillText, { color: active ? th.accent : th.textMuted }]}>{r.label}</Text>
+                <Text style={[styles.pillText, { color: active ? th.accent : th.textMuted }]}>
+                  {t(`asset.range_${r.key}`)}
+                </Text>
               </Pressable>
             );
           })}
@@ -318,7 +327,7 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
               {chartLoading ? (
                 <ActivityIndicator size="small" color={th.primary} />
               ) : (
-                <Text style={{ color: th.textSubtle, fontSize: 12 }}>Aún no hay histórico para el gráfico.</Text>
+                <Text style={{ color: th.textSubtle, fontSize: 12 }}>{t("asset.no_history")}</Text>
               )}
             </View>
           )}
@@ -355,7 +364,7 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
           hitSlop={10}
           style={({ pressed }) => [styles.fab, { backgroundColor: th.surface, borderColor: th.border }, pressed && { opacity: 0.85 }]}
           accessibilityRole="button"
-          accessibilityLabel="Cerrar"
+          accessibilityLabel={t("common.close")}
         >
           <Ionicons name="close" size={22} color={th.text} />
         </Pressable>
@@ -365,7 +374,7 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
             hitSlop={10}
             style={({ pressed }) => [styles.fab, { backgroundColor: th.surface, borderColor: th.border }, pressed && { opacity: 0.85 }]}
             accessibilityRole="button"
-            accessibilityLabel="Compartir"
+            accessibilityLabel={t("common.share")}
           >
             <Ionicons name="share-social-outline" size={22} color={th.primary} />
           </Pressable>
@@ -374,7 +383,7 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
             hitSlop={10}
             style={({ pressed }) => [styles.fab, { backgroundColor: th.surface, borderColor: th.border }, pressed && { opacity: 0.85 }]}
             accessibilityRole="button"
-            accessibilityLabel="Abrir en Yahoo Finanzas"
+            accessibilityLabel={t("asset.open_yahoo")}
           >
             <Ionicons name="open-outline" size={22} color={th.primary} />
           </Pressable>
