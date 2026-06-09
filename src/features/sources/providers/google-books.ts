@@ -60,7 +60,7 @@ export async function googleBooksSearch(
   if (q.length < 2) return [];
   const url = buildUrl("", {
     q,
-    maxResults: "12",
+    maxResults: "5",
     printType: "books",
     orderBy: "relevance",
     langRestrict: opts.lang,

@@ -31,7 +31,7 @@ async function getJson(url: string): Promise<unknown | null> {
 export async function openLibrarySearch(query: string): Promise<unknown[]> {
   const q = query.trim();
   if (q.length < 2) return [];
-  const url = `${SEARCH}?q=${encodeURIComponent(q)}&limit=12&fields=${encodeURIComponent(FIELDS)}`;
+  const url = `${SEARCH}?q=${encodeURIComponent(q)}&limit=5&fields=${encodeURIComponent(FIELDS)}`;
   const json = (await getJson(url)) as { docs?: unknown[] } | null;
   return json?.docs ?? [];
 }
