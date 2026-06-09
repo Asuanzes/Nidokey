@@ -201,10 +201,18 @@ var __features = function() {
 };
 
 var __challenge = function() {
+  // Interstitial de DataDome: el captcha vive en un IFRAME de captcha-delivery
+  // (o un script de datadome) y el body apenas tiene texto — las palabras clave
+  // solas no lo cazaban. Selectores primero, keywords después.
+  if (document.querySelector(
+    'iframe[src*="captcha-delivery"],script[src*="captcha-delivery"],' +
+    'iframe[src*="datadome"],script[src*="datadome"],' +
+    '.g-recaptcha, #captcha, [data-sitekey]'
+  )) return true;
   var t = (document.title + ' ' + (document.body ? document.body.innerText.slice(0,500) : '')).toLowerCase();
   return t.includes('captcha') || t.includes('robot') || t.includes('datadome') ||
          t.includes('verify') || t.includes('access denied') ||
-         !!document.querySelector('.g-recaptcha, #captcha, [data-sitekey]');
+         t.includes('has sido bloqueado') || t.includes('you have been blocked');
 };
 `;
 
@@ -324,38 +332,69 @@ if (ad) {
 __post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'HABITACLIA', title: document.title, price: __priceDom(), description: __descDom(), images: __imgs(60), features: __features() }});
 `;
 
+// Idealista (DataDome): la extracción REINTENTA con espera antes de rendirse.
+// El interstitial de DataDome puede montarse tarde (iframe async) y la página
+// real puede tardar en hidratar — el patrón anterior "challenge o extrae YA"
+// mandaba extracciones vacías (→ guard anti-vacío) sin dar tiempo a ninguna de
+// las dos cosas. Ahora: challenge → fuera; datos sustanciales (JSON-LD, h1 o
+// precio) → extrae; nada aún → espera 1,5s y reintenta (máx. 3); agotado →
+// manda lo que haya (el guard del importador avisará con err_empty_listing).
 const IDEALISTA_SCRIPT = (url: string) => `
-if (__challenge()) { __post({ type: 'challenge' }); return; }
-var ld = __jsonLd('RealEstateListing');
-if (ld) {
-  var imgArr = [];
-  if (ld.image) { var src = Array.isArray(ld.image) ? ld.image : [ld.image]; for (var i = 0; i < src.length; i++) { var im = src[i]; imgArr.push(typeof im === 'string' ? im : (im.url || im.contentUrl || '')); } }
-  var imgs = __cleanImgs(imgArr, 60); if (imgs.length < 5) imgs = __imgs(60);
+var __extract = function() {
+  var ld = __jsonLd('RealEstateListing');
+  if (ld) {
+    var imgArr = [];
+    if (ld.image) { var src = Array.isArray(ld.image) ? ld.image : [ld.image]; for (var i = 0; i < src.length; i++) { var im = src[i]; imgArr.push(typeof im === 'string' ? im : (im.url || im.contentUrl || '')); } }
+    var imgs = __cleanImgs(imgArr, 60); if (imgs.length < 5) imgs = __imgs(60);
+    __post({ type: 'extracted', data: {
+      url: ${JSON.stringify(url)}, portal: 'IDEALISTA',
+      title: ld.name || document.title,
+      price: __price(ld.offers && ld.offers.price) || __priceDom(),
+      description: ((ld.description || '').slice(0, 2000)) || __descDom(),
+      rooms: ld.numberOfRooms || null,
+      builtArea: (ld.floorSize && ld.floorSize.value) ? Math.round(ld.floorSize.value) : null,
+      address: (ld.address && ld.address.streetAddress) || null,
+      city: (ld.address && ld.address.addressLocality) || null,
+      province: (ld.address && ld.address.addressRegion) || null,
+      postalCode: (ld.address && ld.address.postalCode) || null,
+      latitude: (ld.geo && ld.geo.latitude) || null,
+      longitude: (ld.geo && ld.geo.longitude) || null,
+      images: imgs, features: __features()
+    }});
+    return true;
+  }
+  var titleEl = document.querySelector('h1.main-info__title, span.main-info__title-main, h1');
+  var hasTitle = titleEl && titleEl.innerText && titleEl.innerText.trim().length > 3;
+  if (hasTitle || __priceDom()) {
+    __post({ type: 'extracted', data: {
+      url: ${JSON.stringify(url)}, portal: 'IDEALISTA',
+      title: hasTitle ? titleEl.innerText.trim() : document.title,
+      price: __priceDom(),
+      description: __descDom(),
+      images: __imgs(60), features: __features()
+    }});
+    return true;
+  }
+  return false;
+};
+var __tries = 0;
+var __run = function() {
+  // Challenge visible: avisa a la app (muestra el WebView) y SIGUE SONDEANDO —
+  // si el usuario resuelve el captcha sin que DataDome recargue la página (quita
+  // el iframe y continúa), no habría loadEnd que re-inyecte: este timer extrae.
+  if (__challenge()) { __post({ type: 'challenge' }); setTimeout(__run, 2000); return; }
+  if (__extract()) return;
+  if (__tries++ < 3) { setTimeout(__run, 1500); return; }
+  // Sin datos tras ~4,5s y sin challenge detectable: manda lo que haya.
   __post({ type: 'extracted', data: {
     url: ${JSON.stringify(url)}, portal: 'IDEALISTA',
-    title: ld.name || document.title,
-    price: __price(ld.offers && ld.offers.price) || __priceDom(),
-    description: ((ld.description || '').slice(0, 2000)) || __descDom(),
-    rooms: ld.numberOfRooms || null,
-    builtArea: (ld.floorSize && ld.floorSize.value) ? Math.round(ld.floorSize.value) : null,
-    address: (ld.address && ld.address.streetAddress) || null,
-    city: (ld.address && ld.address.addressLocality) || null,
-    province: (ld.address && ld.address.addressRegion) || null,
-    postalCode: (ld.address && ld.address.postalCode) || null,
-    latitude: (ld.geo && ld.geo.latitude) || null,
-    longitude: (ld.geo && ld.geo.longitude) || null,
-    images: imgs, features: __features()
+    title: document.title, price: __priceDom(), description: __descDom(),
+    images: __imgs(60), features: __features()
   }});
-  return;
-}
-var titleEl = document.querySelector('h1.main-info__title, span.main-info__title-main, h1');
-__post({ type: 'extracted', data: {
-  url: ${JSON.stringify(url)}, portal: 'IDEALISTA',
-  title: (titleEl && titleEl.innerText && titleEl.innerText.trim()) || document.title,
-  price: __priceDom(),
-  description: __descDom(),
-  images: __imgs(60), features: __features()
-}});
+};
+// Evita carreras si el WebView re-inyecta sobre el MISMO documento (cada
+// navegación/reload crea documento nuevo → el flag se resetea solo).
+if (!window.__nkIdealistaRunning) { window.__nkIdealistaRunning = true; __run(); }
 `;
 
 const MILANUNCIOS_SCRIPT = (url: string) => `

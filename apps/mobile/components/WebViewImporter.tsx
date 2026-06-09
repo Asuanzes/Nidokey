@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -12,6 +13,16 @@ import WebView from "react-native-webview";
 import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
 import { getExtractorScript } from "@/lib/portal-extractors";
+
+/**
+ * UA de Chrome Android REAL para el WebView. El UA por defecto del WebView de
+ * Android lleva el token "; wv)" (y `applicationNameForUserAgent` solo AÑADE un
+ * sufijo, no lo quita) — DataDome (Idealista/Milanuncios) lo marca a la primera
+ * y sirve el interstitial de captcha aunque el tráfico sea de un usuario real.
+ * En iOS el UA de WKWebView ya es el de Safari (no delata) → se deja el suyo.
+ */
+const ANDROID_CHROME_UA =
+  "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36";
 
 export type ExtractedPayload = {
   url: string;
@@ -117,8 +128,12 @@ export function WebViewImporter({ url, onExtracted, onError, onCancel, onProgres
         pointerEvents={challenge ? "auto" : "none"}
         javaScriptEnabled
         domStorageEnabled
-        // User-Agent de Chrome móvil para evitar detección
-        applicationNameForUserAgent="Chrome/131.0.0.0 Mobile Safari/537.36"
+        // UA completo (Android): sin el "; wv)" que dispara DataDome. iOS: el suyo.
+        userAgent={Platform.OS === "android" ? ANDROID_CHROME_UA : undefined}
+        // Cookies persistentes/compartidas: la cookie `datadome` que deja un
+        // captcha RESUELTO sobrevive entre imports → no vuelve a pedirlo cada vez.
+        sharedCookiesEnabled
+        thirdPartyCookiesEnabled
       />
     </View>
   );
