@@ -3,23 +3,26 @@ import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 
 import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
+import { RECORD_TYPES } from "@nidokey/shared";
+import { categoryColor } from "@/lib/records/config";
 
 /**
- * Pantalla de carga: anillo de bolitas en bronce con estela de cometa (opacidad
- * creciente) que gira en continuo + el wordmark "Nidokey" debajo. Sin icono.
+ * Pantalla de carga: anillo de 8 bolitas (una por categoría, con su color) que
+ * gira en continuo + el wordmark "Nidokey" debajo. Sin icono.
  * Hecho con el `Animated` nativo de RN (una sola interpolación de rotación,
  * useNativeDriver): cero dependencia de worklets en el arranque.
  *
- * El splash nativo pinta estas MISMAS bolitas estáticas (assets/images/
- * splash-dots.png, misma geometría) para que aparezcan en el frame 1 y, al
- * montar el JS, empiecen a girar sin salto.
+ * El splash nativo pinta bolitas estáticas (assets/images/splash-dots.png,
+ * misma geometría) en bronce; al montar el JS pasan a color por categoría y
+ * giran. Para igualar el primer frame habría que recolorear ese PNG (rebuild
+ * nativo, no OTA).
  */
 const SIZE = 56; // diámetro del anillo (tamaño original)
 const DOT = 9; // tamaño de cada bolita
 const N = 8; // número de bolitas
 
 export function BrandLoading() {
-  const { th } = useTheme();
+  const { th, dark } = useTheme();
   const spin = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -45,7 +48,6 @@ export function BrandLoading() {
       return {
         left: c + r * Math.cos(ang) - DOT / 2,
         top: c + r * Math.sin(ang) - DOT / 2,
-        opacity: 0.12 + (i / (N - 1)) * 0.88,
       };
     });
   }, []);
@@ -56,7 +58,7 @@ export function BrandLoading() {
         {dots.map((d, i) => (
           <View
             key={i}
-            style={[styles.dot, { left: d.left, top: d.top, opacity: d.opacity, backgroundColor: th.accent }]}
+            style={[styles.dot, { left: d.left, top: d.top, backgroundColor: categoryColor(RECORD_TYPES[i % RECORD_TYPES.length], dark) }]}
           />
         ))}
       </Animated.View>
