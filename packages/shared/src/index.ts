@@ -7,3 +7,4 @@ export * from "./book";
 export * from "./holiday";
 export * from "./holiday-build";
 export * from "./dedup";
+export * from "./portals";
