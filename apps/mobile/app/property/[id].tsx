@@ -16,6 +16,7 @@ import { Image } from "expo-image";
 import { useLocalSearchParams, Stack, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 
 import { formatPrice } from "@nidokey/shared";
 import { useTheme } from "@/lib/theme";
@@ -30,22 +31,40 @@ type Notice = { tone: "success" | "error" | "info"; title: string; message?: str
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
-const PORTAL_LABEL: Record<string, string> = {
+// Marcas de portal (no se traducen); OTHER/MANUAL se resuelven con t() abajo.
+const PORTAL_BRAND: Record<string, string> = {
   IDEALISTA: "Idealista", FOTOCASA: "Fotocasa", PISOS_COM: "Pisos.com",
   MILANUNCIOS: "Milanuncios", HABITACLIA: "Habitaclia", YAENCONTRE: "Yaencontre",
-  THINKSPAIN: "ThinkSPAIN", INDOMIO: "Indomio", OTHER: "Otro", MANUAL: "Manual",
-};
-
-const TYPE_LABEL: Record<string, string> = {
-  PISO: "Piso", HOUSE: "Casa", ATICO: "Ático", CHALET: "Chalet",
-  DUPLEX: "Dúplex", ESTUDIO: "Estudio", LOFT: "Loft", LOCAL: "Local",
-  TERRENO: "Terreno", OTRO: "Otro",
+  THINKSPAIN: "ThinkSPAIN", INDOMIO: "Indomio",
 };
 
 export default function PropertyDetailScreen() {
   const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
   const { th } = useTheme();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+
+  // El tipo viene de la API como string libre → Record construido con t() (no
+  // se puede usar template literal tipado sobre un union aquí).
+  const TYPE_LABEL: Record<string, string> = {
+    PISO: t("detail.property.type_piso"),
+    HOUSE: t("detail.property.type_house"),
+    ATICO: t("detail.property.type_atico"),
+    CHALET: t("detail.property.type_chalet"),
+    DUPLEX: t("detail.property.type_duplex"),
+    ESTUDIO: t("detail.property.type_estudio"),
+    LOFT: t("detail.property.type_loft"),
+    LOCAL: t("detail.property.type_local"),
+    TERRENO: t("detail.property.type_terreno"),
+    OTRO: t("detail.property.type_otro"),
+  };
+  const portalLabel = (portal: string): string =>
+    PORTAL_BRAND[portal] ??
+    (portal === "OTHER"
+      ? t("detail.property.portal_other")
+      : portal === "MANUAL"
+      ? t("detail.property.portal_manual")
+      : portal);
   const { data: p, error, refetch } = useRecord<PropertyDetail>(
     () => fetchPropertyDetail(id!),
     [id],
@@ -59,7 +78,11 @@ export default function PropertyDetailScreen() {
   async function recheck() {
     if (!p) return;
     if (p.listings.length === 0) {
-      setNotice({ tone: "info", title: "Sin anuncios", message: "Este inmueble no tiene anuncios vinculados que actualizar." });
+      setNotice({
+        tone: "info",
+        title: t("detail.property.notice_no_listings_title"),
+        message: t("detail.property.notice_no_listings_msg"),
+      });
       return;
     }
     setBusyTool("recheck");
@@ -69,9 +92,17 @@ export default function PropertyDetailScreen() {
       }
       await refetch();
       setSheetOpen(false);
-      setNotice({ tone: "success", title: "Precio actualizado", message: "Se han revisado los anuncios vinculados." });
+      setNotice({
+        tone: "success",
+        title: t("detail.property.notice_updated_title"),
+        message: t("detail.property.notice_updated_msg"),
+      });
     } catch (e) {
-      setNotice({ tone: "error", title: "No se pudo actualizar", message: e instanceof Error ? e.message : "Error desconocido" });
+      setNotice({
+        tone: "error",
+        title: t("detail.property.notice_error_title"),
+        message: e instanceof Error ? e.message : t("detail.property.unknown_error"),
+      });
     } finally {
       setBusyTool(null);
     }
@@ -151,7 +182,9 @@ export default function PropertyDetailScreen() {
             ))}
           </ScrollView>
         )}
-        <Text style={[styles.photoCount, { color: th.textMuted }]}>📸 {photos.length} fotos</Text>
+        <Text style={[styles.photoCount, { color: th.textMuted }]}>
+          {t("detail.property.photos", { count: photos.length })}
+        </Text>
 
         <View style={[styles.section, { backgroundColor: th.surface, borderColor: th.border }]}>
           <Text style={[styles.title, { color: th.text }]}>{p.title}</Text>
@@ -167,7 +200,7 @@ export default function PropertyDetailScreen() {
           <Pressable
             onPress={() => setSheetOpen(true)}
             accessibilityRole="button"
-            accessibilityLabel="Herramientas del inmueble"
+            accessibilityLabel={t("detail.property.tools_title")}
             hitSlop={8}
             style={({ pressed }) => [styles.toolsFab, { backgroundColor: th.primary }, pressed && { opacity: 0.85 }]}
           >
@@ -176,26 +209,26 @@ export default function PropertyDetailScreen() {
         </View>
 
         <View style={[styles.section, { backgroundColor: th.surface, borderColor: th.border }]}>
-          <Text style={[styles.sectionTitle, { color: th.textMuted }]}>Características</Text>
+          <Text style={[styles.sectionTitle, { color: th.textMuted }]}>{t("detail.property.section_features")}</Text>
           <View style={styles.grid}>
-            <Spec label="Habitaciones" value={p.rooms ?? "—"} />
-            <Spec label="Baños" value={p.bathrooms ?? "—"} />
-            <Spec label="Construidos" value={p.builtArea ? `${p.builtArea} m²` : "—"} />
-            <Spec label="Útiles" value={p.usableArea ? `${p.usableArea} m²` : "—"} />
-            <Spec label="Parcela" value={p.plotArea ? `${p.plotArea} m²` : "—"} />
-            <Spec label="Planta" value={p.floor ?? "—"} />
-            <Spec label="Año" value={p.yearBuilt ?? "—"} />
-            <Spec label="Energía" value={p.energyRating !== "UNKNOWN" ? p.energyRating : "—"} />
+            <Spec label={t("detail.property.spec_rooms")} value={p.rooms ?? "—"} />
+            <Spec label={t("detail.property.spec_bathrooms")} value={p.bathrooms ?? "—"} />
+            <Spec label={t("detail.property.spec_built")} value={p.builtArea ? `${p.builtArea} m²` : "—"} />
+            <Spec label={t("detail.property.spec_usable")} value={p.usableArea ? `${p.usableArea} m²` : "—"} />
+            <Spec label={t("detail.property.spec_plot")} value={p.plotArea ? `${p.plotArea} m²` : "—"} />
+            <Spec label={t("detail.property.spec_floor")} value={p.floor ?? "—"} />
+            <Spec label={t("detail.property.spec_year")} value={p.yearBuilt ?? "—"} />
+            <Spec label={t("detail.property.spec_energy")} value={p.energyRating !== "UNKNOWN" ? p.energyRating : "—"} />
           </View>
           <View style={[styles.tags, { borderTopColor: th.border }]}>
             {[
-              { v: p.hasElevator, label: "Ascensor" },
-              { v: p.hasGarage, label: "Garaje" },
-              { v: p.hasStorage, label: "Trastero" },
-              { v: p.hasTerrace, label: "Terraza" },
-              { v: p.hasFireplace, label: "Chimenea" },
-              { v: p.hasGarden, label: "Jardín" },
-              { v: p.hasPool, label: "Piscina" },
+              { v: p.hasElevator, label: t("detail.property.amenity_elevator") },
+              { v: p.hasGarage, label: t("detail.property.amenity_garage") },
+              { v: p.hasStorage, label: t("detail.property.amenity_storage") },
+              { v: p.hasTerrace, label: t("detail.property.amenity_terrace") },
+              { v: p.hasFireplace, label: t("detail.property.amenity_fireplace") },
+              { v: p.hasGarden, label: t("detail.property.amenity_garden") },
+              { v: p.hasPool, label: t("detail.property.amenity_pool") },
             ]
               .filter((x) => x.v)
               .map((x) => (
@@ -208,14 +241,14 @@ export default function PropertyDetailScreen() {
 
         {p.description && (
           <View style={[styles.section, { backgroundColor: th.surface, borderColor: th.border }]}>
-            <Text style={[styles.sectionTitle, { color: th.textMuted }]}>Descripción</Text>
+            <Text style={[styles.sectionTitle, { color: th.textMuted }]}>{t("detail.description")}</Text>
             <Text style={[styles.description, { color: th.text }]}>{p.description}</Text>
           </View>
         )}
 
         {p.listings.length > 0 && (
           <View style={[styles.section, { backgroundColor: th.surface, borderColor: th.border }]}>
-            <Text style={[styles.sectionTitle, { color: th.textMuted }]}>Anuncios vinculados</Text>
+            <Text style={[styles.sectionTitle, { color: th.textMuted }]}>{t("detail.property.section_listings")}</Text>
             {p.listings.map((l) => (
               <TouchableOpacity
                 key={l.id}
@@ -223,7 +256,7 @@ export default function PropertyDetailScreen() {
                 onPress={() => Linking.openURL(l.url)}
               >
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.listingPortal, { color: th.text }]}>{PORTAL_LABEL[l.portal] ?? l.portal}</Text>
+                  <Text style={[styles.listingPortal, { color: th.text }]}>{portalLabel(l.portal)}</Text>
                   <Text style={[styles.listingMeta, { color: th.accent }]}>{formatPrice(l.lastPrice)}</Text>
                 </View>
                 <Ionicons name="open-outline" size={18} color={th.primary} />
@@ -234,7 +267,7 @@ export default function PropertyDetailScreen() {
 
         {p.cadastralRef && (
           <View style={[styles.section, { backgroundColor: th.surface, borderColor: th.border }]}>
-            <Text style={[styles.sectionTitle, { color: th.textMuted }]}>Catastro</Text>
+            <Text style={[styles.sectionTitle, { color: th.textMuted }]}>{t("detail.property.section_cadastre")}</Text>
             <Text style={[styles.cadastral, { color: th.text }]}>{p.cadastralRef}</Text>
           </View>
         )}
@@ -246,7 +279,7 @@ export default function PropertyDetailScreen() {
 
       <CategoryContextSheet
         visible={sheetOpen}
-        title="Herramientas del inmueble"
+        title={t("detail.property.tools_title")}
         tools={toolsForType("property")}
         busyToolId={busyTool}
         onClose={() => setSheetOpen(false)}
@@ -258,7 +291,7 @@ export default function PropertyDetailScreen() {
         tone={notice?.tone ?? "info"}
         title={notice?.title ?? ""}
         message={notice?.message}
-        actions={[{ label: "Entendido", onPress: () => setNotice(null) }]}
+        actions={[{ label: t("common.understood"), onPress: () => setNotice(null) }]}
         onRequestClose={() => setNotice(null)}
       />
     </View>
