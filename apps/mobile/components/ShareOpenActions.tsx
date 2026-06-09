@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "@/lib/theme";
 
 /**
@@ -13,7 +14,7 @@ import { useTheme } from "@/lib/theme";
 export function ShareOpenActions({
   onShare,
   onOpen,
-  openLabel = "Abrir enlace externo",
+  openLabel,
   style,
 }: {
   onShare: () => void;
@@ -22,13 +23,14 @@ export function ShareOpenActions({
   style?: StyleProp<ViewStyle>;
 }) {
   const { th } = useTheme();
+  const { t } = useTranslation();
   return (
     <View style={[styles.group, style]}>
       <Pressable
         onPress={onShare}
         hitSlop={8}
         accessibilityRole="button"
-        accessibilityLabel="Compartir"
+        accessibilityLabel={t("common.share")}
         style={({ pressed }) => [
           styles.btn,
           { backgroundColor: th.surface, borderColor: th.border },
@@ -42,7 +44,7 @@ export function ShareOpenActions({
           onPress={onOpen}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel={openLabel}
+          accessibilityLabel={openLabel ?? t("detail.open_external")}
           style={({ pressed }) => [
             styles.btn,
             { backgroundColor: th.surface, borderColor: th.border },

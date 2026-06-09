@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import WebView from "react-native-webview";
+import { useTranslation } from "react-i18next";
 
 import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
@@ -61,6 +62,7 @@ type WebViewMsg =
 
 export function WebViewImporter({ url, onExtracted, onError, onCancel, onProgress }: Props) {
   const { th } = useTheme();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const ref = useRef<WebView>(null);
   const [challenge, setChallenge] = useState(false);
@@ -98,10 +100,10 @@ export function WebViewImporter({ url, onExtracted, onError, onCancel, onProgres
       {challenge && (
         <View style={[styles.bar, { backgroundColor: th.surface, borderBottomColor: th.border }]}>
           <Text style={[styles.barText, { color: th.text }]}>
-            🔐 Resuelve la verificación para continuar
+            {t("importar.captcha_hint")}
           </Text>
           <Pressable onPress={() => { setChallenge(false); onCancel(); }}>
-            <Text style={[styles.cancel, { color: th.primary }]}>Cancelar</Text>
+            <Text style={[styles.cancel, { color: th.primary }]}>{t("common.cancel")}</Text>
           </Pressable>
         </View>
       )}

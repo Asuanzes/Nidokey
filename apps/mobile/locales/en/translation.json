@@ -1,6 +1,7 @@
 {
   "common": {
     "save": "Save",
+    "saving": "Saving…",
     "cancel": "Cancel",
     "delete": "Delete",
     "search": "Search",
@@ -9,7 +10,8 @@
     "loading": "Loading…",
     "understood": "Got it",
     "done": "Done",
-    "soon": "Coming soon"
+    "soon": "Coming soon",
+    "share": "Share"
   },
   "tabs": {
     "records": "Records",
@@ -113,6 +115,66 @@
     "updated_h": "Updated {{n}} h ago",
     "updated_d": "Updated {{n}} d ago"
   },
+  "detail": {
+    "not_found": "Not found",
+    "description": "Description",
+    "source_web": "the web",
+    "open_external": "Open external link",
+    "book": {
+      "row_authors": "Authors",
+      "row_publisher": "Publisher",
+      "row_published": "Published",
+      "row_pages": "Pages",
+      "row_language": "Language",
+      "row_categories": "Categories",
+      "row_isbn": "ISBN",
+      "view_on": "View on {{source}}",
+      "synopsis": "Synopsis",
+      "see_more": "See more",
+      "see_less": "See less",
+      "my_notes": "My notes",
+      "notes_placeholder": "Your comment, opinion, where you bought it…",
+      "add_comment": "Add a comment"
+    },
+    "holiday": {
+      "status_booked": "Booked",
+      "status_planning": "Planning",
+      "ref_hotel": "Hotel {{ref}}",
+      "ref_flight": "Flight {{ref}}",
+      "rooms_one": "{{count}} room",
+      "rooms_other": "{{count}} rooms",
+      "adults_one": "{{count}} adult",
+      "adults_other": "{{count}} adults",
+      "children_one": "{{count}} child",
+      "children_other": "{{count}} children",
+      "row_status": "Status",
+      "row_destination": "Destination",
+      "row_type": "Type",
+      "row_dates": "Dates",
+      "row_travelers": "Travelers",
+      "row_booking": "Booking",
+      "row_accommodation": "Accommodation",
+      "row_transport": "Transport",
+      "row_transfer": "Transfer",
+      "flight_fallback": "Flight",
+      "transfer_fallback": "Transfer",
+      "view_hotel": "View hotel",
+      "view_flight": "View flight"
+    },
+    "job": {
+      "row_company": "Company",
+      "row_location": "Location",
+      "row_contract": "Contract / hours",
+      "row_experience": "Experience",
+      "row_sector": "Sector",
+      "row_modality": "Work mode",
+      "row_posted": "Posted",
+      "view_offer": "View offer on {{source}}"
+    }
+  },
+  "news": {
+    "article_open_error": "Couldn't open the article."
+  },
   "catsettings": {
     "order_title": "Order and visibility",
     "order_help": "Press and hold a category and drag to reorder · tap the eye to hide or show it.",
@@ -173,6 +235,7 @@
     "ok_book_added_pick": "✅ {{title}} added. Not the right one? pick below.",
     "err_book_not_identified": "I couldn't identify the book. Search below by title/author/ISBN or add it manually.",
     "err_book_service_down": "The books service is unavailable right now. Try again in a few minutes.",
-    "book_fallback": "Book"
+    "book_fallback": "Book",
+    "captcha_hint": "🔐 Solve the verification to continue"
   }
 }

@@ -1,6 +1,7 @@
 {
   "common": {
     "save": "Guardar",
+    "saving": "Guardando…",
     "cancel": "Cancelar",
     "delete": "Eliminar",
     "search": "Buscar",
@@ -9,7 +10,8 @@
     "loading": "Cargando…",
     "understood": "Entendido",
     "done": "Listo",
-    "soon": "Próximamente"
+    "soon": "Próximamente",
+    "share": "Compartir"
   },
   "tabs": {
     "records": "Registros",
@@ -113,6 +115,66 @@
     "updated_h": "Actualizado hace {{n}} h",
     "updated_d": "Actualizado hace {{n}} d"
   },
+  "detail": {
+    "not_found": "No encontrado",
+    "description": "Descripción",
+    "source_web": "la web",
+    "open_external": "Abrir enlace externo",
+    "book": {
+      "row_authors": "Autores",
+      "row_publisher": "Editorial",
+      "row_published": "Publicado",
+      "row_pages": "Páginas",
+      "row_language": "Idioma",
+      "row_categories": "Categorías",
+      "row_isbn": "ISBN",
+      "view_on": "Ver en {{source}}",
+      "synopsis": "Sinopsis",
+      "see_more": "Ver más",
+      "see_less": "Ver menos",
+      "my_notes": "Mis notas",
+      "notes_placeholder": "Tu comentario, opinión, dónde lo compraste…",
+      "add_comment": "Añadir comentario"
+    },
+    "holiday": {
+      "status_booked": "Reservado",
+      "status_planning": "Planificando",
+      "ref_hotel": "Hotel {{ref}}",
+      "ref_flight": "Vuelo {{ref}}",
+      "rooms_one": "{{count}} hab.",
+      "rooms_other": "{{count}} hab.",
+      "adults_one": "{{count}} adulto",
+      "adults_other": "{{count}} adultos",
+      "children_one": "{{count}} niño",
+      "children_other": "{{count}} niños",
+      "row_status": "Estado",
+      "row_destination": "Destino",
+      "row_type": "Tipo",
+      "row_dates": "Fechas",
+      "row_travelers": "Viajeros",
+      "row_booking": "Reserva",
+      "row_accommodation": "Alojamiento",
+      "row_transport": "Desplazamiento",
+      "row_transfer": "Traslado",
+      "flight_fallback": "Vuelo",
+      "transfer_fallback": "Traslado",
+      "view_hotel": "Ver hotel",
+      "view_flight": "Ver vuelo"
+    },
+    "job": {
+      "row_company": "Empresa",
+      "row_location": "Ubicación",
+      "row_contract": "Contrato / jornada",
+      "row_experience": "Experiencia",
+      "row_sector": "Sector",
+      "row_modality": "Modalidad",
+      "row_posted": "Publicado",
+      "view_offer": "Ver oferta en {{source}}"
+    }
+  },
+  "news": {
+    "article_open_error": "No se pudo abrir el artículo."
+  },
   "catsettings": {
     "order_title": "Orden y visibilidad",
     "order_help": "Mantén pulsada una categoría y arrástrala para reordenar · toca el ojo para ocultarla o mostrarla.",
@@ -173,6 +235,7 @@
     "ok_book_added_pick": "✅ {{title}} añadido. ¿No es ese? elige abajo.",
     "err_book_not_identified": "No pude identificar el libro. Búscalo abajo por título/autor/ISBN o añádelo a mano.",
     "err_book_service_down": "El servicio de libros no está disponible ahora mismo. Inténtalo de nuevo en unos minutos.",
-    "book_fallback": "Libro"
+    "book_fallback": "Libro",
+    "captcha_hint": "🔐 Resuelve la verificación para continuar"
   }
 }

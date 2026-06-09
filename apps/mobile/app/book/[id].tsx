@@ -14,6 +14,7 @@ import { Stack, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import RNShare from "react-native-share";
+import { useTranslation } from "react-i18next";
 
 import { type BaseRecord, type Book, metaField } from "@nidokey/shared";
 import { api } from "@/lib/api";
@@ -29,6 +30,7 @@ import { ShareOpenActions } from "@/components/ShareOpenActions";
 export default function BookDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { th } = useTheme();
+  const { t } = useTranslation();
   const { data: record, error, loading } = useRecord<BaseRecord>(
     () => api<BaseRecord>(`/api/records/${id}?type=book`),
     [id]
@@ -71,7 +73,7 @@ export default function BookDetail() {
   if (loading) {
     return (
       <View style={[styles.center, { backgroundColor: th.bg }]}>
-        <Stack.Screen options={{ title: "Libro" }} />
+        <Stack.Screen options={{ title: t("types.book.singular") }} />
         <ActivityIndicator color={th.primary} />
       </View>
     );
@@ -81,8 +83,8 @@ export default function BookDetail() {
   if (error || !record || !book) {
     return (
       <View style={[styles.center, { backgroundColor: th.bg }]}>
-        <Stack.Screen options={{ title: "Libro" }} />
-        <Text style={{ color: th.dangerFg }}>{error?.message ?? "No encontrado"}</Text>
+        <Stack.Screen options={{ title: t("types.book.singular") }} />
+        <Text style={{ color: th.dangerFg }}>{error?.message ?? t("detail.not_found")}</Text>
       </View>
     );
   }
@@ -90,13 +92,13 @@ export default function BookDetail() {
   const cover = book.imageUrls.large ?? book.imageUrls.thumbnail ?? null;
   const rows: [string, string][] = (
     [
-      ["Autores", book.authors.join(", ")],
-      ["Editorial", book.publisher],
-      ["Publicado", book.publishedDate],
-      ["Páginas", book.pageCount != null ? String(book.pageCount) : null],
-      ["Idioma", book.language ? book.language.toUpperCase() : null],
-      ["Categorías", book.categories.join(", ")],
-      ["ISBN", book.isbn13 ?? book.isbn10],
+      [t("detail.book.row_authors"), book.authors.join(", ")],
+      [t("detail.book.row_publisher"), book.publisher],
+      [t("detail.book.row_published"), book.publishedDate],
+      [t("detail.book.row_pages"), book.pageCount != null ? String(book.pageCount) : null],
+      [t("detail.book.row_language"), book.language ? book.language.toUpperCase() : null],
+      [t("detail.book.row_categories"), book.categories.join(", ")],
+      [t("detail.book.row_isbn"), book.isbn13 ?? book.isbn10],
     ] as [string, string | null | undefined][]
   ).filter((r): r is [string, string] => Boolean(r[1]));
 
@@ -105,7 +107,7 @@ export default function BookDetail() {
       ? "Open Library"
       : book.source === "GOOGLE_BOOKS"
       ? "Google Books"
-      : "la web";
+      : t("detail.source_web");
   const bookTitle = book.title;
   const bookAuthors = book.authors;
   const detailUrl = book.detailUrl;
@@ -125,7 +127,7 @@ export default function BookDetail() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Libro" }} />
+      <Stack.Screen options={{ title: t("types.book.singular") }} />
       <ScrollView style={{ backgroundColor: th.bg }} contentContainerStyle={styles.content}>
         <View style={styles.hero}>
           {cover ? (
@@ -160,7 +162,7 @@ export default function BookDetail() {
               style={styles.heroActions}
               onShare={onShare}
               onOpen={detailUrl ? () => void Linking.openURL(detailUrl) : undefined}
-              openLabel={`Ver en ${sourceLabel}`}
+              openLabel={t("detail.book.view_on", { source: sourceLabel })}
             />
           </View>
         </View>
@@ -180,7 +182,7 @@ export default function BookDetail() {
 
         {book.description ? (
           <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
-            <Text style={[styles.descTitle, { color: th.textMuted }]}>Sinopsis</Text>
+            <Text style={[styles.descTitle, { color: th.textMuted }]}>{t("detail.book.synopsis")}</Text>
             <Text
               style={[styles.descText, { color: th.text }]}
               numberOfLines={descExpanded ? undefined : 4}
@@ -190,7 +192,7 @@ export default function BookDetail() {
             {book.description.length > 200 ? (
               <Pressable onPress={() => setDescExpanded((v) => !v)} hitSlop={8}>
                 <Text style={[styles.moreLink, { color: th.primary }]}>
-                  {descExpanded ? "Ver menos" : "Ver más"}
+                  {descExpanded ? t("detail.book.see_less") : t("detail.book.see_more")}
                 </Text>
               </Pressable>
             ) : null}
@@ -201,13 +203,13 @@ export default function BookDetail() {
         <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
           {editingNote ? (
             <>
-              <Text style={[styles.descTitle, { color: th.textMuted }]}>Mis notas</Text>
+              <Text style={[styles.descTitle, { color: th.textMuted }]}>{t("detail.book.my_notes")}</Text>
               <TextInput
                 value={draftNote}
                 onChangeText={setDraftNote}
                 multiline
                 autoFocus
-                placeholder="Tu comentario, opinión, dónde lo compraste…"
+                placeholder={t("detail.book.notes_placeholder")}
                 placeholderTextColor={th.textSubtle}
                 style={[
                   styles.noteInput,
@@ -222,11 +224,11 @@ export default function BookDetail() {
                   }}
                   hitSlop={8}
                 >
-                  <Text style={[styles.noteBtn, { color: th.textMuted }]}>Cancelar</Text>
+                  <Text style={[styles.noteBtn, { color: th.textMuted }]}>{t("common.cancel")}</Text>
                 </Pressable>
                 <Pressable onPress={saveNote} disabled={savingNote} hitSlop={8}>
                   <Text style={[styles.noteBtn, { color: th.primary, fontFamily: fonts.bodyBold }]}>
-                    {savingNote ? "Guardando…" : "Guardar"}
+                    {savingNote ? t("common.saving") : t("common.save")}
                   </Text>
                 </Pressable>
               </View>
@@ -240,7 +242,7 @@ export default function BookDetail() {
             >
               <View style={styles.noteHeader}>
                 <Text style={[styles.descTitle, { color: th.textMuted, marginBottom: 0 }]}>
-                  Mis notas
+                  {t("detail.book.my_notes")}
                 </Text>
                 <Ionicons name="pencil" size={13} color={th.textSubtle} />
               </View>
@@ -256,7 +258,7 @@ export default function BookDetail() {
               hitSlop={8}
             >
               <Ionicons name="add-circle-outline" size={18} color={th.primary} />
-              <Text style={[styles.addNoteText, { color: th.primary }]}>Añadir comentario</Text>
+              <Text style={[styles.addNoteText, { color: th.primary }]}>{t("detail.book.add_comment")}</Text>
             </Pressable>
           )}
         </View>

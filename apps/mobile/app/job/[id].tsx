@@ -9,6 +9,7 @@ import {
 import { Stack, useLocalSearchParams } from "expo-router";
 import { Image } from "expo-image";
 import RNShare from "react-native-share";
+import { useTranslation } from "react-i18next";
 
 import { type BaseRecord, metaField } from "@nidokey/shared";
 import { api } from "@/lib/api";
@@ -26,6 +27,7 @@ import { ShareOpenActions } from "@/components/ShareOpenActions";
 export default function JobDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { th } = useTheme();
+  const { t } = useTranslation();
   const { data: record, error, loading } = useRecord<BaseRecord>(
     () => api<BaseRecord>(`/api/records/${id}?type=job`),
     [id]
@@ -34,7 +36,7 @@ export default function JobDetail() {
   if (loading) {
     return (
       <View style={[styles.center, { backgroundColor: th.bg }]}>
-        <Stack.Screen options={{ title: "Empleo" }} />
+        <Stack.Screen options={{ title: t("types.job.singular") }} />
         <ActivityIndicator color={th.primary} />
       </View>
     );
@@ -42,8 +44,8 @@ export default function JobDetail() {
   if (error || !record) {
     return (
       <View style={[styles.center, { backgroundColor: th.bg }]}>
-        <Stack.Screen options={{ title: "Empleo" }} />
-        <Text style={{ color: th.dangerFg }}>{error?.message ?? "No encontrado"}</Text>
+        <Stack.Screen options={{ title: t("types.job.singular") }} />
+        <Text style={{ color: th.dangerFg }}>{error?.message ?? t("detail.not_found")}</Text>
       </View>
     );
   }
@@ -69,17 +71,17 @@ export default function JobDetail() {
       ? "InfoJobs"
       : platform === "indeed"
       ? "Indeed"
-      : "la web";
+      : t("detail.source_web");
 
   const rows: [string, string][] = (
     [
-      ["Empresa", company],
-      ["Ubicación", location],
-      ["Contrato / jornada", contract],
-      ["Experiencia", experience],
-      ["Sector", sector],
-      ["Modalidad", remote ? "Remoto" : null],
-      ["Publicado", postedAt ? new Date(postedAt).toLocaleDateString("es-ES") : null],
+      [t("detail.job.row_company"), company],
+      [t("detail.job.row_location"), location],
+      [t("detail.job.row_contract"), contract],
+      [t("detail.job.row_experience"), experience],
+      [t("detail.job.row_sector"), sector],
+      [t("detail.job.row_modality"), remote ? t("card.remote") : null],
+      [t("detail.job.row_posted"), postedAt ? new Date(postedAt).toLocaleDateString("es-ES") : null],
     ] as [string, string | null][]
   ).filter((r): r is [string, string] => Boolean(r[1]));
 
@@ -98,7 +100,7 @@ export default function JobDetail() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Empleo" }} />
+      <Stack.Screen options={{ title: t("types.job.singular") }} />
       <ScrollView style={{ backgroundColor: th.bg }} contentContainerStyle={styles.content}>
         {banner && (
           <Image source={{ uri: banner }} style={styles.banner} contentFit="cover" transition={200} />
@@ -131,12 +133,12 @@ export default function JobDetail() {
           style={styles.actions}
           onShare={onShare}
           onOpen={externalUrl ? () => void Linking.openURL(externalUrl) : undefined}
-          openLabel={`Ver oferta en ${platformLabel}`}
+          openLabel={t("detail.job.view_offer", { source: platformLabel })}
         />
 
         {description && (
           <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
-            <Text style={[styles.descTitle, { color: th.textMuted }]}>Descripción</Text>
+            <Text style={[styles.descTitle, { color: th.textMuted }]}>{t("detail.description")}</Text>
             <Text style={[styles.descText, { color: th.text }]}>{description}</Text>
           </View>
         )}

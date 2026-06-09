@@ -1,5 +1,6 @@
 import { useLocalSearchParams } from "expo-router";
 import { Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { useTheme } from "@/lib/theme";
 import { ArticleWebViewScreen } from "@/components/ArticleWebViewScreen";
@@ -12,6 +13,7 @@ import type { Article } from "@/lib/article";
  */
 export default function ArticleRoute() {
   const { th } = useTheme();
+  const { t } = useTranslation();
   const { article: raw } = useLocalSearchParams<{ article?: string }>();
 
   let article: Article | null = null;
@@ -24,7 +26,7 @@ export default function ArticleRoute() {
   if (!article?.url) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: th.bg }}>
-        <Text style={{ color: th.dangerFg }}>No se pudo abrir el artículo.</Text>
+        <Text style={{ color: th.dangerFg }}>{t("news.article_open_error")}</Text>
       </View>
     );
   }

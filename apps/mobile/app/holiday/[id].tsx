@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
+import { useTranslation } from "react-i18next";
 
 import {
   type BaseRecord,
@@ -24,6 +25,7 @@ import { useTheme } from "@/lib/theme";
 export default function HolidayDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { th } = useTheme();
+  const { t } = useTranslation();
   const { data: record, error, loading } = useRecord<BaseRecord>(
     () => api<BaseRecord>(`/api/records/${id}?type=holiday`),
     [id]
@@ -32,7 +34,7 @@ export default function HolidayDetail() {
   if (loading) {
     return (
       <View style={[styles.center, { backgroundColor: th.bg }]}>
-        <Stack.Screen options={{ title: "Viaje" }} />
+        <Stack.Screen options={{ title: t("types.holiday.singular") }} />
         <ActivityIndicator color={th.primary} />
       </View>
     );
@@ -40,8 +42,8 @@ export default function HolidayDetail() {
   if (error || !record) {
     return (
       <View style={[styles.center, { backgroundColor: th.bg }]}>
-        <Stack.Screen options={{ title: "Viaje" }} />
-        <Text style={{ color: th.dangerFg }}>{error?.message ?? "No encontrado"}</Text>
+        <Stack.Screen options={{ title: t("types.holiday.singular") }} />
+        <Text style={{ color: th.dangerFg }}>{error?.message ?? t("detail.not_found")}</Text>
       </View>
     );
   }
@@ -55,48 +57,59 @@ export default function HolidayDetail() {
   const booking = metaField<{ hotelRef?: string | null; flightRef?: string | null } | null>(record, "booking", null);
   // ⚠️ NO leer metaField(record, "commission", …): es interno, no se pinta.
 
-  const statusLabel = record.status === "BOOKED" ? "Reservado" : record.status === "PLANNING" ? "Planificando" : null;
+  const statusLabel =
+    record.status === "BOOKED"
+      ? t("detail.holiday.status_booked")
+      : record.status === "PLANNING"
+      ? t("detail.holiday.status_planning")
+      : null;
   const bookingRefs = booking
     ? [
-        booking.hotelRef ? `Hotel ${booking.hotelRef}` : null,
-        booking.flightRef ? `Vuelo ${booking.flightRef}` : null,
+        booking.hotelRef ? t("detail.holiday.ref_hotel", { ref: booking.hotelRef }) : null,
+        booking.flightRef ? t("detail.holiday.ref_flight", { ref: booking.flightRef }) : null,
       ]
         .filter(Boolean)
         .join(" · ") || null
     : null;
 
+  const childCount = occupancy ? occupancy.flatMap((r) => r.children ?? []).length : 0;
   const occSummary =
     occupancy && occupancy.length
-      ? `${occupancy.length} hab. · ${occupancy.reduce((s, r) => s + (r.adults ?? 0), 0)} adultos` +
-        (occupancy.flatMap((r) => r.children ?? []).length
-          ? ` · ${occupancy.flatMap((r) => r.children ?? []).length} niños`
-          : "")
+      ? [
+          t("detail.holiday.rooms", { count: occupancy.length }),
+          t("detail.holiday.adults", {
+            count: occupancy.reduce((s, r) => s + (r.adults ?? 0), 0),
+          }),
+          childCount ? t("detail.holiday.children", { count: childCount }) : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")
       : null;
 
   const rows: [string, string][] = (
     [
-      ["Estado", statusLabel],
-      ["Destino", destination],
-      ["Tipo", tripType],
-      ["Fechas", record.subtitle],
-      ["Viajeros", occSummary],
-      ["Reserva", bookingRefs],
+      [t("detail.holiday.row_status"), statusLabel],
+      [t("detail.holiday.row_destination"), destination],
+      [t("detail.holiday.row_type"), tripType],
+      [t("detail.holiday.row_dates"), record.subtitle],
+      [t("detail.holiday.row_travelers"), occSummary],
+      [t("detail.holiday.row_booking"), bookingRefs],
       [
-        "Alojamiento",
+        t("detail.holiday.row_accommodation"),
         accommodation
           ? `${accommodation.name}${accommodation.priceCents != null ? ` · ${formatMoney(accommodation.priceCents, accommodation.currency ?? "EUR")}` : ""}`
           : null,
       ],
       [
-        "Desplazamiento",
+        t("detail.holiday.row_transport"),
         transport
-          ? `${transport.provider ?? "Vuelo"}${transport.priceCents != null ? ` · ${formatMoney(transport.priceCents, transport.currency ?? "EUR")}` : ""}`
+          ? `${transport.provider ?? t("detail.holiday.flight_fallback")}${transport.priceCents != null ? ` · ${formatMoney(transport.priceCents, transport.currency ?? "EUR")}` : ""}`
           : null,
       ],
       [
-        "Traslado",
+        t("detail.holiday.row_transfer"),
         transfer
-          ? `${transfer.provider ?? "Traslado"}${transfer.priceCents != null ? ` · ${formatMoney(transfer.priceCents, transfer.currency ?? "EUR")}` : ""}`
+          ? `${transfer.provider ?? t("detail.holiday.transfer_fallback")}${transfer.priceCents != null ? ` · ${formatMoney(transfer.priceCents, transfer.currency ?? "EUR")}` : ""}`
           : null,
       ],
     ] as [string, string | null][]
@@ -104,7 +117,7 @@ export default function HolidayDetail() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Viaje" }} />
+      <Stack.Screen options={{ title: t("types.holiday.singular") }} />
       <ScrollView style={{ backgroundColor: th.bg }} contentContainerStyle={styles.content}>
         {record.imageUrl ? (
           <Image source={{ uri: record.imageUrl }} style={styles.hero} contentFit="cover" transition={200} />
@@ -131,7 +144,7 @@ export default function HolidayDetail() {
             style={[styles.outlineBtn, { borderColor: th.border }]}
           >
             <Ionicons name="bed-outline" size={18} color={th.accent} />
-            <Text style={{ color: th.accent, fontFamily: fonts.bodySemibold }}>Ver hotel</Text>
+            <Text style={{ color: th.accent, fontFamily: fonts.bodySemibold }}>{t("detail.holiday.view_hotel")}</Text>
           </Pressable>
         ) : null}
         {transport?.affiliateUrl ? (
@@ -140,7 +153,7 @@ export default function HolidayDetail() {
             style={[styles.outlineBtn, { borderColor: th.border }]}
           >
             <Ionicons name="airplane-outline" size={18} color={th.accent} />
-            <Text style={{ color: th.accent, fontFamily: fonts.bodySemibold }}>Ver vuelo</Text>
+            <Text style={{ color: th.accent, fontFamily: fonts.bodySemibold }}>{t("detail.holiday.view_flight")}</Text>
           </Pressable>
         ) : null}
       </ScrollView>
