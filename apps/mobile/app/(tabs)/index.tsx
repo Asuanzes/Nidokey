@@ -20,6 +20,7 @@ import { useRecords } from "@/lib/hooks/useRecords";
 import { useBoot } from "@/lib/boot-context";
 import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
 import { CategoryIcon } from "@/components/CategoryIcon";
+import { BooksByAuthor } from "@/components/BooksByAuthor";
 import { ReorderableRecordList } from "@/components/ReorderableRecordList";
 import { deleteRecord } from "@/lib/data/records-repository";
 import { getSavedOrder, saveOrder, applySavedOrder } from "@/lib/local-order";
@@ -143,20 +144,34 @@ export default function RecordsScreen() {
                   </Pressable>
                 </View>
               )}
-              <ReorderableRecordList
-                data={ordered}
-                editing={editing}
-                refreshing={refreshing}
-                onRefresh={refetch}
-                onEnterEdit={() => setEditing(true)}
-                onDelete={handleDelete}
-                onReorder={(next) => setItems(next)}
-                onCommit={(ids) => { void saveOrder(type, ids); }}
-                onDragStart={() => { draggingRef.current = true; }}
-                onDragEnd={() => { draggingRef.current = false; }}
-                tintColor={th.primary}
-                contentStyle={styles.list}
-              />
+              {type === "book" && !editing ? (
+                // Libros: vista agrupada por autor (B7), plegable. El modo
+                // edición (long-press) cae a la lista plana de abajo, donde el
+                // drag y el borrado funcionan como en el resto de categorías.
+                <BooksByAuthor
+                  data={ordered}
+                  refreshing={refreshing}
+                  onRefresh={refetch}
+                  onEnterEdit={() => setEditing(true)}
+                  tintColor={th.primary}
+                  contentStyle={styles.list}
+                />
+              ) : (
+                <ReorderableRecordList
+                  data={ordered}
+                  editing={editing}
+                  refreshing={refreshing}
+                  onRefresh={refetch}
+                  onEnterEdit={() => setEditing(true)}
+                  onDelete={handleDelete}
+                  onReorder={(next) => setItems(next)}
+                  onCommit={(ids) => { void saveOrder(type, ids); }}
+                  onDragStart={() => { draggingRef.current = true; }}
+                  onDragEnd={() => { draggingRef.current = false; }}
+                  tintColor={th.primary}
+                  contentStyle={styles.list}
+                />
+              )}
             </View>
           )}
         </View>
