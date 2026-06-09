@@ -43,7 +43,7 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 export default function PropertyDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
   const { th } = useTheme();
   const insets = useSafeAreaInsets();
   const { data: p, error, refetch } = useRecord<PropertyDetail>(
@@ -241,7 +241,7 @@ export default function PropertyDetailScreen() {
       </ScrollView>
 
       <View style={[styles.floatBar, { top: insets.top + 8 }]} pointerEvents="box-none">
-        <FloatButton icon="chevron-back" onPress={() => router.back()} />
+        <FloatButton icon="chevron-back" onPress={() => (from === "import" ? router.replace("/") : router.back())} />
       </View>
 
       <CategoryContextSheet

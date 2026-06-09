@@ -353,6 +353,17 @@ export default function ImportarScreen() {
   }
 
   async function handleExtracted(data: ExtractedPayload) {
+    // Guard anti-registro-vacío: si el portal bloqueó la lectura (p. ej. Idealista
+    // en WebView) y no se extrajo nada útil, no creamos una ficha vacía → avisamos.
+    const emptyExtraction =
+      (!data.images || data.images.length === 0) &&
+      data.price == null && !data.description &&
+      data.builtArea == null && data.rooms == null;
+    if (emptyExtraction) {
+      setErrorMsg(t("importar.err_empty_listing"));
+      setStatus("error");
+      return;
+    }
     setStatus("sending");
     try {
       const res = await api<ImportResult>("/api/listings/import", {
@@ -362,7 +373,8 @@ export default function ImportarScreen() {
       setOkMsg(res.created ? t("importar.ok_property_created") : res.priceChanged ? t("importar.ok_price_updated") : t("importar.ok_already_have"));
       setStatus("ok");
       setValue(""); // A1: limpiar el enlace de la caja tras importar.
-      setTimeout(() => router.push(`/property/${res.propertyId}`), 800);
+      // A2: ?from=import → el botón "volver" del detalle irá al listado (no a Importar).
+      setTimeout(() => router.push(`/property/${res.propertyId}?from=import`), 800);
     } catch (e) {
       setErrorMsg(errMsg(e, t("importar.err_save_property")));
       setStatus("error");

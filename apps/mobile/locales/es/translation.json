@@ -164,6 +164,7 @@
     "ok_price_updated": "💶 Precio actualizado",
     "ok_already_have": "👌 Ya estaba en tu catálogo",
     "err_save_property": "Error al guardar el inmueble",
+    "err_empty_listing": "No se pudieron leer los datos del anuncio. El portal puede estar bloqueando la lectura; abre el anuncio en el navegador y vuelve a compartirlo, o inténtalo de nuevo.",
     "ok_symbol_added": "✅ {{name}} añadido en {{type}}",
     "ok_symbol_updated": "✅ {{name}} actualizado en {{type}}",
     "err_add_symbol": "No se pudo añadir {{name}}",

@@ -161,12 +161,15 @@ var __priceDom = function() {
 
 // Descripción/resumen desde el DOM (fallback).
 var __descDom = function() {
+  // CTAs/etiquetas que NO son descripción (pisos.com colaba "ver la casa en 3D").
+  var __descBad = /(ver|visita|recorrido|tour)[^.]{0,24}(3d|360|virtual)|tour virtual|v[ií]deo del inmueble/i;
   var sels = ['[itemprop="description"]','[class*="description" i]','[class*="comment" i]','[class*="detail-text" i]','[class*="adText" i]','[class*="texto" i]'];
   var best = '';
   for (var s = 0; s < sels.length; s++) {
     var els; try { els = document.querySelectorAll(sels[s]); } catch(e) { continue; }
     for (var i = 0; i < els.length; i++) {
       var t = (els[i].innerText || els[i].textContent || '').replace(/\\s+/g,' ').trim();
+      if (t.length < 80 && __descBad.test(t)) continue; // descarta CTAs cortos de 3D/tour/vídeo
       if (t.length > best.length) best = t;
     }
   }

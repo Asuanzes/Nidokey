@@ -164,6 +164,7 @@
     "ok_price_updated": "💶 Price updated",
     "ok_already_have": "👌 Already in your catalog",
     "err_save_property": "Couldn't save the property",
+    "err_empty_listing": "Couldn't read the listing data. The portal may be blocking the read; open the listing in the browser and share it again, or try once more.",
     "ok_symbol_added": "✅ {{name}} added to {{type}}",
     "ok_symbol_updated": "✅ {{name}} updated in {{type}}",
     "err_add_symbol": "Couldn't add {{name}}",
