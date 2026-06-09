@@ -177,8 +177,13 @@ function AuthGate() {
     if (state.kind !== "authed") return;
     let alive = true;
     const go = (u: string | null) => {
-      if (alive && u && isPortalUrl(u)) {
+      if (!alive || !u) return;
+      if (isPortalUrl(u)) {
         setUrl(u);
+        router.navigate("/importar");
+      } else if (isBookShareText(u)) {
+        // Libros por deep-link (no solo por share-intent): también se importan.
+        setBookShare(u);
         router.navigate("/importar");
       }
     };
@@ -188,7 +193,7 @@ function AuthGate() {
       alive = false;
       linkSub.remove();
     };
-  }, [state.kind, router, setUrl]);
+  }, [state.kind, router, setUrl, setBookShare]);
 
   // Share-to-app (expo-share-intent): la hoja de Compartir entrega el contenido al
   // HOOK (un solo root React — no crea una 2ª instancia como react-native-share-menu,

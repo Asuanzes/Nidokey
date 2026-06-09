@@ -362,12 +362,7 @@ export default function ImportarScreen() {
       setOkMsg(res.created ? t("importar.ok_property_created") : res.priceChanged ? t("importar.ok_price_updated") : t("importar.ok_already_have"));
       setStatus("ok");
       setValue(""); // A1: limpiar el enlace de la caja tras importar.
-      // A2: deja el listado (tab Registros, ya en esta categoría) como pantalla de
-      // fondo y abre el detalle encima → "volver" regresa al listado, no a Importar.
-      setTimeout(() => {
-        router.navigate("/");
-        router.push(`/property/${res.propertyId}`);
-      }, 800);
+      setTimeout(() => router.push(`/property/${res.propertyId}`), 800);
     } catch (e) {
       setErrorMsg(errMsg(e, t("importar.err_save_property")));
       setStatus("error");
