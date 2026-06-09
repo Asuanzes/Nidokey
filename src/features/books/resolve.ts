@@ -1,5 +1,11 @@
 import * as cheerio from "cheerio";
-import { fromGoogleBooks, fromOpenLibrary, type Book } from "@nidokey/shared";
+import {
+  fromGoogleBooks,
+  fromOpenLibrary,
+  isValidIsbn10,
+  isValidIsbn13,
+  type Book,
+} from "@nidokey/shared";
 
 import { googleBooksSearch } from "@/features/sources/providers/google-books";
 import {
@@ -17,10 +23,15 @@ import type { BookHints, ResolveResult } from "./types";
  *     B) extractBookHintsFromHtml(html)    → { isbn?, title?, authors? }
  *        - JSON-LD schema.org/Book·Product (primario)
  *        - microdata itemprop, meta tags, regex de ISBN (fallbacks)
- *     C) si hay ISBN → lookupBookByIsbn   (Google Books → Open Library, match exacto)
+ *     C) si hay ISBN → lookupBookByIsbn   (Open Library → Google Books, match exacto)
  *        si no       → lookupBookByTitleAuthor (búsqueda + scoring fuzzy)
  *     D) Normaliza al modelo de dominio `Book` (lo hacen fromGoogleBooks/OL)
  *     E) Devuelve ResolveResult (ok+book | error tipado)
+ *
+ * Resiliencia: si un proveedor está caído/sin cuota (lanza
+ * ProviderUnavailableError) y NINGÚN proveedor confirma el libro, NO se
+ * devuelve BOOK_NOT_FOUND (sería mentira) sino PROVIDERS_UNAVAILABLE, para que
+ * la app muestre "servicio no disponible, reintenta" en lugar de "no existe".
  *
  * Sin reglas por dominio: nos apoyamos en datos estructurados + APIs de
  * metadatos. Donde se podría enchufar un LLM en el futuro: en `pickBest` para
@@ -142,26 +153,54 @@ export function extractBookHintsFromHtml(html: string): BookHints {
 
 // ── Paso C — lookups contra APIs de metadatos ─────────────────────────────────
 
-/** Resuelve un libro por ISBN (pivote fiable): Google Books primero (más rico),
- *  Open Library como respaldo keyless. Devuelve el `Book` normalizado o null. */
+/** «No hay resultado Y algún proveedor estaba caído» → no se puede afirmar que
+ *  el libro no exista. El orquestador lo traduce a PROVIDERS_UNAVAILABLE. */
+export class BookProvidersUnavailableError extends Error {
+  constructor() {
+    super("Proveedores de metadatos de libros no disponibles");
+    this.name = "BookProvidersUnavailableError";
+  }
+}
+
+/** Resuelve un libro por ISBN (pivote fiable): Open Library primero (keyless,
+ *  SIN cuota — no depende de la cuota diaria de Google) y Google Books como
+ *  respaldo. Si OL acierta pero viene sin sinopsis, se injerta la de Google
+ *  (best-effort). Devuelve null solo si algún proveedor respondió y ninguno
+ *  tiene el libro; lanza BookProvidersUnavailableError si no hay resultado y
+ *  hubo proveedores caídos (no sabemos si existe). */
 export async function lookupBookByIsbn(isbn: string): Promise<Book | null> {
   const norm = normalizeIsbn(isbn);
   if (!norm) return null;
   let book: Book | null = null;
+  let unavailable = false;
   try {
-    const items = await googleBooksSearch(`isbn:${norm}`);
-    if (items[0]) book = fromGoogleBooks(items[0]);
+    const docs = await openLibrarySearch(norm);
+    if (docs[0]) book = await enrichOl(fromOpenLibrary(docs[0]));
   } catch {
-    /* Google caído → probamos OL */
+    unavailable = true;
   }
   if (!book) {
     try {
-      const docs = await openLibrarySearch(norm);
-      if (docs[0]) book = await enrichOl(fromOpenLibrary(docs[0]));
+      const items = await googleBooksSearch(`isbn:${norm}`);
+      if (items[0]) book = fromGoogleBooks(items[0]);
     } catch {
-      /* OL caído → null */
+      unavailable = true;
+    }
+  } else if (!book.description) {
+    // OL sin sinopsis ni en el work (frecuente) → injerta la de Google si la
+    // tiene. Decorativo: el libro ya está resuelto, un fallo aquí no bloquea.
+    try {
+      const items = await googleBooksSearch(`isbn:${norm}`);
+      const alt = items[0] ? fromGoogleBooks(items[0]) : null;
+      if (alt?.description) book = { ...book, description: alt.description };
+      if (alt && book.averageRating == null && alt.averageRating != null) {
+        book = { ...book, averageRating: alt.averageRating, ratingsCount: alt.ratingsCount };
+      }
+    } catch {
+      /* decorativo */
     }
   }
+  if (!book && unavailable) throw new BookProvidersUnavailableError();
   return book ? await recoverCover(book, norm) : null;
 }
 
@@ -213,27 +252,32 @@ async function recoverCover(book: Book, fallbackIsbn?: string | null): Promise<B
 
 /** Resuelve por título(+autor) cuando no hay ISBN: busca en Google Books / Open
  *  Library y elige el mejor candidato por similitud de título y solape de autor.
- *  Devuelve null si ninguno supera el umbral (evita "añadir el que sea"). */
+ *  Google primero (mejor ranking fuzzy en español); si está caído/sin cuota se
+ *  cae a OL. Devuelve null si ninguno supera el umbral (evita "añadir el que
+ *  sea"); lanza BookProvidersUnavailableError si no hubo candidato válido Y
+ *  algún proveedor estaba caído (no podemos afirmar que no exista). */
 export async function lookupBookByTitleAuthor(
   title: string,
   authors: string[],
 ): Promise<Book | null> {
   const q = [title, authors[0]].filter(Boolean).join(" ").trim();
   if (q.length < 2) return null;
+  let unavailable = false;
   try {
     const cands = (await googleBooksSearch(q)).map(fromGoogleBooks);
     const best = pickBest(cands, title, authors);
     if (best) return withBestCover(best, cands);
   } catch {
-    /* Google caído → probamos OL */
+    unavailable = true; // Google caído → probamos OL
   }
   try {
     const cands = (await openLibrarySearch(q)).map(fromOpenLibrary);
     const best = pickBest(cands, title, authors);
     if (best) return enrichOl(withBestCover(best, cands));
   } catch {
-    /* OL caído → null */
+    unavailable = true;
   }
+  if (unavailable) throw new BookProvidersUnavailableError();
   return null;
 }
 
@@ -280,22 +324,33 @@ export async function resolveBookFromUrl(
   }
 
   const hints = d.extractHints(html);
+  let unavailable = false;
 
   // C1) ISBN → pivote fiable.
   if (hints.isbn) {
-    const book = await d.lookupByIsbn(hints.isbn);
-    if (book) return { ok: true, book, via: "isbn", hints };
+    try {
+      const book = await d.lookupByIsbn(hints.isbn);
+      if (book) return { ok: true, book, via: "isbn", hints };
+    } catch (e) {
+      if (!(e instanceof BookProvidersUnavailableError)) throw e;
+      unavailable = true; // seguimos: quizá el título sí resuelve
+    }
   }
 
   // C2) Título(+autor) → fuzzy con scoring.
   if (hints.title) {
-    let book = await d.lookupByTitleAuthor(hints.title, hints.authors ?? []);
-    if (book) {
-      // Si la edición elegida no trae portada pero la página daba ISBN, respaldo OL.
-      if (!book.imageUrls.thumbnail && !book.imageUrls.large && hints.isbn) {
-        book = withIsbnCoverFallback(book, hints.isbn);
+    try {
+      let book = await d.lookupByTitleAuthor(hints.title, hints.authors ?? []);
+      if (book) {
+        // Si la edición elegida no trae portada pero la página daba ISBN, respaldo OL.
+        if (!book.imageUrls.thumbnail && !book.imageUrls.large && hints.isbn) {
+          book = withIsbnCoverFallback(book, hints.isbn);
+        }
+        return { ok: true, book, via: "title-author", hints };
       }
-      return { ok: true, book, via: "title-author", hints };
+    } catch (e) {
+      if (!(e instanceof BookProvidersUnavailableError)) throw e;
+      unavailable = true;
     }
   }
 
@@ -304,6 +359,14 @@ export async function resolveBookFromUrl(
       ok: false,
       code: "ISBN_NOT_FOUND",
       message: "No se pudo extraer ISBN ni título de la página.",
+    };
+  }
+  if (unavailable) {
+    return {
+      ok: false,
+      code: "PROVIDERS_UNAVAILABLE",
+      message:
+        "El servicio de libros no está disponible ahora mismo. Inténtalo de nuevo en unos minutos.",
     };
   }
   return {
@@ -396,19 +459,26 @@ function firstString(v: unknown): string | undefined {
   return undefined;
 }
 
-/** Normaliza a ISBN-13 o ISBN-10 (solo dígitos / X). null si no es un ISBN. */
+/** Normaliza a ISBN-13 o ISBN-10 (solo dígitos / X) validando el CHECKSUM.
+ *  null si no es un ISBN real — un número con formato de ISBN pero checksum
+ *  inválido (típico falso positivo de regex sobre HTML/URLs) se descarta y el
+ *  pipeline cae a la resolución por título. */
 export function normalizeIsbn(raw: string | undefined | null): string | null {
   if (!raw) return null;
   const d = String(raw).replace(/[^0-9Xx]/g, "").toUpperCase();
-  if (/^97[89]\d{10}$/.test(d)) return d; // ISBN-13
-  if (/^\d{9}[\dX]$/.test(d)) return d; // ISBN-10
+  if (isValidIsbn13(d)) return d; // ISBN-13 (checksum ok)
+  if (isValidIsbn10(d)) return d; // ISBN-10 (checksum ok)
   return null;
 }
 
 function isbnFromText(html: string): string | null {
-  // "ISBN 978-84-..." o un EAN-13 suelto que empiece por 978/979.
-  const m = html.match(/97[89][-\s]?(?:\d[-\s]?){9}\d/);
-  return normalizeIsbn(m?.[0] ?? null);
+  // "ISBN 978-84-..." o un EAN-13 suelto que empiece por 978/979. Itera los
+  // matches y devuelve el primero con checksum válido (descarta números basura).
+  for (const m of html.matchAll(/97[89][-\s]?(?:\d[-\s]?){9}\d/g)) {
+    const norm = normalizeIsbn(m[0]);
+    if (norm) return norm;
+  }
+  return null;
 }
 
 function cleanTitle(raw: string): string {

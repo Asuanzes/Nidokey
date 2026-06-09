@@ -38,8 +38,11 @@ export async function importBookByIsbn(
   const norm = normalizeIsbn(isbn);
   if (!norm) return { ok: false, code: "INVALID_ISBN" };
 
-  // 2) Resolver por ISBN (Google Books → Open Library). lookupBookByIsbn ya
-  //    traga los errores de red internamente y devuelve null si no encuentra.
+  // 2) Resolver por ISBN (Open Library → Google Books). lookupBookByIsbn
+  //    devuelve null si ningún proveedor tiene el libro, y LANZA
+  //    BookProvidersUnavailableError si no hay resultado y algún proveedor
+  //    estaba caído/sin cuota → aquí se traduce a METADATA_LOOKUP_FAILED
+  //    (502, reintentable) en vez de mentir con BOOK_NOT_FOUND.
   let book: Book | null;
   try {
     book = await deps.lookupByIsbn(norm);

@@ -8,7 +8,14 @@
  * Es API oficial pero la búsqueda anónima tiene cuota baja; con clave sube. La
  * API exige el parámetro `country` para resolver desde algunas IPs/servidores.
  * `cache: "no-store"` evita que Next.js cachee resultados.
+ *
+ * Semántica de errores: «sin resultados» devuelve []/null, pero «servicio no
+ * disponible» (429 de cuota, clave inválida, 5xx, red) LANZA
+ * ProviderUnavailableError — así el caller distingue "el libro no existe" de
+ * "no se pudo consultar" y puede caer a Open Library o avisar con honestidad.
  */
+import { getJsonStrict } from "./availability";
+
 const BASE = "https://www.googleapis.com/books/v1/volumes";
 
 /** País de mercado por defecto (la API lo exige). Multi-idioma/geo futuro:
@@ -29,18 +36,7 @@ function buildUrl(path: string, params: Record<string, string | undefined>): str
 }
 
 async function getJson(url: string): Promise<unknown | null> {
-  let res: Response;
-  try {
-    res = await fetch(url, {
-      headers: { Accept: "application/json" },
-      cache: "no-store",
-      signal: AbortSignal.timeout(9000),
-    });
-  } catch {
-    return null;
-  }
-  if (!res.ok) return null;
-  return res.json().catch(() => null);
+  return getJsonStrict(url, { provider: "Google Books", timeoutMs: 9000 });
 }
 
 export type GoogleBooksSearchOpts = {

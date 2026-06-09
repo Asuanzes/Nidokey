@@ -22,7 +22,8 @@ const STATUS: Record<ImportByIsbnErrorCode, number> = {
 const MESSAGE: Record<ImportByIsbnErrorCode, string> = {
   INVALID_ISBN: "El ISBN debe tener 10 o 13 dígitos (con o sin guiones).",
   BOOK_NOT_FOUND: "No encontramos este libro en nuestros proveedores (Google Books / Open Library).",
-  METADATA_LOOKUP_FAILED: "No se pudieron consultar los metadatos. Inténtalo de nuevo.",
+  METADATA_LOOKUP_FAILED:
+    "El servicio de libros no está disponible ahora mismo. Inténtalo de nuevo en unos minutos.",
 };
 
 export async function POST(req: NextRequest) {

@@ -9,7 +9,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createBook, type Book } from "@nidokey/shared";
 
-import { resolveBookFromUrl, extractBookHintsFromHtml } from "./resolve";
+import {
+  resolveBookFromUrl,
+  extractBookHintsFromHtml,
+  BookProvidersUnavailableError,
+} from "./resolve";
 
 function mockBook(over: Partial<Book> = {}): Book {
   return createBook({ id: "gb-1", source: "GOOGLE_BOOKS", title: "Sapiens", authors: ["Yuval Noah Harari"], ...over });
@@ -93,6 +97,34 @@ test("sin ISBN ni título extraíbles → ISBN_NOT_FOUND", async () => {
   });
   assert.equal(r.ok, false);
   if (!r.ok) assert.equal(r.code, "ISBN_NOT_FOUND");
+});
+
+test("proveedores caídos (cuota/red) sin resultado → PROVIDERS_UNAVAILABLE, no BOOK_NOT_FOUND", async () => {
+  const r = await resolveBookFromUrl("https://tienda.example/x", {
+    fetchHtml: async () => "<html/>",
+    extractHints: () => ({ isbn: "9788499926223", title: "Sapiens" }),
+    lookupByIsbn: async () => {
+      throw new BookProvidersUnavailableError();
+    },
+    lookupByTitleAuthor: async () => {
+      throw new BookProvidersUnavailableError();
+    },
+  });
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.equal(r.code, "PROVIDERS_UNAVAILABLE");
+});
+
+test("ISBN-lookup caído pero el título sí resuelve → ok via title-author", async () => {
+  const r = await resolveBookFromUrl("https://tienda.example/x", {
+    fetchHtml: async () => "<html/>",
+    extractHints: () => ({ isbn: "9788499926223", title: "Sapiens" }),
+    lookupByIsbn: async () => {
+      throw new BookProvidersUnavailableError();
+    },
+    lookupByTitleAuthor: async (title) => mockBook({ title }),
+  });
+  assert.equal(r.ok, true);
+  if (r.ok) assert.equal(r.via, "title-author");
 });
 
 test("fallo de red al descargar → NETWORK_ERROR", async () => {

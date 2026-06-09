@@ -18,9 +18,12 @@ const REGISTRY: Partial<Record<RecordType, SourceAdapter[]>> = {
   crypto: [coingeckoAdapter],
   market: [yahooAdapter],
   job: [apifyJobsAdapter],
-  // Libros: Google Books PRIMERO (mejor datos) si hay GOOGLE_BOOKS_API_KEY; si su
-  // búsqueda viene vacía (sin clave = cuota 0), la ruta de búsqueda cae a Open
-  // Library (sin clave). Así funciona HOY y se "auto-mejora" al poner la key.
+  // Libros (BÚSQUEDA fuzzy): Google Books PRIMERO (mejor ranking/datos) y Open
+  // Library de respaldo. Desde B5-resiliencia los proveedores LANZAN cuando
+  // están caídos/sin cuota (429) en vez de devolver vacío, así que la cadena de
+  // /api/records/search cae a OL también con cuota agotada (antes solo con
+  // respuesta vacía) y devuelve 502 honesto si AMBOS fallan. El lookup por ISBN
+  // (resolve.ts) es OL-primero, que no gasta cuota de Google.
   book: [googleBooksAdapter, openLibraryAdapter],
 };
 

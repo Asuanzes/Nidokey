@@ -4,27 +4,38 @@
  * portada/ISBN/año/rating; la sinopsis NO viene en la búsqueda (se enriquece con
  * el work API en el fetch). Devuelve datos CRUDOS; los normaliza el adaptador
  * con `fromOpenLibrary` (packages/shared/src/book.ts).
+ *
+ * Semántica de errores: búsqueda y work LANZAN ProviderUnavailableError si OL
+ * está caído (red/5xx) — el caller distingue "no existe" de "no se pudo
+ * consultar". Los enriquecimientos decorativos (sinopsis, ratings) siguen
+ * siendo best-effort y devuelven null en cualquier fallo.
  */
+import { getJsonStrict } from "./availability";
+
 const SEARCH = "https://openlibrary.org/search.json";
 const FIELDS =
   "key,title,author_name,first_publish_year,isbn,cover_i,language," +
   "number_of_pages_median,ratings_average,ratings_count,subject,publisher";
 const UA = "Nidokey/1.0 (personal book tracker)";
 
+/** Estricto: null solo si el recurso no existe; lanza si OL está caído.
+ *  OL search es a veces lento (>9s); damos margen (la ruta tiene maxDuration 60). */
 async function getJson(url: string): Promise<unknown | null> {
-  let res: Response;
+  return getJsonStrict(url, {
+    provider: "Open Library",
+    timeoutMs: 15000,
+    headers: { "User-Agent": UA },
+  });
+}
+
+/** Blando (best-effort): para los enriquecimientos decorativos (ratings), donde
+ *  un fallo de OL no debe tumbar la operación principal. */
+async function getJsonSoft(url: string): Promise<unknown | null> {
   try {
-    res = await fetch(url, {
-      headers: { Accept: "application/json", "User-Agent": UA },
-      cache: "no-store",
-      // OL search es a veces lento (>9s); damos margen (la ruta tiene maxDuration 60).
-      signal: AbortSignal.timeout(15000),
-    });
+    return await getJson(url);
   } catch {
     return null;
   }
-  if (!res.ok) return null;
-  return res.json().catch(() => null);
 }
 
 /** Busca libros por texto (título/autor). Devuelve los docs crudos. */
@@ -45,9 +56,15 @@ export async function openLibraryWork(workId: string): Promise<unknown | null> {
 
 /** Sinopsis (description) de un work, si la hay. La búsqueda NO la trae, así que
  *  se usa para enriquecer al guardar. `description` puede ser string o
- *  `{ value }`; limpia las referencias markdown típicas de OL. */
+ *  `{ value }`; limpia las referencias markdown típicas de OL. Best-effort:
+ *  null también si OL está caído (la sinopsis es decoración, no bloquea). */
 export async function openLibraryWorkDescription(workId: string): Promise<string | null> {
-  const work = await openLibraryWork(workId);
+  let work: unknown | null;
+  try {
+    work = await openLibraryWork(workId);
+  } catch {
+    return null;
+  }
   const d = (work as { description?: unknown })?.description;
   let txt =
     typeof d === "string"
@@ -72,7 +89,7 @@ export async function openLibraryWorkRatings(
 ): Promise<{ average: number; count: number | null } | null> {
   const id = workId.trim();
   if (!id) return null;
-  const json = (await getJson(
+  const json = (await getJsonSoft(
     `https://openlibrary.org/works/${encodeURIComponent(id)}/ratings.json`
   )) as { summary?: { average?: number | null; count?: number | null } } | null;
   const avg = json?.summary?.average;
@@ -89,7 +106,7 @@ export async function openLibraryRatingByIsbn(
 ): Promise<{ average: number; count: number | null } | null> {
   const clean = isbn.replace(/[^0-9Xx]/g, "");
   if (clean.length < 10) return null;
-  const ed = (await getJson(`https://openlibrary.org/isbn/${clean}.json`)) as
+  const ed = (await getJsonSoft(`https://openlibrary.org/isbn/${clean}.json`)) as
     | { works?: { key?: string }[] }
     | null;
   const workKey = ed?.works?.[0]?.key; // p.ej. "/works/OL12345W"

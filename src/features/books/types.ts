@@ -30,6 +30,9 @@ export type ImportErrorCode =
   | "ISBN_NOT_FOUND"
   /** Se extrajeron pistas pero ni Google Books ni Open Library resuelven el libro. */
   | "BOOK_NOT_FOUND"
+  /** Algún proveedor estaba caído/sin cuota y no se pudo confirmar si el libro
+   *  existe → reintentable. NO es un "no encontrado" definitivo. */
+  | "PROVIDERS_UNAVAILABLE"
   /** Varios candidatos sin un match suficientemente claro (reservado para scoring). */
   | "AMBIGUOUS";
 
