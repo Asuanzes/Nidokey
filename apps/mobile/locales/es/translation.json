@@ -172,6 +172,7 @@
     "err_add_book": "No se pudo añadir el libro",
     "ok_book_added_pick": "✅ {{title}} añadido. ¿No es ese? elige abajo.",
     "err_book_not_identified": "No pude identificar el libro. Búscalo abajo por título/autor/ISBN o añádelo a mano.",
+    "err_book_service_down": "El servicio de libros no está disponible ahora mismo. Inténtalo de nuevo en unos minutos.",
     "book_fallback": "Libro"
   }
 }

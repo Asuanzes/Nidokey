@@ -172,6 +172,7 @@
     "err_add_book": "Couldn't add the book",
     "ok_book_added_pick": "✅ {{title}} added. Not the right one? pick below.",
     "err_book_not_identified": "I couldn't identify the book. Search below by title/author/ISBN or add it manually.",
+    "err_book_service_down": "The books service is unavailable right now. Try again in a few minutes.",
     "book_fallback": "Book"
   }
 }

@@ -182,6 +182,10 @@ export default function ImportarScreen() {
       // dejamos la lista para que elijas (se acabó "añade el que le da la gana").
       let hits: SearchHit[] = [];
       let reliable = false;
+      // B5-resiliencia: si los proveedores (Google Books/Open Library) están
+      // caídos o sin cuota, el backend lo señala (PROVIDERS_UNAVAILABLE o 502)
+      // → mensaje honesto "reintenta", no "no pude identificar el libro".
+      let serviceDown = false;
       try {
         // 1) ISBN en la cadena/URL → match exacto.
         if (parsed?.isbn) {
@@ -194,7 +198,7 @@ export default function ImportarScreen() {
         // 2) Hay URL → pipeline del servidor (lee schema.org de la página y resuelve
         //    por ISBN/score). Si devuelve libro, es fiable.
         if (!reliable && url) {
-          const res = await api<{ results: SearchHit[] }>("/api/books/resolve", {
+          const res = await api<{ results: SearchHit[]; error?: string }>("/api/books/resolve", {
             method: "POST",
             body: JSON.stringify({ url }),
           });
@@ -202,6 +206,8 @@ export default function ImportarScreen() {
           if (rhits.length > 0) {
             hits = rhits;
             reliable = true;
+          } else if (res.error === "PROVIDERS_UNAVAILABLE") {
+            serviceDown = true;
           }
         }
         // 3) Solo título → buscar; fiable solo si el primero casa FUERTE (título
@@ -213,7 +219,9 @@ export default function ImportarScreen() {
           hits = res.results ?? [];
           reliable = hits.length > 0 && strongTitleMatch(parsed.query, hits[0].name);
         }
-      } catch {
+      } catch (e) {
+        // 502 = TODAS las fuentes de búsqueda caídas (la ruta lo señala así).
+        if (e instanceof ApiError && e.status === 502) serviceDown = true;
         /* red caída → hits vacío → cae a alta manual */
       } finally {
         setSearching(false);
@@ -242,7 +250,11 @@ export default function ImportarScreen() {
           setStatus("error");
         }
       } else if (hits.length === 0) {
-        setErrorMsg(t("importar.err_book_not_identified"));
+        setErrorMsg(
+          serviceDown
+            ? t("importar.err_book_service_down")
+            : t("importar.err_book_not_identified")
+        );
         setStatus("error");
       }
     },

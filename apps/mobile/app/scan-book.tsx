@@ -40,7 +40,7 @@ type ScanState =
   | { kind: "importing"; isbn: string }
   | { kind: "added"; id: string; title: string; cover: string | null }
   | { kind: "notfound"; isbn: string }
-  | { kind: "error"; isbn: string };
+  | { kind: "error"; isbn: string; serviceDown?: boolean };
 
 type ImportResponse = {
   record: { id: string; title: string; imageUrl: string | null };
@@ -75,7 +75,9 @@ function Scanner() {
       const code = e instanceof ApiError ? (e.body as { code?: string } | null)?.code : null;
       if (code === "BOOK_NOT_FOUND") setState({ kind: "notfound", isbn: clean });
       else if (code === "INVALID_ISBN") resume(); // no era un libro → seguir escaneando
-      else setState({ kind: "error", isbn: clean });
+      // METADATA_LOOKUP_FAILED = proveedores caídos/sin cuota → mensaje honesto
+      // "servicio no disponible" (reintentable), no "error de conexión".
+      else setState({ kind: "error", isbn: clean, serviceDown: code === "METADATA_LOOKUP_FAILED" });
     }
   }
 
@@ -203,7 +205,9 @@ function Scanner() {
           ) : (
             <>
               <Text style={[styles.cardText, { color: th.text }]}>
-                Error de conexión. Inténtalo de nuevo.
+                {state.kind === "error" && state.serviceDown
+                  ? "El servicio de libros no está disponible ahora mismo. Inténtalo de nuevo en unos minutos."
+                  : "Error de conexión. Inténtalo de nuevo."}
               </Text>
               <View style={styles.actions}>
                 <View style={styles.flex1}>

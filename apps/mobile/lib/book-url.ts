@@ -7,7 +7,15 @@
  *    /books/edition/<título>/<id>, Goodreads) → se pre-busca por ese título para
  *    que elijas.
  *  - En otro caso → null (no se reconoce como enlace de libro).
+ *
+ * ASIN→ISBN (Amazon): el ASIN de /dp/<asin> y /gp/product/<asin> ES el ISBN-10
+ * en libros antiguos (los Kindle/recientes usan B0…, que no casa). Todos los
+ * candidatos pasan VALIDACIÓN DE CHECKSUM (isValidIsbn10/13 de @nidokey/shared):
+ * un número con pinta de ISBN pero checksum inválido se descarta y el flujo cae
+ * a la resolución por título — antes colaba y producía lookups absurdos.
  */
+import { isValidIsbn10, isValidIsbn13 } from "@nidokey/shared";
+
 const BOOK_HOSTS = [
   "books.google.",
   "google.com/books",
@@ -49,12 +57,22 @@ export function bookUrlQuery(u: string): { query: string; isbn: boolean } | null
 }
 
 /** ISBN-13 (978/979 + 10 dígitos) en cualquier parte; ISBN-10 solo en rutas
- *  fiables (/dp/, /isbn/, /gp/product/) para no confundir números cualesquiera. */
+ *  fiables (/dp/, /isbn/, /gp/product/ — donde el ASIN de Amazon es el ISBN-10
+ *  en libros) y en query params (?isbn=, ?asin=). TODO candidato debe pasar el
+ *  CHECKSUM: si falla se sigue buscando (otro match) o se devuelve null. */
 function extractIsbn(u: string): string | null {
-  const m13 = u.match(/97[89]\d{10}/);
-  if (m13) return m13[0];
-  const m10 = u.match(/\/(?:dp|isbn|gp\/product)\/(\d{9}[\dxX])(?:[/?&#]|$)/i);
-  if (m10) return m10[1].toUpperCase();
+  for (const m of u.matchAll(/97[89]\d{10}/g)) {
+    if (isValidIsbn13(m[0])) return m[0];
+  }
+  for (const m of u.matchAll(/\/(?:dp|isbn|gp\/product)\/(\d{9}[\dxX])(?:[/?&#]|$)/gi)) {
+    const c = m[1].toUpperCase();
+    if (isValidIsbn10(c)) return c;
+  }
+  // Query params: ?isbn=84…, ?asin=<isbn10> (tiendas y enlaces de afiliado).
+  for (const m of u.matchAll(/[?&](?:isbn|isbn10|isbn13|asin)=([0-9Xx-]{10,17})(?:[&#]|$)/gi)) {
+    const c = m[1].replace(/-/g, "").toUpperCase();
+    if (isValidIsbn13(c) || isValidIsbn10(c)) return c;
+  }
   return null;
 }
 
