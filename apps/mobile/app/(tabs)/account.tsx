@@ -80,6 +80,9 @@ export default function AccountScreen() {
       />
 
       <Text style={[styles.footer, { color: th.textSubtle }]}>{t("account.footer")}</Text>
+      <Text style={[styles.credit, { color: th.textSubtle }]}>
+        Iconos: Solar (CC BY 4.0) · game-icons.net (CC BY 3.0) · Material Design Icons (Apache 2.0) · Phosphor (MIT)
+      </Text>
       </ScrollView>
     </Screen>
   );
@@ -102,5 +105,6 @@ const styles = StyleSheet.create({
   toggleLabel: { flex: 1, fontSize: 15 },
   modeRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   logout: { marginTop: 4 },
-  footer: { marginTop: "auto", textAlign: "center", fontSize: 11, paddingBottom: 16 },
+  footer: { marginTop: "auto", textAlign: "center", fontSize: 11 },
+  credit: { textAlign: "center", fontSize: 9, lineHeight: 13, paddingHorizontal: 24, paddingTop: 6, paddingBottom: 16 },
 });

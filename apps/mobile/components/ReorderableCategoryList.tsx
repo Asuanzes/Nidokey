@@ -12,7 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import type { RecordType } from "@nidokey/shared";
-import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
+import { CategoryIcon } from "@/components/CategoryIcon";
 import { useTypeI18n } from "@/lib/records/type-i18n";
 import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
@@ -136,7 +136,6 @@ function Row({
   onEnd,
 }: RowProps) {
   const id = item.type;
-  const cfg = RECORD_TYPE_CONFIG[id];
   const { label } = useTypeI18n();
   const muted = item.hidden;
 
@@ -175,10 +174,10 @@ function Row({
       <GestureDetector gesture={pan}>
         <View style={[styles.row, { backgroundColor: th.surface, borderBottomColor: th.border }]}>
           <Ionicons name="reorder-three-outline" size={20} color={th.textSubtle} />
-          <Ionicons
-            name={cfg.icon}
+          <CategoryIcon
+            type={id}
             size={20}
-            color={muted ? th.textSubtle : th.accent}
+            color={muted ? th.textSubtle : undefined}
             style={styles.catIcon}
           />
           <Text numberOfLines={1} style={[styles.label, { color: muted ? th.textSubtle : th.text }]}>

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useTheme } from "@/lib/theme";
 import { useCategoryPrefs } from "@/lib/records/category-prefs-context";
 import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
+import { CategoryIcon } from "@/components/CategoryIcon";
 import { useTypeI18n } from "@/lib/records/type-i18n";
 import { ReorderableCategoryList } from "@/components/ReorderableCategoryList";
 import { Button, Chip, ResultModal, Section } from "@/components/ui";
@@ -71,7 +72,7 @@ export default function CategorySettingsScreen() {
             <Chip
               key={tp}
               label={typeLabel(tp)}
-              icon={RECORD_TYPE_CONFIG[tp].icon}
+              leading={<CategoryIcon type={tp} size={14} color={tp === effectiveStart ? th.primaryFg : undefined} />}
               color={RECORD_TYPE_CONFIG[tp].color}
               selected={tp === effectiveStart}
               onPress={() => setStartCategory(tp)}

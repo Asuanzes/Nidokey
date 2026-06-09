@@ -19,6 +19,7 @@ import { fonts } from "@/lib/fonts";
 import { useRecords } from "@/lib/hooks/useRecords";
 import { useBoot } from "@/lib/boot-context";
 import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
+import { CategoryIcon } from "@/components/CategoryIcon";
 import { ReorderableRecordList } from "@/components/ReorderableRecordList";
 import { deleteRecord } from "@/lib/data/records-repository";
 import { getSavedOrder, saveOrder, applySavedOrder } from "@/lib/local-order";
@@ -178,7 +179,7 @@ export default function RecordsScreen() {
                 accessibilityState={{ selected: active }}
                 style={[styles.railItem, active && { backgroundColor: th.accentSoft }]}
               >
-                <Ionicons name={c.icon} size={26} color={active ? th.accent : th.textMuted} />
+                <CategoryIcon type={t} size={26} />
               </Pressable>
             );
           })}

@@ -12,6 +12,7 @@ import { useTheme } from "@/lib/theme";
 
 type TFn = ReturnType<typeof useTranslation>["t"];
 import { recordTypeConfig } from "@/lib/records/config";
+import { CategoryIcon } from "@/components/CategoryIcon";
 import { provinceImage } from "@/lib/records/province-images";
 import { marketLogoUrl } from "@/lib/records/market-logo";
 
@@ -330,7 +331,6 @@ const PORTAL_LABEL: Record<string, string> = {
 function DefaultCard({ record, editing, onLongPress, onDelete }: CardProps) {
   const { th } = useTheme();
   const { t } = useTranslation();
-  const cfg = recordTypeConfig(record.type);
   const status = record.status ? STATUS_STYLE[record.status] : undefined;
   const footnote = metaField<string | null>(record, "footnote", null);
   // Portal de origen del inmueble (de qué web lo importamos), bajo la miniatura.
@@ -360,7 +360,7 @@ function DefaultCard({ record, editing, onLongPress, onDelete }: CardProps) {
           />
         ) : (
           <View style={[styles.thumb, styles.thumbPlaceholder, { backgroundColor: th.imagePlaceholder }]}>
-            <Ionicons name={cfg.icon} size={26} color={th.textSubtle} />
+            <CategoryIcon type={record.type} size={26} />
           </View>
         )}
         {portalLabel && (

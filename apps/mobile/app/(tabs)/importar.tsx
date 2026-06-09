@@ -22,6 +22,7 @@ import { bookShareQuery, firstShareUrl } from "@/lib/book-url";
 import { useTheme } from "@/lib/theme";
 import { api, ApiError } from "@/lib/api";
 import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
+import { CategoryIcon } from "@/components/CategoryIcon";
 import { WebViewImporter, type ExtractedPayload } from "@/components/WebViewImporter";
 import { Button, Card, EmptyState, Screen } from "@/components/ui";
 
@@ -448,7 +449,6 @@ export default function ImportarScreen() {
         {orderedVisible
           .filter((tp) => tp !== "chat") // "Chat" no es un tipo de registro que se añada aquí.
           .map((tp) => {
-          const c = RECORD_TYPE_CONFIG[tp];
           const active = type === tp;
           return (
             <Pressable
@@ -470,7 +470,7 @@ export default function ImportarScreen() {
               }}
               style={[styles.typeItem, active && { backgroundColor: th.accentSoft }]}
             >
-              <Ionicons name={c.icon} size={24} color={active ? th.accent : th.textMuted} />
+              <CategoryIcon type={tp} size={24} />
             </Pressable>
           );
         })}

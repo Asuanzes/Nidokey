@@ -19,7 +19,8 @@ import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
 import { useQuery } from "@/lib/hooks/useQuery";
 import { notifyDuplicatesChanged } from "@/lib/dup-signal";
-import { RECORD_TYPE_CONFIG, categoryColor } from "@/lib/records/config";
+import { categoryColor } from "@/lib/records/config";
+import { CategoryIcon } from "@/components/CategoryIcon";
 import { Button, EmptyState, ResultModal, Screen } from "@/components/ui";
 
 /**
@@ -185,7 +186,6 @@ function GroupCard({
 }) {
   const { th, dark } = useTheme();
   const { t } = useTranslation();
-  const cfg = RECORD_TYPE_CONFIG[g.type];
   const accent = categoryColor(g.type, dark);
   const scoreColor = g.score >= 90 ? "#15803D" : g.score >= 70 ? "#A86A17" : th.textMuted;
 
@@ -193,7 +193,7 @@ function GroupCard({
     <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
       <View style={styles.headerRow}>
         <View style={[styles.catChip, { backgroundColor: accent + "22" }]}>
-          <Ionicons name={cfg.icon} size={13} color={accent} />
+          <CategoryIcon type={g.type} size={14} color={accent} />
           <Text style={[styles.catText, { color: accent }]}>{t(`types.${g.type}.label`)}</Text>
         </View>
         <View style={[styles.scoreBadge, { backgroundColor: scoreColor + "22" }]}>
