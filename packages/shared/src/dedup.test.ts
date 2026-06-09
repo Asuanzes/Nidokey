@@ -48,14 +48,28 @@ test("libros: misma obra (workId) y MISMO idioma agrupa aunque difiera el títul
     book("b", { workId: "OL45804W", title: "Cien años de soledad (edición conmemorativa)" }),
   ]);
   assert.equal(groups.length, 1);
-  assert.ok(groups[0].reasons.includes("Misma obra (Open Library)"));
+  assert.ok(groups[0].reasons.includes("Misma obra"));
+  assert.equal(groups[0].crossLanguage, false);
 });
 
-test("libros: gate de idioma manda — misma obra/traducción en idioma distinto NO agrupa", () => {
-  // El usuario lee en español y puede querer original + traducción por separado.
+test("libros: misma obra (workId) en idioma distinto SÍ agrupa, marcada crossLanguage", () => {
+  // Decisión 787cb60: la IDENTIDAD de obra (ISBN/workId) agrupa ENTRE idiomas
+  // (es el mismo libro); el gate de idioma solo limita el difuso por título.
+  // La UI ve crossLanguage=true y PREGUNTA antes de fusionar (el usuario puede
+  // querer original + traducción por separado → descarta el par).
   const groups = findDuplicateGroups([
     book("a", { workId: "OL45804W", language: "es", title: "Cien años de soledad" }),
     book("b", { workId: "OL45804W", language: "en", title: "One Hundred Years of Solitude" }),
+  ]);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].crossLanguage, true);
+});
+
+test("libros: difuso por título queda limitado al MISMO idioma (sin ISBN/workId)", () => {
+  // Sin clave de identidad, títulos distintos en idiomas distintos no agrupan.
+  const groups = findDuplicateGroups([
+    book("a", { language: "es", title: "Cien años de soledad" }),
+    book("b", { language: "en", title: "One Hundred Years of Solitude" }),
   ]);
   assert.equal(groups.length, 0);
 });

@@ -44,24 +44,33 @@ function pickStatus(statuses: Array<string | null>, rank: (s: string | null) => 
   return best;
 }
 
-/** Rellena los campos NULL del `book` base con los de los donantes (no degrada). */
-function fillBook(base: Book | undefined, donors: Array<Book | undefined>): Book | undefined {
+/** Rellena los campos NULL/vacíos del `book` base con los de los donantes (no
+ *  degrada: nunca pisa un valor existente). Los arrays (authors/categories/tags)
+ *  solo se toman del donante si el base los tiene VACÍOS — `??` no les aplica.
+ *  Exportada para test (puro, sin Prisma). */
+export function fillBook(base: Book | undefined, donors: Array<Book | undefined>): Book | undefined {
   if (!base) return donors.find((d): d is Book => !!d);
   let out: Book = { ...base };
   for (const d of donors) {
     if (!d) continue;
     out = {
       ...out,
+      subtitle: out.subtitle ?? d.subtitle ?? null,
+      authors: out.authors?.length ? out.authors : d.authors ?? [],
       description: out.description ?? d.description ?? null,
       averageRating: out.averageRating ?? d.averageRating ?? null,
       ratingsCount: out.ratingsCount ?? d.ratingsCount ?? null,
       isbn13: out.isbn13 ?? d.isbn13 ?? null,
       isbn10: out.isbn10 ?? d.isbn10 ?? null,
       language: out.language ?? d.language ?? null,
+      regionHint: out.regionHint ?? d.regionHint ?? null,
       publisher: out.publisher ?? d.publisher ?? null,
       pageCount: out.pageCount ?? d.pageCount ?? null,
       publishedYear: out.publishedYear ?? d.publishedYear ?? null,
       publishedDate: out.publishedDate ?? d.publishedDate ?? null,
+      detailUrl: out.detailUrl ?? d.detailUrl ?? null,
+      categories: out.categories?.length ? out.categories : d.categories ?? [],
+      tags: out.tags?.length ? out.tags : d.tags ?? [],
       externalIds: { ...(d.externalIds ?? {}), ...(out.externalIds ?? {}) },
     };
   }
@@ -108,12 +117,46 @@ export async function mergeRecords(
         if (book) book = { ...book, imageUrls: donorImgs ?? { thumbnail: imageUrl, large: imageUrl } };
       }
     }
-    if (book) meta.book = book;
+    if (book) {
+      meta.book = book;
+      // Denormalizados de meta: se refrescan desde el book fusionado (pueden
+      // haber ganado autores/ISBN de un donante — p. ej. Fnac sin autor + Google
+      // con autor). La lista agrupa por autor (B7): sin esto, el hueco persiste.
+      if (book.authors?.length) meta.authors = book.authors.join(", ");
+      if (book.isbn13) meta.isbn13 = book.isbn13;
+    }
     const notes = concatNotes(rows.map((r) => r.meta as Record<string, unknown> | null));
     if (notes) meta.userNotes = notes;
 
+    // Columnas denormalizadas de la fila: mismo criterio que el resto de tipos
+    // (keep primero, donante si el keep no tenía; el book fusionado de respaldo).
+    const authorsCol =
+      keep.authors ??
+      rows.map((r) => r.authors).find(Boolean) ??
+      (book?.authors?.length ? book.authors.join(", ") : null);
+    const subtitleCol =
+      keep.subtitle ??
+      rows.map((r) => r.subtitle).find(Boolean) ??
+      (book ? [book.authors[0], book.publishedYear].filter(Boolean).join(" · ") || null : null);
+    const isbn13Col = keep.isbn13 ?? rows.map((r) => r.isbn13).find(Boolean) ?? book?.isbn13 ?? null;
+    const ratingCol =
+      keep.currentValue ??
+      rows.map((r) => r.currentValue).find((v) => v != null) ??
+      (book?.averageRating != null ? Math.round(book.averageRating * 100) : null);
+
     const [updated, del] = await prisma.$transaction([
-      prisma.bookRecord.update({ where: { id: keep.id }, data: { status, imageUrl, meta: meta as object } }),
+      prisma.bookRecord.update({
+        where: { id: keep.id },
+        data: {
+          status,
+          imageUrl,
+          authors: authorsCol,
+          subtitle: subtitleCol,
+          isbn13: isbn13Col,
+          currentValue: ratingCol,
+          meta: meta as object,
+        },
+      }),
       prisma.bookRecord.deleteMany({ where: { id: { in: drops }, ownerId } }),
     ]);
     return { ok: true, record: bookToBaseRecord(updated), deleted: del.count };
