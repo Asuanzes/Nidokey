@@ -2,6 +2,7 @@ import { Slot, Link, usePathname } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { SvgXml } from "react-native-svg";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -9,6 +10,7 @@ import { api, ApiError } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
 import { useDuplicatesChanged } from "@/lib/dup-signal";
+import { TAB_ICON_SVG, type TabIconKey } from "@/lib/ui-icons";
 
 /**
  * Navegación principal: una sola barra de pestañas con los 5 destinos clave.
@@ -50,21 +52,19 @@ export default function TabsLayout() {
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : !!pathname?.startsWith(href);
 
-  const filled = (icon: IconName): IconName =>
-    icon.replace(/-outline$/, "") as IconName;
-
   const TABS: {
     href: string;
     label: string;
-    icon: IconName;
+    icon?: IconName;
+    svg?: TabIconKey;
     badge?: number;
     primary?: boolean;
   }[] = [
-    { href: "/",         label: t("tabs.records"),    icon: "albums-outline" },
-    { href: "/search",   label: t("tabs.search"),     icon: "search-outline" },
+    { href: "/",         label: t("tabs.records"),    svg: "records" },
+    { href: "/search",   label: t("tabs.search"),     svg: "search" },
     { href: "/importar", label: t("tabs.import"),     icon: "add", primary: true },
-    { href: "/matches",  label: t("tabs.duplicates"), icon: "sparkles-outline", badge: dupCount || undefined },
-    { href: "/account",  label: t("tabs.account"),    icon: "person-outline" },
+    { href: "/matches",  label: t("tabs.duplicates"), svg: "duplicates", badge: dupCount || undefined },
+    { href: "/account",  label: t("tabs.account"),    svg: "account" },
   ];
 
   return (
@@ -96,7 +96,7 @@ export default function TabsLayout() {
                         { backgroundColor: FAB_BG, opacity: pressed ? 0.9 : 1 },
                       ]}
                     >
-                      <Ionicons name={tab.icon} size={30} color={FAB_FG} />
+                      <Ionicons name={tab.icon ?? "add"} size={30} color={FAB_FG} />
                     </View>
                   )}
                 </Pressable>
@@ -109,7 +109,7 @@ export default function TabsLayout() {
             <Link key={tab.href} href={tab.href as never} asChild>
               <Pressable style={styles.tabItem} accessibilityLabel={tab.label}>
                 <View style={styles.iconWrap}>
-                  <Ionicons name={active ? filled(tab.icon) : tab.icon} size={24} color={color} />
+                  <SvgXml xml={TAB_ICON_SVG[tab.svg!]} width={24} height={24} color={color} />
                   {tab.badge ? (
                     <View style={[styles.badge, { backgroundColor: th.dangerFg }]}>
                       <Text style={styles.badgeText}>{tab.badge}</Text>

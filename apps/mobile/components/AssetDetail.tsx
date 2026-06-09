@@ -445,5 +445,5 @@ const styles = StyleSheet.create({
   statRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 11 },
   statKey: { fontSize: 13 },
   statVal: { fontSize: 13, fontFamily: fonts.bodySemibold },
-  brandFooter: { textAlign: "center", fontSize: 11, letterSpacing: 1, marginTop: 14, marginBottom: 2 },
+  brandFooter: { textAlign: "center", fontSize: 11, letterSpacing: 1, marginTop: 14, marginBottom: 2, paddingHorizontal: 2 },
 });

@@ -27,7 +27,7 @@ export function DuplicateRootNotice() {
         gap: 12,
       }}
     >
-      <Text style={{ fontSize: 13, fontFamily: fonts.bodyBold, letterSpacing: 3, color: th.textMuted }}>
+      <Text style={{ fontSize: 13, fontFamily: fonts.bodyBold, letterSpacing: 3, color: th.textMuted, paddingHorizontal: 4 }}>
         NIDOKEY
       </Text>
       <Text style={{ fontSize: 15, lineHeight: 22, textAlign: "center", color: th.text }}>

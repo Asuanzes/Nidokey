@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   header: { marginHorizontal: 12, marginTop: 10, marginBottom: 8, gap: 4 },
   headerCard: { borderRadius: 12, borderWidth: 1, padding: 16 },
-  brandFooter: { fontSize: 11, letterSpacing: 1, textAlign: "center", marginTop: 8 },
+  brandFooter: { fontSize: 11, letterSpacing: 1, textAlign: "center", marginTop: 8, paddingHorizontal: 2 },
   title: { fontSize: 18, fontFamily: fonts.bodyBold, lineHeight: 23 },
   meta: { fontSize: 12 },
   summary: { fontSize: 13, lineHeight: 19, marginTop: 4 },
