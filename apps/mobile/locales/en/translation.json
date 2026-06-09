@@ -84,8 +84,7 @@
     "merge_error": "Couldn't complete"
   },
   "types": {
-    "property": { "label": "Properties", "singular": "Property" },
-    "renting": { "label": "Rentals", "singular": "Rental" },
+    "property": { "label": "Properties & Rentals", "singular": "Property" },
     "holiday": { "label": "Trips", "singular": "Trip" },
     "crypto": { "label": "Crypto", "singular": "Crypto" },
     "market": { "label": "Markets", "singular": "Market" },

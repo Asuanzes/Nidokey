@@ -16,9 +16,10 @@ import type { BaseRecord, RecordType } from "@nidokey/shared";
 
 import { api } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
+import { fonts } from "@/lib/fonts";
 import { useQuery } from "@/lib/hooks/useQuery";
 import { notifyDuplicatesChanged } from "@/lib/dup-signal";
-import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
+import { RECORD_TYPE_CONFIG, categoryColor } from "@/lib/records/config";
 import { Button, EmptyState, ResultModal, Screen } from "@/components/ui";
 
 /**
@@ -182,17 +183,18 @@ function GroupCard({
   onMerge: () => void;
   onDismiss: () => void;
 }) {
-  const { th } = useTheme();
+  const { th, dark } = useTheme();
   const { t } = useTranslation();
   const cfg = RECORD_TYPE_CONFIG[g.type];
+  const accent = categoryColor(g.type, dark);
   const scoreColor = g.score >= 90 ? "#15803D" : g.score >= 70 ? "#A86A17" : th.textMuted;
 
   return (
     <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
       <View style={styles.headerRow}>
-        <View style={[styles.catChip, { backgroundColor: cfg.color + "22" }]}>
-          <Ionicons name={cfg.icon} size={13} color={cfg.color} />
-          <Text style={[styles.catText, { color: cfg.color }]}>{t(`types.${g.type}.label`)}</Text>
+        <View style={[styles.catChip, { backgroundColor: accent + "22" }]}>
+          <Ionicons name={cfg.icon} size={13} color={accent} />
+          <Text style={[styles.catText, { color: accent }]}>{t(`types.${g.type}.label`)}</Text>
         </View>
         <View style={[styles.scoreBadge, { backgroundColor: scoreColor + "22" }]}>
           <Text style={[styles.scoreText, { color: scoreColor }]}>{g.score}%</Text>
@@ -251,16 +253,16 @@ const styles = StyleSheet.create({
   card: { borderRadius: 10, padding: 12, borderWidth: 1, marginBottom: 10, gap: 10 },
   headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   catChip: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
-  catText: { fontSize: 12, fontWeight: "700" },
+  catText: { fontSize: 12, fontFamily: fonts.bodyBold },
   scoreBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 },
-  scoreText: { fontSize: 12, fontWeight: "700" },
+  scoreText: { fontSize: 12, fontFamily: fonts.bodyBold },
   reasons: { fontSize: 11, marginTop: -2 },
   langFlag: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
-  langFlagText: { fontSize: 11, fontWeight: "600" },
+  langFlagText: { fontSize: 11, fontFamily: fonts.bodySemibold },
   tiles: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   tile: { width: "30%", minWidth: 92, gap: 4 },
   tileImage: { width: "100%", aspectRatio: 3 / 4, borderRadius: 6 },
-  tileTitle: { fontSize: 12, fontWeight: "500" },
+  tileTitle: { fontSize: 12, fontFamily: fonts.bodyMedium },
   tileMeta: { fontSize: 11 },
   actions: { flexDirection: "row", gap: 8, marginTop: 2 },
   action: { flex: 1 },

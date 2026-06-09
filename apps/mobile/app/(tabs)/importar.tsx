@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { fonts } from "@/lib/fonts";
 import {
   ActivityIndicator,
   Pressable,
@@ -661,7 +662,7 @@ export default function ImportarScreen() {
                             <Text style={[styles.resultMeta, { color: th.textMuted }]} numberOfLines={1}>
                               {jm.contract ?? ""}
                               {jm.salary ? (
-                                <Text style={{ color: th.accent, fontWeight: "700" }}>
+                                <Text style={{ color: th.accent, fontFamily: fonts.bodyBold }}>
                                   {jm.contract ? " · " : ""}
                                   {jm.salary}
                                 </Text>
@@ -963,23 +964,23 @@ const styles = StyleSheet.create({
   content: { padding: 16, gap: 12, paddingBottom: 32 },
   typeRow: { gap: 6, paddingBottom: 4 },
   typeItem: { width: 46, height: 46, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  heading: { fontSize: 16, fontWeight: "700" },
+  heading: { fontSize: 16, fontFamily: fonts.bodyBold },
   input: { height: 48, borderRadius: 10, borderWidth: 1, paddingHorizontal: 14, fontSize: 14 },
   inputMultiline: { height: undefined, minHeight: 80, paddingVertical: 10, textAlignVertical: "top" },
-  infoText: { fontSize: 14, fontWeight: "500" },
+  infoText: { fontSize: 14, fontFamily: fonts.bodyMedium },
   infoSub: { fontSize: 12, lineHeight: 16, marginTop: 6 },
   loadingRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  loadingText: { fontSize: 14, fontWeight: "600" },
+  loadingText: { fontSize: 14, fontFamily: fonts.bodySemibold },
   progressTrack: { height: 6, borderRadius: 999, overflow: "hidden", marginTop: 12 },
   progressFill: { height: 6, borderRadius: 999, minWidth: 6 },
-  resultText: { fontSize: 14, fontWeight: "500" },
+  resultText: { fontSize: 14, fontFamily: fonts.bodyMedium },
   manualToggle: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 2 },
-  manualToggleText: { fontSize: 14, fontWeight: "600" },
+  manualToggleText: { fontSize: 14, fontFamily: fonts.bodySemibold },
   manualForm: { gap: 10 },
   coverThumb: { width: 56, height: 84, borderRadius: 6, backgroundColor: "#00000010" },
   coverCheck: { position: "absolute", top: 2, right: 2, borderRadius: 999, backgroundColor: "#fff" },
   remoteToggle: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 2 },
-  remoteLabel: { fontSize: 13, fontWeight: "500" },
+  remoteLabel: { fontSize: 13, fontFamily: fonts.bodyMedium },
   sourcesRow: { flexDirection: "row", gap: 8 },
   sourceChip: {
     flex: 1,
@@ -991,7 +992,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
   },
-  sourceChipText: { fontSize: 13, fontWeight: "600" },
+  sourceChipText: { fontSize: 13, fontFamily: fonts.bodySemibold },
   results: { gap: 8 },
   resultRow: {
     flexDirection: "row",
@@ -1003,11 +1004,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   resultInfo: { flex: 1 },
-  resultName: { fontSize: 14, fontWeight: "600" },
+  resultName: { fontSize: 14, fontFamily: fonts.bodySemibold },
   resultMeta: { fontSize: 12, marginTop: 2 },
   errorText: { fontSize: 13 },
   retry: { marginTop: 6 },
   hintBox: { marginTop: "auto" },
-  hintTitle: { fontSize: 12, fontWeight: "600", marginBottom: 4 },
+  hintTitle: { fontSize: 12, fontFamily: fonts.bodySemibold, marginBottom: 4 },
   hintText: { fontSize: 12, lineHeight: 18 },
 });

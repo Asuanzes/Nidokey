@@ -26,8 +26,12 @@ export type RecordTypeConfig = {
   label: string;
   /** Etiqueta singular para cabeceras de detalle (ej. "Inmueble"). */
   singular: string;
-  /** Color de acento del tipo. */
+  /** Color de acento del tipo (sobre fondo claro). */
   color: string;
+  /** Variante aclarada para legibilidad como glifo/texto sobre fondo oscuro
+   *  (#262320). Si falta, se usa `color`. Resuélvelo con `categoryColor(type, dark)`.
+   *  Para FONDOS rellenos con texto blanco usa `color` (no esta variante). */
+  colorDark?: string;
   icon: keyof typeof Ionicons.glyphMap;
   /** Si el tipo está implementado de extremo a extremo (lectura/lista). */
   enabled: boolean;
@@ -44,17 +48,27 @@ export type RecordTypeConfig = {
 };
 
 export const RECORD_TYPE_CONFIG: Record<RecordType, RecordTypeConfig> = {
-  property: { label: "Inmuebles",  singular: "Inmueble",  color: "#3A5F8A", icon: "home-outline",         enabled: true,  addMode: "url",    addPlaceholder: "https://www.idealista.com/…" },
-  renting:  { label: "Alquiler",   singular: "Alquiler",  color: "#7A5BA6", icon: "key-outline",          enabled: false, addMode: "soon",   addPlaceholder: "" },
-  holiday:  { label: "Viajes",     singular: "Viaje",     color: "#2C7A8A", icon: "airplane-outline",     enabled: true,  addMode: "wizard", addPlaceholder: "" },
-  crypto:   { label: "Criptos",    singular: "Cripto",    color: "#B87333", icon: "logo-bitcoin",         enabled: true,  addMode: "symbol", addPlaceholder: "BTC, ETH, SOL…" },
-  market:   { label: "Markets",    singular: "Mercado",   color: "#2D6A4F", icon: "trending-up-outline",  enabled: true,  addMode: "search", addPlaceholder: "Busca: sxr8, apple, vaneck space…" },
-  job:      { label: "Empleos",    singular: "Empleo",    color: "#A86A17", icon: "briefcase-outline",    enabled: true,  addMode: "search", addPlaceholder: "Busca: react, enfermero/a, comercial…", searchOnSubmit: true },
-  workout:  { label: "Entrenos",   singular: "Producto",  color: "#A23E3E", icon: "barbell-outline",      enabled: false, addMode: "soon",   addPlaceholder: "" },
-  chat:     { label: "Chat",       singular: "Chat",      color: "#3A7BD5", icon: "chatbubbles-outline",  enabled: false, addMode: "soon",   addPlaceholder: "" },
-  book:     { label: "Libros",     singular: "Libro",     color: "#6B4FA0", icon: "book-outline",         enabled: true,  addMode: "search", addPlaceholder: "Busca: sapiens, el principito, padre rico…", searchOnSubmit: true },
+  property: { label: "Inmuebles y Alquiler", singular: "Inmueble", color: "#3A5F8A", colorDark: "#6E93C0", icon: "home-outline",         enabled: true,  addMode: "url",    addPlaceholder: "https://www.idealista.com/…" },
+  holiday:  { label: "Viajes",     singular: "Viaje",     color: "#2C7A8A", colorDark: "#5FAEBE", icon: "airplane-outline",     enabled: true,  addMode: "wizard", addPlaceholder: "" },
+  crypto:   { label: "Criptos",    singular: "Cripto",    color: "#B5893B", colorDark: "#D4A95A", icon: "logo-bitcoin",         enabled: true,  addMode: "symbol", addPlaceholder: "BTC, ETH, SOL…" },
+  market:   { label: "Markets",    singular: "Mercado",   color: "#2D6A4F", colorDark: "#5FA383", icon: "trending-up-outline",  enabled: true,  addMode: "search", addPlaceholder: "Busca: sxr8, apple, vaneck space…" },
+  job:      { label: "Empleos",    singular: "Empleo",    color: "#A86A17", colorDark: "#D29A4A", icon: "briefcase-outline",    enabled: true,  addMode: "search", addPlaceholder: "Busca: react, enfermero/a, comercial…", searchOnSubmit: true },
+  workout:  { label: "Entrenos",   singular: "Producto",  color: "#A23E3E", colorDark: "#CF7059", icon: "barbell-outline",      enabled: false, addMode: "soon",   addPlaceholder: "" },
+  chat:     { label: "Chat",       singular: "Chat",      color: "#6C5A9C", colorDark: "#8B79C4", icon: "chatbubbles-outline",  enabled: false, addMode: "soon",   addPlaceholder: "" },
+  book:     { label: "Libros",     singular: "Libro",     color: "#8C4A52", colorDark: "#B86575", icon: "book-outline",         enabled: true,  addMode: "search", addPlaceholder: "Busca: sapiens, el principito, padre rico…", searchOnSubmit: true },
 };
 
 export function recordTypeConfig(type: RecordType): RecordTypeConfig {
   return RECORD_TYPE_CONFIG[type];
+}
+
+/**
+ * Color de acento del tipo resuelto para el tema activo. En oscuro usa
+ * `colorDark` (aclarado para legibilidad de glifo/texto sobre #262320); en claro
+ * usa `color`. Para FONDOS rellenos con texto blanco usa `color` directamente
+ * (la variante clara empeoraría el contraste del texto blanco).
+ */
+export function categoryColor(type: RecordType, dark: boolean): string {
+  const cfg = RECORD_TYPE_CONFIG[type];
+  return dark && cfg.colorDark ? cfg.colorDark : cfg.color;
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { fonts } from "@/lib/fonts";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -148,7 +149,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   iconText: { fontSize: 28 },
-  title: { fontSize: 18, fontWeight: "600", color: "#1a1a1a" },
+  title: { fontSize: 18, fontFamily: fonts.bodySemibold, color: "#1a1a1a" },
   card: {
     backgroundColor: "#fff",
     borderRadius: 12,
@@ -157,7 +158,7 @@ const styles = StyleSheet.create({
     borderColor: "#e5e5e5",
     gap: 12,
   },
-  heading: { fontSize: 18, fontWeight: "600", color: "#1a1a1a" },
+  heading: { fontSize: 18, fontFamily: fonts.bodySemibold, color: "#1a1a1a" },
   sub: { fontSize: 13, color: "#666", marginBottom: 8 },
   input: {
     height: 44,
@@ -174,7 +175,6 @@ const styles = StyleSheet.create({
     fontFamily: Platform.select({ ios: "Menlo", android: "monospace" }),
     letterSpacing: 8,
     textAlign: "center",
-    fontWeight: "600",
   },
   cta: { marginTop: 4 },
   error: { fontSize: 12, color: "#B91C1C" },

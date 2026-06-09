@@ -5,6 +5,7 @@ import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { router } from "expo-router";
 
 import { useTheme } from "@/lib/theme";
+import { fonts } from "@/lib/fonts";
 import { useNews } from "@/lib/hooks/useNews";
 import { newsItemToArticle } from "@/lib/article";
 
@@ -180,7 +181,7 @@ const styles = StyleSheet.create({
   itemSource: { fontSize: 11, flex: 1 },
   chip: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5 },
   chipText: { fontSize: 10, fontWeight: "800", color: "#fff" },
-  itemTitle: { fontSize: 16, fontWeight: "700", lineHeight: 21 },
+  itemTitle: { fontSize: 16, fontFamily: fonts.bodyBold, lineHeight: 21 },
   itemSummary: { fontSize: 13, lineHeight: 18, marginTop: 4 },
   itemTime: { fontSize: 11, marginTop: 6 },
 });

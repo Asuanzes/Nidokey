@@ -216,7 +216,7 @@ const symbolDescriptor: DedupDescriptor = (a, b) => {
   return null;
 };
 
-/** Por defecto (tipos sin descriptor propio, p.ej. futuros renting/holiday/workout):
+/** Por defecto (tipos sin descriptor propio, p.ej. futuros holiday/workout):
  *  solo título prácticamente idéntico. Refinar al desarrollar la vertical. */
 const defaultDescriptor: DedupDescriptor = (a, b) => {
   if (titleSim(a.title, b.title) >= 0.95) return { score: 85, reasons: ["Mismo título"] };

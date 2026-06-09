@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { fonts } from "@/lib/fonts";
 import {
   ActivityIndicator,
   Linking,
@@ -429,20 +430,20 @@ const styles = StyleSheet.create({
   name: { fontSize: 14, marginTop: 1 },
   divider: { height: 1, marginVertical: 14 },
   priceBlock: { gap: 3 },
-  price: { fontSize: 30, fontWeight: "700" },
-  changeBig: { fontSize: 16, fontWeight: "600" },
+  price: { fontSize: 30, fontFamily: fonts.bodyBold },
+  changeBig: { fontSize: 16, fontFamily: fonts.bodySemibold },
   subMuted: { fontSize: 13, marginTop: 2 },
   pills: { gap: 6, paddingVertical: 16 },
   pill: { paddingHorizontal: 14, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  pillText: { fontSize: 14, fontWeight: "700" },
+  pillText: { fontSize: 14, fontFamily: fonts.bodyBold },
   scrubRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4 },
   scrubDate: { fontSize: 11 },
-  scrubPrice: { fontSize: 13, fontWeight: "600" },
+  scrubPrice: { fontSize: 13, fontFamily: fonts.bodySemibold },
   noChart: { alignItems: "center", justifyContent: "center" },
   chartSpinner: { position: "absolute", top: 6, right: 6 },
   statsCard: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 4, marginTop: 20 },
   statRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 11 },
   statKey: { fontSize: 13 },
-  statVal: { fontSize: 13, fontWeight: "600" },
+  statVal: { fontSize: 13, fontFamily: fonts.bodySemibold },
   brandFooter: { textAlign: "center", fontSize: 11, letterSpacing: 1, marginTop: 14, marginBottom: 2 },
 });

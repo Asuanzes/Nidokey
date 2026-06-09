@@ -2,6 +2,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useTheme } from "@/lib/theme";
+import { fonts } from "@/lib/fonts";
 import { Button } from "./Button";
 
 /**
@@ -47,6 +48,6 @@ export function EmptyState({
 
 const styles = StyleSheet.create({
   wrap: { alignItems: "center", justifyContent: "center", padding: 32, gap: 8 },
-  title: { fontSize: 15, fontWeight: "600", marginTop: 4 },
-  desc: { fontSize: 13, textAlign: "center", lineHeight: 18 },
+  title: { fontSize: 15, fontFamily: fonts.bodySemibold, marginTop: 4 },
+  desc: { fontSize: 13, textAlign: "center", lineHeight: 18, fontFamily: fonts.body },
 });

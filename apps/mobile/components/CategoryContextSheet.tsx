@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useTheme } from "@/lib/theme";
+import { fonts } from "@/lib/fonts";
 import type { ToolDef } from "@/lib/records/tools";
 
 /**
@@ -121,7 +122,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: fonts.bodyBold,
     paddingHorizontal: 4,
     marginBottom: 8,
   },
@@ -141,6 +142,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   rowText: { flex: 1 },
-  rowLabel: { fontSize: 15, fontWeight: "500" },
+  rowLabel: { fontSize: 15, fontFamily: fonts.bodyMedium },
   rowHint: { fontSize: 12, marginTop: 1 },
 });

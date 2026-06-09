@@ -14,6 +14,7 @@ import { type BaseRecord, metaField } from "@nidokey/shared";
 import { api } from "@/lib/api";
 import { useRecord } from "@/lib/hooks/useRecord";
 import { useTheme } from "@/lib/theme";
+import { fonts } from "@/lib/fonts";
 import { provinceImage } from "@/lib/records/province-images";
 import { ShareOpenActions } from "@/components/ShareOpenActions";
 
@@ -149,14 +150,14 @@ const styles = StyleSheet.create({
   content: { padding: 16, gap: 6, paddingBottom: 40 },
   banner: { width: "100%", height: 150, borderRadius: 12 },
   bannerCaption: { fontSize: 10, textAlign: "right", marginTop: -2 },
-  title: { fontSize: 20, fontWeight: "700" },
+  title: { fontSize: 20, fontFamily: fonts.bodyBold },
   sub: { fontSize: 14, marginTop: 2 },
-  salary: { fontSize: 18, fontWeight: "700", marginTop: 8 },
+  salary: { fontSize: 18, fontFamily: fonts.bodyBold, marginTop: 8 },
   card: { borderWidth: 1, borderRadius: 10, padding: 14, marginTop: 12 },
   row: { flexDirection: "row", justifyContent: "space-between", gap: 12, paddingVertical: 5 },
   rowKey: { fontSize: 13 },
-  rowVal: { fontSize: 13, fontWeight: "600", flexShrink: 1, textAlign: "right" },
-  descTitle: { fontSize: 12, fontWeight: "600", marginBottom: 6 },
+  rowVal: { fontSize: 13, fontFamily: fonts.bodySemibold, flexShrink: 1, textAlign: "right" },
+  descTitle: { fontSize: 12, fontFamily: fonts.bodySemibold, marginBottom: 6 },
   descText: { fontSize: 14, lineHeight: 20 },
   actions: { alignSelf: "flex-end", marginTop: 14 },
 });

@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { formatMoney } from "@nidokey/shared";
 import { api } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
+import { fonts } from "@/lib/fonts";
 import { Button } from "@/components/ui";
 
 /**
@@ -174,16 +175,16 @@ export function HotelDetailModal({
                 style={[styles.roomRow, { backgroundColor: th.surface, borderColor: th.border }]}
               >
                 <View style={styles.flex}>
-                  <Text style={{ color: th.text, fontWeight: "600" }} numberOfLines={2}>
+                  <Text style={{ color: th.text, fontFamily: fonts.bodySemibold }} numberOfLines={2}>
                     {room.name}
                   </Text>
                   {room.board ? <Text style={{ color: th.textSubtle, fontSize: 12 }}>{room.board}</Text> : null}
                 </View>
                 <View style={{ alignItems: "flex-end" }}>
-                  <Text style={{ color: th.accent, fontWeight: "700" }}>
+                  <Text style={{ color: th.accent, fontFamily: fonts.bodyBold }}>
                     {formatMoney(room.priceCents, room.currency)}
                   </Text>
-                  <Text style={{ color: th.accent, fontSize: 12, fontWeight: "600" }}>Elegir</Text>
+                  <Text style={{ color: th.accent, fontSize: 12, fontFamily: fonts.bodySemibold }}>Elegir</Text>
                 </View>
               </Pressable>
             ))}
@@ -228,15 +229,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerBtn: { width: 32, alignItems: "center" },
-  headerTitle: { flex: 1, fontSize: 16, fontWeight: "700", textAlign: "center" },
+  headerTitle: { flex: 1, fontSize: 16, fontFamily: fonts.bodyBold, textAlign: "center" },
   content: { padding: 16, gap: 14, paddingBottom: 28 },
   center: { paddingVertical: 24, alignItems: "center" },
   flex: { flex: 1 },
   gallery: { gap: 8 },
   photo: { width: 260, height: 170, borderRadius: 12, backgroundColor: "#00000010" },
-  name: { fontSize: 18, fontWeight: "700" },
+  name: { fontSize: 18, fontFamily: fonts.bodyBold },
   desc: { fontSize: 13, lineHeight: 20 },
-  sectionTitle: { fontSize: 15, fontWeight: "700" },
+  sectionTitle: { fontSize: 15, fontFamily: fonts.bodyBold },
   chipsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   amenityChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
   roomRow: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: 10, padding: 12 },

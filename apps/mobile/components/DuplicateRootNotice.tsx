@@ -1,5 +1,6 @@
 import { Appearance, Text, View } from "react-native";
 
+import { fonts } from "@/lib/fonts";
 import { T, TD } from "@/lib/theme";
 
 /**
@@ -26,7 +27,7 @@ export function DuplicateRootNotice() {
         gap: 12,
       }}
     >
-      <Text style={{ fontSize: 13, fontWeight: "700", letterSpacing: 3, color: th.textMuted }}>
+      <Text style={{ fontSize: 13, fontFamily: fonts.bodyBold, letterSpacing: 3, color: th.textMuted }}>
         NIDOKEY
       </Text>
       <Text style={{ fontSize: 15, lineHeight: 22, textAlign: "center", color: th.text }}>

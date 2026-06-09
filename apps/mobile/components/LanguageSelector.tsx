@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import { useTheme } from "@/lib/theme";
+import { fonts } from "@/lib/fonts";
 import { useLanguage } from "@/lib/i18n/language-context";
 import { LANGUAGES } from "@/lib/i18n/languages";
 
@@ -114,8 +115,8 @@ const styles = StyleSheet.create({
   },
   flex: { flex: 1 },
   flag: { fontSize: 22 },
-  title: { fontSize: 15, fontWeight: "600" },
+  title: { fontSize: 15, fontFamily: fonts.bodySemibold },
   subtitle: { fontSize: 12, marginTop: 1 },
   badge: { alignSelf: "flex-start", marginTop: 4, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
-  badgeText: { fontSize: 10, fontWeight: "600" },
+  badgeText: { fontSize: 10, fontFamily: fonts.bodySemibold },
 });

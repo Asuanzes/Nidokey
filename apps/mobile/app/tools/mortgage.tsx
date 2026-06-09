@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 
 import { useTheme } from "@/lib/theme";
+import { fonts } from "@/lib/fonts";
 import { Card } from "@/components/ui";
 
 /**
@@ -119,7 +120,7 @@ const styles = StyleSheet.create({
   content: { padding: 12, paddingBottom: 32 },
   card: { marginBottom: 12 },
   field: { marginBottom: 12 },
-  fieldLabel: { fontSize: 12, fontWeight: "500", marginBottom: 6 },
+  fieldLabel: { fontSize: 12, fontFamily: fonts.bodyMedium, marginBottom: 6 },
   inputWrap: {
     flexDirection: "row",
     alignItems: "center",
@@ -129,9 +130,9 @@ const styles = StyleSheet.create({
     height: 44,
   },
   input: { flex: 1, fontSize: 15, paddingVertical: 0 },
-  suffix: { fontSize: 13, fontWeight: "500", marginLeft: 8 },
-  resultLabel: { fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 },
-  resultValue: { fontSize: 32, fontWeight: "700", marginTop: 6 },
+  suffix: { fontSize: 13, fontFamily: fonts.bodyMedium, marginLeft: 8 },
+  resultLabel: { fontSize: 12, fontFamily: fonts.bodySemibold, textTransform: "uppercase", letterSpacing: 0.5 },
+  resultValue: { fontSize: 32, fontFamily: fonts.bodyBold, marginTop: 6 },
   resultSub: { fontSize: 12, marginTop: 2 },
   summaryRow: {
     flexDirection: "row",

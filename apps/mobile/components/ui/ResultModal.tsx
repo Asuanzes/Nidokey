@@ -2,6 +2,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useTheme } from "@/lib/theme";
+import { fonts } from "@/lib/fonts";
 import { Button } from "./Button";
 
 /**
@@ -110,9 +111,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   iconCircle: { width: 60, height: 60, borderRadius: 999, alignItems: "center", justifyContent: "center" },
-  title: { fontSize: 18, fontWeight: "700", textAlign: "center" },
+  title: { fontSize: 18, fontFamily: fonts.bodyBold, textAlign: "center" },
   message: { fontSize: 14, lineHeight: 20, textAlign: "center" },
   detailBox: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, alignSelf: "stretch" },
-  detailText: { fontSize: 13, fontWeight: "600", textAlign: "center" },
+  detailText: { fontSize: 13, fontFamily: fonts.bodySemibold, textAlign: "center" },
   actions: { alignSelf: "stretch", gap: 8, marginTop: 6 },
 });

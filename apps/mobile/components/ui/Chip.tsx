@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useTheme } from "@/lib/theme";
+import { fonts } from "@/lib/fonts";
 
 /**
  * Pill seleccionable. Pensado para los filtros por tipo de registro
@@ -38,7 +39,7 @@ export function Chip({ label, selected = false, onPress, icon, color }: Props) {
       ]}
     >
       {icon && <Ionicons name={icon} size={14} color={fg} />}
-      <Text style={[styles.label, { color: fg }]}>{label}</Text>
+      <Text numberOfLines={1} style={[styles.label, { color: fg }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -53,5 +54,5 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     borderWidth: 1,
   },
-  label: { fontSize: 13, fontWeight: "500" },
+  label: { fontSize: 13, fontFamily: fonts.bodyMedium },
 });

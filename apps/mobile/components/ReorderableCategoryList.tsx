@@ -15,6 +15,7 @@ import type { RecordType } from "@nidokey/shared";
 import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
 import { useTypeI18n } from "@/lib/records/type-i18n";
 import { useTheme } from "@/lib/theme";
+import { fonts } from "@/lib/fonts";
 
 /**
  * Lista de CATEGORÍAS reordenable por arrastre + toggle de visibilidad (ojo).
@@ -180,7 +181,7 @@ function Row({
             color={muted ? th.textSubtle : th.accent}
             style={styles.catIcon}
           />
-          <Text style={[styles.label, { color: muted ? th.textSubtle : th.text }]}>
+          <Text numberOfLines={1} style={[styles.label, { color: muted ? th.textSubtle : th.text }]}>
             {label(id)}
           </Text>
           <Pressable onPress={() => onToggleHidden(id)} hitSlop={10} style={styles.eye}>
@@ -207,6 +208,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   catIcon: { marginLeft: 2 },
-  label: { flex: 1, fontSize: 15, fontWeight: "500" },
+  label: { flex: 1, fontSize: 15, fontFamily: fonts.bodyMedium },
   eye: { padding: 4 },
 });

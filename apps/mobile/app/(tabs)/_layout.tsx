@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
+import { fonts } from "@/lib/fonts";
 import { useDuplicatesChanged } from "@/lib/dup-signal";
 
 /**
@@ -150,7 +151,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   iconWrap: { position: "relative" },
-  tabLabel: { fontSize: 10, fontWeight: "500" },
+  tabLabel: { fontSize: 10, fontFamily: fonts.bodyMedium },
   badge: {
     position: "absolute",
     top: -4,
@@ -162,5 +163,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  badgeText: { color: "#fff", fontSize: 9, fontWeight: "700" },
+  badgeText: { color: "#fff", fontSize: 9, fontFamily: fonts.bodyBold },
 });

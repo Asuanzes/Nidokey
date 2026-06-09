@@ -1,4 +1,5 @@
 import { StyleSheet, Text, type ViewProps } from "react-native";
+import { fonts } from "@/lib/fonts";
 
 import { useTheme } from "@/lib/theme";
 import { Card } from "./Card";
@@ -22,7 +23,7 @@ export function Section({ label, children, style, ...rest }: Props) {
 const styles = StyleSheet.create({
   label: {
     fontSize: 11,
-    fontWeight: "600",
+    fontFamily: fonts.bodySemibold,
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 8,

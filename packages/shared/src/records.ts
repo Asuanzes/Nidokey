@@ -2,8 +2,7 @@
  * Modelo de dominio UNIFICADO de "registros" (records).
  *
  * Nidokey nació como catálogo de inmuebles, pero la app está pensada para
- * escalar a más tipos de registro (cryptos, jobs, workouts, holidays,
- * renting…). Para no reescribir la UI por cada tipo nuevo, toda la capa de
+ * escalar a más tipos de registro (cryptos, jobs, workouts, holidays…). Para no reescribir la UI por cada tipo nuevo, toda la capa de
  * presentación trabaja contra `BaseRecord`: un contrato común con los campos
  * que TODA tarjeta/lista/cabecera necesita. Los campos específicos de cada
  * tipo viven en `meta` (sin tipar en la base) y se resuelven en el detalle.
@@ -18,7 +17,6 @@
 export type RecordType =
   | "chat"
   | "property"
-  | "renting"
   | "holiday"
   | "crypto"
   | "market"
@@ -29,7 +27,6 @@ export type RecordType =
 export const RECORD_TYPES: RecordType[] = [
   "chat",
   "property",
-  "renting",
   "holiday",
   "crypto",
   "market",

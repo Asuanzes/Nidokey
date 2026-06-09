@@ -1,4 +1,5 @@
 import { useState, type ComponentProps, type ReactNode } from "react";
+import { fonts } from "@/lib/fonts";
 import { Image } from "expo-image";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
@@ -448,7 +449,7 @@ function JobCard({ record, editing, onLongPress, onDelete }: CardProps) {
             <Text style={[styles.jobFooterLeft, { color: th.textMuted }]} numberOfLines={1}>
               {contractRemote}
               {salary ? (
-                <Text style={{ color: th.accent, fontWeight: "700" }}>
+                <Text style={{ color: th.accent, fontFamily: fonts.bodyBold }}>
                   {contractRemote ? "  ·  " : ""}
                   {salary}
                 </Text>
@@ -531,12 +532,12 @@ const styles = StyleSheet.create({
   logoImg: { width: 30, height: 30 },
   flex: { flex: 1 },
   alignEnd: { alignItems: "flex-end" },
-  symbol: { fontSize: 16, fontWeight: "700" },
+  symbol: { fontSize: 16, fontFamily: fonts.bodyBold },
   coinName: { fontSize: 12, marginTop: 1 },
-  price: { fontSize: 17, fontWeight: "700" },
+  price: { fontSize: 17, fontFamily: fonts.bodyBold },
   changeRow: { flexDirection: "row", alignItems: "baseline", gap: 4, marginTop: 1 },
-  change: { fontSize: 13, fontWeight: "600" },
-  periodLabel: { fontSize: 10, fontWeight: "500" },
+  change: { fontSize: 13, fontFamily: fonts.bodySemibold },
+  periodLabel: { fontSize: 10, fontFamily: fonts.bodyMedium },
   sparkHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8 },
   chart: { position: "relative", marginTop: 4 },
   barsRow: { flexDirection: "row", alignItems: "flex-end", height: "100%" },
@@ -548,10 +549,10 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   statLabel: { fontSize: 11 },
-  statValue: { fontSize: 12, fontWeight: "500", marginTop: 1 },
+  statValue: { fontSize: 12, fontFamily: fonts.bodyMedium, marginTop: 1 },
   // empleo: pie compacto (contrato·sueldo | fuente)
   jobFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 4 },
-  jobFooterLeft: { flex: 1, fontSize: 12, fontWeight: "500" },
+  jobFooterLeft: { flex: 1, fontSize: 12, fontFamily: fonts.bodyMedium },
   jobFooterRight: { fontSize: 11 },
   // tarjeta estrecha (miniatura izquierda + info derecha) — compacta
   narrowCard: { flexDirection: "row", padding: 8, gap: 10, alignItems: "center" },
@@ -559,11 +560,11 @@ const styles = StyleSheet.create({
   // queda a la altura del precio y la imagen no sube tanto.
   propCard: { alignItems: "flex-end" },
   thumbCol: { alignItems: "center" },
-  portalLabel: { fontSize: 11, fontWeight: "600", marginTop: 4, maxWidth: 72, textAlign: "center" },
+  portalLabel: { fontSize: 11, fontFamily: fonts.bodySemibold, marginTop: 4, maxWidth: 72, textAlign: "center" },
   thumb: { width: 64, height: 64, borderRadius: 8 },
   thumbPlaceholder: { alignItems: "center", justifyContent: "center" },
   info: { flex: 1, gap: 2 },
-  title: { fontSize: 14, fontWeight: "600" },
+  title: { fontSize: 14, fontFamily: fonts.bodySemibold },
   sub: { fontSize: 12 },
   foot: { fontSize: 11 },
   priceRow: {
@@ -573,7 +574,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     gap: 8,
   },
-  cardPrice: { fontSize: 15, fontWeight: "700", flexShrink: 1 },
+  cardPrice: { fontSize: 15, fontFamily: fonts.bodyBold, flexShrink: 1 },
   statusChip: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 4 },
-  statusText: { fontSize: 10, fontWeight: "600" },
+  statusText: { fontSize: 10, fontFamily: fonts.bodySemibold },
 });

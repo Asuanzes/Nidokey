@@ -15,6 +15,8 @@ import { ShareIntentProvider, useShareIntentContext } from "expo-share-intent";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { ThemeContext, T, TD, useTheme, type ThemeMode } from "@/lib/theme";
+import { useFonts } from "expo-font";
+import { fontAssets, fonts } from "@/lib/fonts";
 import { isPortalUrl, extractSharedText } from "@/lib/portal-url";
 import { isBookShareText } from "@/lib/book-url";
 import { PendingImportProvider, usePendingImport } from "@/lib/pending-import";
@@ -30,6 +32,9 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  // Carga Inter/Poppins (assets JS → OTA, sin recompilar nativo). No bloquea el
+  // arranque: el loader de marca (≥1 s) tapa la carga; si tardara, un breve FOUT.
+  useFonts(fontAssets);
   // Sembrar el tema desde el modo del SO de forma SÍNCRONA en el primer frame:
   // si arrancáramos siempre en claro (false), un usuario en modo oscuro vería
   // unos frames con fondo claro (#FAFAF7) sobre negro — el "cuadrado claro" del
@@ -225,7 +230,7 @@ function AuthGate() {
               headerBackTitle: "Atrás",
               headerTintColor: th.primary,
               headerStyle: { backgroundColor: th.surface },
-              headerTitleStyle: { color: th.text },
+              headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
               title: "",
             }}
           />
@@ -236,7 +241,7 @@ function AuthGate() {
               headerBackTitle: "Atrás",
               headerTintColor: th.primary,
               headerStyle: { backgroundColor: th.surface },
-              headerTitleStyle: { color: th.text },
+              headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
               title: "Empleo",
             }}
           />
@@ -247,7 +252,7 @@ function AuthGate() {
               headerBackTitle: "Atrás",
               headerTintColor: th.primary,
               headerStyle: { backgroundColor: th.surface },
-              headerTitleStyle: { color: th.text },
+              headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
               title: "Libro",
             }}
           />
@@ -258,7 +263,7 @@ function AuthGate() {
               headerBackTitle: "Atrás",
               headerTintColor: th.primary,
               headerStyle: { backgroundColor: th.surface },
-              headerTitleStyle: { color: th.text },
+              headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
               title: "Noticia",
             }}
           />
@@ -270,7 +275,7 @@ function AuthGate() {
               headerBackTitle: "Atrás",
               headerTintColor: th.primary,
               headerStyle: { backgroundColor: th.surface },
-              headerTitleStyle: { color: th.text },
+              headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
             }}
           />
           <Stack.Screen
@@ -280,7 +285,7 @@ function AuthGate() {
               headerBackTitle: "Atrás",
               headerTintColor: th.primary,
               headerStyle: { backgroundColor: th.surface },
-              headerTitleStyle: { color: th.text },
+              headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
             }}
           />
           <Stack.Screen
@@ -290,7 +295,7 @@ function AuthGate() {
               headerBackTitle: "Atrás",
               headerTintColor: th.primary,
               headerStyle: { backgroundColor: th.surface },
-              headerTitleStyle: { color: th.text },
+              headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
               title: "Categorías",
             }}
           />
@@ -302,7 +307,7 @@ function AuthGate() {
               headerBackTitle: "Atrás",
               headerTintColor: th.primary,
               headerStyle: { backgroundColor: th.surface },
-              headerTitleStyle: { color: th.text },
+              headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
               title: "Escanear libro",
             }}
           />
@@ -313,7 +318,7 @@ function AuthGate() {
               headerBackTitle: "Atrás",
               headerTintColor: th.primary,
               headerStyle: { backgroundColor: th.surface },
-              headerTitleStyle: { color: th.text },
+              headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
               title: "Nuevo viaje",
             }}
           />
@@ -324,7 +329,7 @@ function AuthGate() {
               headerBackTitle: "Atrás",
               headerTintColor: th.primary,
               headerStyle: { backgroundColor: th.surface },
-              headerTitleStyle: { color: th.text },
+              headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
               title: "Viaje",
             }}
           />

@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "runtimeVersion": {
-      "policy": "fingerprint"
+      "policy": "appVersion"
     },
     "updates": {
       "url": "https://u.expo.dev/bfbe4a8a-1899-44b5-b5a3-5e3742aabf4b"
@@ -24,16 +24,43 @@
           "action": "VIEW",
           "autoVerify": true,
           "data": [
-            { "scheme": "https", "host": "www.idealista.com" },
-            { "scheme": "https", "host": "www.fotocasa.es" },
-            { "scheme": "https", "host": "www.pisos.com" },
-            { "scheme": "https", "host": "www.habitaclia.com" },
-            { "scheme": "https", "host": "www.milanuncios.com" },
-            { "scheme": "https", "host": "www.yaencontre.com" },
-            { "scheme": "https", "host": "www.thinkspain.com" },
-            { "scheme": "https", "host": "www.indomio.es" }
+            {
+              "scheme": "https",
+              "host": "www.idealista.com"
+            },
+            {
+              "scheme": "https",
+              "host": "www.fotocasa.es"
+            },
+            {
+              "scheme": "https",
+              "host": "www.pisos.com"
+            },
+            {
+              "scheme": "https",
+              "host": "www.habitaclia.com"
+            },
+            {
+              "scheme": "https",
+              "host": "www.milanuncios.com"
+            },
+            {
+              "scheme": "https",
+              "host": "www.yaencontre.com"
+            },
+            {
+              "scheme": "https",
+              "host": "www.thinkspain.com"
+            },
+            {
+              "scheme": "https",
+              "host": "www.indomio.es"
+            }
           ],
-          "category": ["DEFAULT", "BROWSABLE"]
+          "category": [
+            "DEFAULT",
+            "BROWSABLE"
+          ]
         }
       ],
       "adaptiveIcon": {
@@ -73,7 +100,9 @@
             "NSExtensionActivationSupportsWebPageWithMaxCount": 1
           },
           "iosShareExtensionName": "Importar a Nidokey",
-          "androidIntentFilters": ["text/*"]
+          "androidIntentFilters": [
+            "text/*"
+          ]
         }
       ],
       [
@@ -84,7 +113,8 @@
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": true
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,

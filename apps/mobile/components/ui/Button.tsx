@@ -9,6 +9,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 
 import { useTheme, type Theme } from "@/lib/theme";
+import { fonts } from "@/lib/fonts";
 
 /**
  * Botón unificado de Nidokey.
@@ -104,5 +105,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   content: { flexDirection: "row", alignItems: "center", gap: 8 },
-  label: { fontWeight: "600" },
+  label: { fontFamily: fonts.bodySemibold },
 });

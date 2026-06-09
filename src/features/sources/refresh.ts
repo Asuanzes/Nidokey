@@ -10,7 +10,7 @@ import { logImportEvent } from "@/lib/import-log";
  *
  * Cripto/mercados usan BATCH (una llamada cubre todas las posiciones) → cabe en
  * los ~60 s de Vercel Hobby y no agota la free tier. Los tipos de scraping
- * (property/renting…) se ejecutarán vía GitHub Actions en fases posteriores.
+ * (property…) se ejecutarán vía GitHub Actions en fases posteriores.
  */
 export type RefreshSummary = {
   type: RecordType;

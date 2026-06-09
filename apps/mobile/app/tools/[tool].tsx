@@ -3,6 +3,7 @@ import { Stack, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useTheme } from "@/lib/theme";
+import { fonts } from "@/lib/fonts";
 import { Button, Card } from "@/components/ui";
 
 /**
@@ -145,7 +146,7 @@ const styles = StyleSheet.create({
   card: {},
   cardTitle: {
     fontSize: 11,
-    fontWeight: "600",
+    fontFamily: fonts.bodySemibold,
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 10,
@@ -159,7 +160,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   rowLabel: { fontSize: 13, flex: 1 },
-  rowValue: { fontSize: 14, fontWeight: "500", marginLeft: 12 },
+  rowValue: { fontSize: 14, fontFamily: fonts.bodyMedium, marginLeft: 12 },
   pending: {
     flexDirection: "row",
     alignItems: "flex-start",

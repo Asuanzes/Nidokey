@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { fonts } from "@/lib/fonts";
 import {
   ActivityIndicator,
   Dimensions,
@@ -311,9 +312,9 @@ const styles = StyleSheet.create({
     padding: 16, borderRadius: 10,
     borderWidth: 1,
   },
-  title: { fontSize: 18, fontWeight: "700" },
+  title: { fontSize: 18, fontFamily: fonts.bodyBold },
   location: { fontSize: 13, marginTop: 4 },
-  price: { fontSize: 26, fontWeight: "700", marginTop: 12 },
+  price: { fontSize: 26, fontFamily: fonts.bodyBold, marginTop: 12 },
   toolsFab: {
     position: "absolute",
     right: 12,
@@ -331,14 +332,14 @@ const styles = StyleSheet.create({
   },
   pricePerSqm: { fontSize: 12, marginTop: 2 },
   sectionTitle: {
-    fontSize: 11, fontWeight: "600",
+    fontSize: 11, fontFamily: fonts.bodySemibold,
     textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12,
   },
   // 4 columnas × 2 filas (antes 2 col × 4 filas): gana mucho espacio vertical.
   grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 14 },
   spec: { width: "23%" },
   specLabel: { fontSize: 10 },
-  specValue: { fontSize: 14, fontWeight: "500", marginTop: 2 },
+  specValue: { fontSize: 14, fontFamily: fonts.bodyMedium, marginTop: 2 },
   tags: {
     flexDirection: "row", flexWrap: "wrap", gap: 6,
     marginTop: 16, paddingTop: 12, borderTopWidth: 1,
@@ -346,13 +347,13 @@ const styles = StyleSheet.create({
   tag: {
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4,
   },
-  tagText: { fontSize: 11, fontWeight: "500" },
+  tagText: { fontSize: 11, fontFamily: fonts.bodyMedium },
   description: { fontSize: 13, lineHeight: 20 },
   listingRow: {
     flexDirection: "row", alignItems: "center",
     paddingVertical: 12, borderBottomWidth: 1,
   },
-  listingPortal: { fontSize: 14, fontWeight: "500" },
+  listingPortal: { fontSize: 14, fontFamily: fonts.bodyMedium },
   listingMeta: { fontSize: 12, marginTop: 2 },
   cadastral: { fontSize: 12, fontFamily: "monospace" },
 });

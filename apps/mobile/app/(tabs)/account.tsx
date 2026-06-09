@@ -1,4 +1,5 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { fonts } from "@/lib/fonts";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -94,8 +95,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: { fontSize: 18, fontWeight: "600" },
-  email: { fontSize: 15, fontWeight: "500" },
+  avatarText: { fontSize: 18, fontFamily: fonts.bodySemibold },
+  email: { fontSize: 15, fontFamily: fonts.bodyMedium },
   name: { fontSize: 13 },
   toggleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   toggleLabel: { flex: 1, fontSize: 15 },

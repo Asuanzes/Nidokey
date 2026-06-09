@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import WebView from "react-native-webview";
 
 import { useTheme } from "@/lib/theme";
+import { fonts } from "@/lib/fonts";
 import { getExtractorScript } from "@/lib/portal-extractors";
 
 export type ExtractedPayload = {
@@ -147,11 +148,11 @@ const styles = StyleSheet.create({
   barText: {
     flex: 1,
     fontSize: 13,
-    fontWeight: "500",
+    fontFamily: fonts.bodyMedium,
   },
   cancel: {
     fontSize: 13,
-    fontWeight: "600",
+    fontFamily: fonts.bodySemibold,
     paddingLeft: 12,
   },
   webview: {

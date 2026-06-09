@@ -15,6 +15,7 @@ import { useCategoryPrefs } from "@/lib/records/category-prefs-context";
 import { useTypeI18n } from "@/lib/records/type-i18n";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme";
+import { fonts } from "@/lib/fonts";
 import { useRecords } from "@/lib/hooks/useRecords";
 import { useBoot } from "@/lib/boot-context";
 import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
@@ -234,8 +235,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  editHint: { fontSize: 12, fontWeight: "500", flex: 1, marginRight: 8 },
-  editDone: { fontSize: 14, fontWeight: "700" },
+  editHint: { fontSize: 12, fontFamily: fonts.bodyMedium, flex: 1, marginRight: 8 },
+  editDone: { fontSize: 14, fontFamily: fonts.bodyBold },
   center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
   rail: {
     width: 60,

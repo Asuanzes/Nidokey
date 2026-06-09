@@ -1,4 +1,5 @@
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { fonts } from "@/lib/fonts";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams } from "expo-router";
@@ -130,7 +131,7 @@ export default function HolidayDetail() {
             style={[styles.outlineBtn, { borderColor: th.border }]}
           >
             <Ionicons name="bed-outline" size={18} color={th.accent} />
-            <Text style={{ color: th.accent, fontWeight: "600" }}>Ver hotel</Text>
+            <Text style={{ color: th.accent, fontFamily: fonts.bodySemibold }}>Ver hotel</Text>
           </Pressable>
         ) : null}
         {transport?.affiliateUrl ? (
@@ -139,7 +140,7 @@ export default function HolidayDetail() {
             style={[styles.outlineBtn, { borderColor: th.border }]}
           >
             <Ionicons name="airplane-outline" size={18} color={th.accent} />
-            <Text style={{ color: th.accent, fontWeight: "600" }}>Ver vuelo</Text>
+            <Text style={{ color: th.accent, fontFamily: fonts.bodySemibold }}>Ver vuelo</Text>
           </Pressable>
         ) : null}
       </ScrollView>
@@ -151,11 +152,11 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   content: { padding: 16, gap: 8, paddingBottom: 40 },
   hero: { width: "100%", height: 160, borderRadius: 12 },
-  title: { fontSize: 20, fontWeight: "700", marginTop: 4 },
-  total: { fontSize: 22, fontWeight: "700", marginTop: 2 },
+  title: { fontSize: 20, fontFamily: fonts.bodyBold, marginTop: 4 },
+  total: { fontSize: 22, fontFamily: fonts.bodyBold, marginTop: 2 },
   card: { borderWidth: 1, borderRadius: 10, padding: 14, marginTop: 10 },
   row: { flexDirection: "row", justifyContent: "space-between", gap: 12, paddingVertical: 5 },
   rowKey: { fontSize: 13 },
-  rowVal: { fontSize: 13, fontWeight: "600", flexShrink: 1, textAlign: "right" },
+  rowVal: { fontSize: 13, fontFamily: fonts.bodySemibold, flexShrink: 1, textAlign: "right" },
   outlineBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, height: 46, borderRadius: 10, borderWidth: 1, marginTop: 10 },
 });

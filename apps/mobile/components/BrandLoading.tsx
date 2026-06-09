@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 
 import { useTheme } from "@/lib/theme";
+import { fonts } from "@/lib/fonts";
 
 /**
  * Pantalla de carga: anillo de bolitas en bronce con estela de cometa (opacidad
@@ -68,5 +69,5 @@ const styles = StyleSheet.create({
   root: { flex: 1, alignItems: "center", justifyContent: "center", gap: 20 },
   ring: { width: SIZE, height: SIZE },
   dot: { position: "absolute", width: DOT, height: DOT, borderRadius: DOT / 2 },
-  title: { fontSize: 13, fontWeight: "700", letterSpacing: 3, textTransform: "uppercase" },
+  title: { fontSize: 13, fontFamily: fonts.bodyBold, letterSpacing: 3, textTransform: "uppercase" },
 });

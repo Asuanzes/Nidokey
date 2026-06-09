@@ -1,47 +1,52 @@
 import { createContext, useContext } from "react";
 
+// Design system "acero y latón envejecido" (steel & aged brass).
+// Dos acentos distintos, como en el tema de referencia:
+//   primary = ACERO (azul) → acciones/superficies principales, FAB, cabeceras.
+//   accent  = LATÓN (oro)  → énfasis (títulos destacados, estados activos).
+// Coincide con la identidad de marca (#3A5F8A / #C49A4D).
 export const T = {
-  bg: "#FAFAF7",
+  bg: "#FAF7F1", // off-white cálido
   surface: "#FFFFFF",
-  border: "#E8E6E1",
-  text: "#1A1A18",
-  textMuted: "#6B6862",
-  textSubtle: "#9A9690",
-  // `primary` = bronce (= accent): el azul se reserva SOLO para el botón "+"
-  // de Importar (FAB_BG fijo en (tabs)/_layout). Así no hay azul suelto.
-  primary: "#B87333",
-  primarySoft: "#F5EDE3",
-  primaryFg: "#FAFAF7",
-  // Azul SOLO para la fuente del registro (portal inmobiliario / plataforma de
-  // empleo) como atribución. El resto del azul sigue reservado al FAB.
+  border: "#E7E1D7",
+  text: "#29251F", // gris cálido oscuro (no negro puro)
+  textMuted: "#6E675C",
+  textSubtle: "#9C958A",
+  // ACERO como color primario (botones, spinners, tint de cabecera, FAB).
+  primary: "#4F7385",
+  primarySoft: "#E7EEF1",
+  primaryFg: "#FFFFFF",
+  // Azul de marca para la atribución de fuente (portal/plataforma).
   sourceBlue: "#3A5F8A",
-  accent: "#B87333",
-  accentSoft: "#F5EDE3",
-  dangerFg: "#A23E3E",
-  dangerSoft: "#F6E5E5",
-  imagePlaceholder: "#F4F3EE",
-  scoreBg: "#f3f3f3",
+  // LATÓN como acento de énfasis (distinto del primario).
+  accent: "#B5893B",
+  accentSoft: "#F4ECDC",
+  dangerFg: "#B0503E", // teja
+  dangerSoft: "#F6E7E2",
+  imagePlaceholder: "#F2EEE7",
+  scoreBg: "#F2EEE7",
 };
 
+// Oscuro fiel a la captura: fondo cálido oscuro + texto crema + acentos vivos.
 export const TD = {
-  bg: "#141413",
-  surface: "#1E1E1C",
-  border: "#333331",
-  text: "#F0EFEA",
-  textMuted: "#A8A5A0",
-  textSubtle: "#6B6862",
-  // `primary` = bronce (= accent); azul reservado al botón "+" de Importar.
-  primary: "#CC8844",
-  primarySoft: "#2A1A08",
-  primaryFg: "#F0EFEA",
-  // Azul aclarado para que la fuente del registro se lea sobre fondo oscuro.
-  sourceBlue: "#7AA6D8",
-  accent: "#CC8844",
-  accentSoft: "#2A1A08",
-  dangerFg: "#D06868",
-  dangerSoft: "#2E1818",
-  imagePlaceholder: "#252523",
-  scoreBg: "#252523",
+  bg: "#262320", // carbón cálido (no negro)
+  surface: "#322E2A",
+  border: "#423D37",
+  text: "#EBE7DE", // crema
+  textMuted: "#A39C90",
+  textSubtle: "#756F65",
+  // Acero aclarado para legibilidad sobre fondo oscuro.
+  primary: "#6E8B9A",
+  primarySoft: "#28333A",
+  primaryFg: "#F5F2EC",
+  sourceBlue: "#84A9BD",
+  // Latón un punto más brillante en oscuro.
+  accent: "#CDA45A",
+  accentSoft: "#322A1A",
+  dangerFg: "#CF7059",
+  dangerSoft: "#2F1E1A",
+  imagePlaceholder: "#2E2A26",
+  scoreBg: "#2E2A26",
 };
 
 export type Theme = typeof T;

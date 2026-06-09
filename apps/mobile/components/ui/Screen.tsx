@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTheme } from "@/lib/theme";
+import { fonts } from "@/lib/fonts";
 
 /**
  * Contenedor raíz de pantalla: SafeAreaView + cabecera de título/subtítulo
@@ -52,8 +53,8 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   headerText: { flex: 1 },
-  title: { fontSize: 22, fontWeight: "700" },
-  subtitle: { fontSize: 13, marginTop: 2 },
+  title: { fontSize: 22, fontFamily: fonts.heading },
+  subtitle: { fontSize: 13, marginTop: 2, fontFamily: fonts.body },
   content: { flex: 1 },
   /** Sin cabecera de título: pequeño respiro bajo la barra de estado. */
   contentNoHeader: { paddingTop: 8 },

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { fonts } from "@/lib/fonts";
 import {
   ActivityIndicator,
   Linking,
@@ -224,7 +225,7 @@ export default function BookDetail() {
                   <Text style={[styles.noteBtn, { color: th.textMuted }]}>Cancelar</Text>
                 </Pressable>
                 <Pressable onPress={saveNote} disabled={savingNote} hitSlop={8}>
-                  <Text style={[styles.noteBtn, { color: th.primary, fontWeight: "700" }]}>
+                  <Text style={[styles.noteBtn, { color: th.primary, fontFamily: fonts.bodyBold }]}>
                     {savingNote ? "Guardando…" : "Guardar"}
                   </Text>
                 </Pressable>
@@ -308,24 +309,24 @@ const styles = StyleSheet.create({
   cover: { width: 110, height: 165, borderRadius: 8 },
   coverPlaceholder: { alignItems: "center", justifyContent: "center" },
   heroInfo: { flex: 1, gap: 3 },
-  title: { fontSize: 19, fontWeight: "700" },
+  title: { fontSize: 19, fontFamily: fonts.bodyBold },
   subtitle: { fontSize: 14 },
   authors: { fontSize: 14, marginTop: 2 },
   ratingRow: { flexDirection: "row", alignItems: "center", gap: 3, marginTop: 6 },
-  ratingNum: { fontSize: 14, fontWeight: "700", marginLeft: 3 },
-  ratingCount: { fontSize: 13, fontWeight: "500", marginLeft: 1 },
+  ratingNum: { fontSize: 14, fontFamily: fonts.bodyBold, marginLeft: 3 },
+  ratingCount: { fontSize: 13, fontFamily: fonts.bodyMedium, marginLeft: 1 },
   card: { borderWidth: 1, borderRadius: 10, padding: 14, marginTop: 12 },
   row: { flexDirection: "row", justifyContent: "space-between", gap: 12, paddingVertical: 5 },
   rowKey: { fontSize: 13 },
-  rowVal: { fontSize: 13, fontWeight: "600", flexShrink: 1, textAlign: "right" },
-  descTitle: { fontSize: 12, fontWeight: "600", marginBottom: 6 },
+  rowVal: { fontSize: 13, fontFamily: fonts.bodySemibold, flexShrink: 1, textAlign: "right" },
+  descTitle: { fontSize: 12, fontFamily: fonts.bodySemibold, marginBottom: 6 },
   descText: { fontSize: 14, lineHeight: 20 },
-  moreLink: { fontSize: 13, fontWeight: "600", marginTop: 6 },
+  moreLink: { fontSize: 13, fontFamily: fonts.bodySemibold, marginTop: 6 },
   noteInput: { minHeight: 80, borderRadius: 10, borderWidth: 1, padding: 12, fontSize: 14, textAlignVertical: "top" },
   noteActions: { flexDirection: "row", justifyContent: "flex-end", gap: 18, marginTop: 10 },
   noteBtn: { fontSize: 14 },
   noteHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   addNoteRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 2 },
-  addNoteText: { fontSize: 14, fontWeight: "600" },
+  addNoteText: { fontSize: 14, fontFamily: fonts.bodySemibold },
   heroActions: { alignSelf: "flex-end", marginTop: "auto" },
 });

@@ -21,6 +21,7 @@ import {
 } from "@nidokey/shared";
 import { api, ApiError } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
+import { fonts } from "@/lib/fonts";
 import { ResultModal } from "@/components/ui";
 import { HotelDetailModal } from "@/components/travel/HotelDetailModal";
 
@@ -429,16 +430,16 @@ export default function NewTrip() {
             </View>
           )}
           <View style={styles.flex}>
-            <Text style={{ color: th.text, fontWeight: "600" }} numberOfLines={2}>{h.name}</Text>
+            <Text style={{ color: th.text, fontFamily: fonts.bodySemibold }} numberOfLines={2}>{h.name}</Text>
             {h.stars ? <Text style={{ color: th.textSubtle, fontSize: 12 }}>{"★".repeat(Math.round(h.stars))}</Text> : null}
             {sel && roomLabel ? <Text style={{ color: th.accent, fontSize: 12 }} numberOfLines={1}>{roomLabel}</Text> : null}
           </View>
           {sel ? <Ionicons name="checkmark-circle" size={18} color={th.accent} /> : null}
-          <Text style={{ color: th.accent, fontWeight: "700" }}>{formatMoney(h.priceCents, h.currency)}</Text>
+          <Text style={{ color: th.accent, fontFamily: fonts.bodyBold }}>{formatMoney(h.priceCents, h.currency)}</Text>
         </Pressable>
         <Pressable onPress={() => setExploreHotel(h)} style={styles.linkRow} hitSlop={4}>
           <Ionicons name="information-circle-outline" size={15} color={th.accent} />
-          <Text style={{ color: th.accent, fontSize: 12, fontWeight: "600" }}>Ver habitaciones y detalles</Text>
+          <Text style={{ color: th.accent, fontSize: 12, fontFamily: fonts.bodySemibold }}>Ver habitaciones y detalles</Text>
         </Pressable>
       </View>
     );
@@ -456,10 +457,10 @@ export default function NewTrip() {
       >
         <Ionicons name="airplane" size={18} color={th.textSubtle} />
         <View style={styles.flex}>
-          <Text style={{ color: th.text, fontWeight: "600" }} numberOfLines={1}>{f.airline ?? "Vuelo"}</Text>
+          <Text style={{ color: th.text, fontFamily: fonts.bodySemibold }} numberOfLines={1}>{f.airline ?? "Vuelo"}</Text>
           <Text style={{ color: th.textSubtle, fontSize: 12 }}>{[time, stopsLabel].filter(Boolean).join(" · ")}</Text>
         </View>
-        <Text style={{ color: th.accent, fontWeight: "700" }}>{formatMoney(f.priceCents, f.currency)}</Text>
+        <Text style={{ color: th.accent, fontFamily: fonts.bodyBold }}>{formatMoney(f.priceCents, f.currency)}</Text>
       </Pressable>
     );
   }
@@ -490,7 +491,7 @@ export default function NewTrip() {
                     style={[styles.pkgChip, { borderColor: on ? th.accent : th.border, backgroundColor: on ? th.accentSoft : th.surface }]}
                   >
                     <Ionicons name={p.icon} size={15} color={on ? th.accent : th.textMuted} />
-                    <Text style={{ color: on ? th.accent : th.textMuted, fontSize: 13, fontWeight: "600" }}>{p.label}</Text>
+                    <Text style={{ color: on ? th.accent : th.textMuted, fontSize: 13, fontFamily: fonts.bodySemibold }}>{p.label}</Text>
                   </Pressable>
                 );
               })}
@@ -503,7 +504,7 @@ export default function NewTrip() {
                 style={[styles.chip, { backgroundColor: th.accentSoft, borderColor: th.accent }]}
               >
                 <Ionicons name="location" size={16} color={th.accent} />
-                <Text style={{ color: th.accent, fontWeight: "600" }}>
+                <Text style={{ color: th.accent, fontFamily: fonts.bodySemibold }}>
                   {dest.name}
                   {dest.iata ? ` (${dest.iata})` : ""}
                 </Text>
@@ -543,7 +544,7 @@ export default function NewTrip() {
                     }}
                     style={[styles.row, { backgroundColor: th.surface, borderColor: th.border }]}
                   >
-                    <Text style={{ color: th.text, fontWeight: "600" }}>{p.name}</Text>
+                    <Text style={{ color: th.text, fontFamily: fonts.bodySemibold }}>{p.name}</Text>
                     <Text style={{ color: th.textSubtle, fontSize: 12 }}>
                       {[p.iata, p.countryCode].filter(Boolean).join(" · ")}
                     </Text>
@@ -562,7 +563,7 @@ export default function NewTrip() {
                     onPress={() => setTripType(t)}
                     style={[styles.typeChip, { borderColor: on ? th.accent : th.border, backgroundColor: on ? th.accentSoft : th.surface }]}
                   >
-                    <Text style={{ color: on ? th.accent : th.textMuted, fontSize: 13, fontWeight: "600" }}>{t}</Text>
+                    <Text style={{ color: on ? th.accent : th.textMuted, fontSize: 13, fontFamily: fonts.bodySemibold }}>{t}</Text>
                   </Pressable>
                 );
               })}
@@ -592,7 +593,7 @@ export default function NewTrip() {
             )}
 
             <Text style={[styles.label, { color: th.textMuted, marginTop: 6 }]}>Fechas</Text>
-            <Text style={{ color: startISO ? th.text : th.textSubtle, fontSize: 13, fontWeight: "500" }}>
+            <Text style={{ color: startISO ? th.text : th.textSubtle, fontSize: 13, fontFamily: fonts.bodyMedium }}>
               {startISO && endISO
                 ? `${fmtDay(startISO)} → ${fmtDay(endISO)}`
                 : startISO
@@ -623,7 +624,7 @@ export default function NewTrip() {
             {rooms.map((r, i) => (
               <View key={i} style={[styles.roomCard, { backgroundColor: th.surface, borderColor: th.border }]}>
                 <View style={styles.roomHeader}>
-                  <Text style={{ color: th.text, fontWeight: "700" }}>Habitación {i + 1}</Text>
+                  <Text style={{ color: th.text, fontFamily: fonts.bodyBold }}>Habitación {i + 1}</Text>
                   {rooms.length > 1 ? (
                     <Pressable onPress={() => removeRoom(i)} hitSlop={8}>
                       <Ionicons name="trash-outline" size={18} color={th.dangerFg} />
@@ -640,7 +641,7 @@ export default function NewTrip() {
                         <Pressable onPress={() => setChildAge(i, ci, age - 1)} hitSlop={6}>
                           <Ionicons name="remove" size={14} color={th.accent} />
                         </Pressable>
-                        <Text style={{ color: th.text, fontWeight: "600", minWidth: 16, textAlign: "center" }}>{age}</Text>
+                        <Text style={{ color: th.text, fontFamily: fonts.bodySemibold, minWidth: 16, textAlign: "center" }}>{age}</Text>
                         <Pressable onPress={() => setChildAge(i, ci, age + 1)} hitSlop={6}>
                           <Ionicons name="add" size={14} color={th.accent} />
                         </Pressable>
@@ -653,7 +654,7 @@ export default function NewTrip() {
             {rooms.length < 4 ? (
               <Pressable onPress={addRoom} style={[styles.addRoomBtn, { borderColor: th.border }]}>
                 <Ionicons name="add" size={16} color={th.accent} />
-                <Text style={{ color: th.accent, fontWeight: "600" }}>Añadir habitación</Text>
+                <Text style={{ color: th.accent, fontFamily: fonts.bodySemibold }}>Añadir habitación</Text>
               </Pressable>
             ) : null}
 
@@ -675,7 +676,7 @@ export default function NewTrip() {
                 {hotelCard(hotel)}
                 <Pressable onPress={() => setHotel(null)} style={styles.linkRow}>
                   <Ionicons name="swap-horizontal" size={16} color={th.accent} />
-                  <Text style={{ color: th.accent, fontWeight: "600" }}>Ver otros hoteles ({hotels.length})</Text>
+                  <Text style={{ color: th.accent, fontFamily: fonts.bodySemibold }}>Ver otros hoteles ({hotels.length})</Text>
                 </Pressable>
               </>
             ) : (
@@ -701,7 +702,7 @@ export default function NewTrip() {
                 {flights.length > 1 ? (
                   <Pressable onPress={() => setFlight(null)} style={styles.linkRow}>
                     <Ionicons name="swap-horizontal" size={16} color={th.accent} />
-                    <Text style={{ color: th.accent, fontWeight: "600" }}>Ver otros vuelos ({flights.length})</Text>
+                    <Text style={{ color: th.accent, fontFamily: fonts.bodySemibold }}>Ver otros vuelos ({flights.length})</Text>
                   </Pressable>
                 ) : null}
               </>
@@ -747,13 +748,13 @@ export default function NewTrip() {
                   </View>
                 )}
                 <View style={styles.flex}>
-                  <Text style={{ color: th.textSubtle, fontSize: 11, fontWeight: "600" }}>ALOJAMIENTO</Text>
-                  <Text style={{ color: th.text, fontWeight: "600" }} numberOfLines={2}>{hotel.name}</Text>
+                  <Text style={{ color: th.textSubtle, fontSize: 11, fontFamily: fonts.bodySemibold }}>ALOJAMIENTO</Text>
+                  <Text style={{ color: th.text, fontFamily: fonts.bodySemibold }} numberOfLines={2}>{hotel.name}</Text>
                   <Text style={{ color: th.textSubtle, fontSize: 12 }}>
                     {[hotel.stars ? "★".repeat(Math.round(hotel.stars)) : null, roomLabel ?? "Ver habitaciones"].filter(Boolean).join(" · ")}
                   </Text>
                 </View>
-                <Text style={{ color: th.accent, fontWeight: "700" }}>{formatMoney(hotel.priceCents, hotel.currency)}</Text>
+                <Text style={{ color: th.accent, fontFamily: fonts.bodyBold }}>{formatMoney(hotel.priceCents, hotel.currency)}</Text>
               </Pressable>
             ) : null}
 
@@ -764,8 +765,8 @@ export default function NewTrip() {
                   <Ionicons name="airplane" size={22} color={th.textSubtle} />
                 </View>
                 <View style={styles.flex}>
-                  <Text style={{ color: th.textSubtle, fontSize: 11, fontWeight: "600" }}>VUELO</Text>
-                  <Text style={{ color: th.text, fontWeight: "600" }} numberOfLines={1}>{flight.airline ?? "Vuelo"}</Text>
+                  <Text style={{ color: th.textSubtle, fontSize: 11, fontFamily: fonts.bodySemibold }}>VUELO</Text>
+                  <Text style={{ color: th.text, fontFamily: fonts.bodySemibold }} numberOfLines={1}>{flight.airline ?? "Vuelo"}</Text>
                   <Text style={{ color: th.textSubtle, fontSize: 12 }}>
                     {[
                       `${origin.trim().toUpperCase()} → ${dest.iata ?? ""}`,
@@ -774,7 +775,7 @@ export default function NewTrip() {
                     ].filter(Boolean).join(" · ")}
                   </Text>
                 </View>
-                <Text style={{ color: th.accent, fontWeight: "700" }}>{formatMoney(flight.priceCents, flight.currency)}</Text>
+                <Text style={{ color: th.accent, fontFamily: fonts.bodyBold }}>{formatMoney(flight.priceCents, flight.currency)}</Text>
               </View>
             ) : null}
 
@@ -785,19 +786,19 @@ export default function NewTrip() {
                   <Ionicons name="car" size={22} color={th.textSubtle} />
                 </View>
                 <View style={styles.flex}>
-                  <Text style={{ color: th.textSubtle, fontSize: 11, fontWeight: "600" }}>TRASLADO</Text>
-                  <Text style={{ color: th.text, fontWeight: "600" }}>Aeropuerto ↔ hotel</Text>
+                  <Text style={{ color: th.textSubtle, fontSize: 11, fontFamily: fonts.bodySemibold }}>TRASLADO</Text>
+                  <Text style={{ color: th.text, fontFamily: fonts.bodySemibold }}>Aeropuerto ↔ hotel</Text>
                   <Text style={{ color: th.textSubtle, fontSize: 12 }}>Ida y vuelta · estimado</Text>
                 </View>
-                <Text style={{ color: th.accent, fontWeight: "700" }}>{formatMoney(TRANSFER_ESTIMATE_CENTS, "EUR")}</Text>
+                <Text style={{ color: th.accent, fontFamily: fonts.bodyBold }}>{formatMoney(TRANSFER_ESTIMATE_CENTS, "EUR")}</Text>
               </View>
             ) : null}
 
             {/* Total (⚠️ NUNCA comisión aquí) */}
             <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
               <View style={styles.totalRowTop}>
-                <Text style={{ color: th.text, fontWeight: "700" }}>Total</Text>
-                <Text style={{ color: th.accent, fontWeight: "700", fontSize: 19 }}>{formatMoney(totalCents, "EUR")}</Text>
+                <Text style={{ color: th.text, fontFamily: fonts.bodyBold }}>Total</Text>
+                <Text style={{ color: th.accent, fontFamily: fonts.bodyBold, fontSize: 19 }}>{formatMoney(totalCents, "EUR")}</Text>
               </View>
               <Text style={{ color: th.textSubtle, fontSize: 11 }}>
                 Reserva de prueba — el cobro real se activará al publicar.
@@ -873,7 +874,7 @@ function Row({ k, v, th, accent }: { k: string; v: string; th: Th; accent?: bool
   return (
     <View style={styles.kvRow}>
       <Text style={{ color: th.textSubtle, fontSize: 13 }}>{k}</Text>
-      <Text style={{ color: accent ? th.accent : th.text, fontSize: 13, fontWeight: "600", flexShrink: 1, textAlign: "right" }}>
+      <Text style={{ color: accent ? th.accent : th.text, fontSize: 13, fontFamily: fonts.bodySemibold, flexShrink: 1, textAlign: "right" }}>
         {v}
       </Text>
     </View>
@@ -902,7 +903,7 @@ function PrimaryBtn({
       {loading ? (
         <ActivityIndicator size="small" color={th.primaryFg} />
       ) : (
-        <Text style={{ color: th.primaryFg, fontWeight: "700" }}>{label}</Text>
+        <Text style={{ color: th.primaryFg, fontFamily: fonts.bodyBold }}>{label}</Text>
       )}
     </Pressable>
   );
@@ -911,7 +912,7 @@ function PrimaryBtn({
 function GhostBtn({ label, onPress, th }: { label: string; onPress: () => void; th: Th }) {
   return (
     <Pressable onPress={onPress} style={styles.ghostBtn}>
-      <Text style={{ color: th.textMuted, fontWeight: "600" }}>{label}</Text>
+      <Text style={{ color: th.textMuted, fontFamily: fonts.bodySemibold }}>{label}</Text>
     </Pressable>
   );
 }
@@ -936,7 +937,7 @@ function Stepper({
         <Pressable onPress={onMinus} style={[styles.stepBtn, { borderColor: th.border }]} hitSlop={6}>
           <Ionicons name="remove" size={18} color={th.accent} />
         </Pressable>
-        <Text style={{ color: th.text, fontWeight: "700", minWidth: 22, textAlign: "center" }}>{value}</Text>
+        <Text style={{ color: th.text, fontFamily: fonts.bodyBold, minWidth: 22, textAlign: "center" }}>{value}</Text>
         <Pressable onPress={onPlus} style={[styles.stepBtn, { borderColor: th.border }]} hitSlop={6}>
           <Ionicons name="add" size={18} color={th.accent} />
         </Pressable>
@@ -947,8 +948,8 @@ function Stepper({
 
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 12, paddingBottom: 40 },
-  stepLabel: { fontSize: 12, fontWeight: "600" },
-  label: { fontSize: 13, fontWeight: "600" },
+  stepLabel: { fontSize: 12, fontFamily: fonts.bodySemibold },
+  label: { fontSize: 13, fontFamily: fonts.bodySemibold },
   error: { fontSize: 13 },
   flex: { flex: 1 },
   center: { alignItems: "center", justifyContent: "center" },

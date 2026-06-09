@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
 import { useTheme } from "@/lib/theme";
+import { fonts } from "@/lib/fonts";
 import { api, ApiError } from "@/lib/api";
 import { Button } from "@/components/ui";
 
@@ -272,9 +273,9 @@ function CameraUnavailable() {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   center: { alignItems: "center", justifyContent: "center" },
-  permTitle: { fontSize: 17, fontWeight: "700", textAlign: "center" },
+  permTitle: { fontSize: 17, fontFamily: fonts.bodyBold, textAlign: "center" },
   permText: { fontSize: 13, lineHeight: 19, textAlign: "center" },
-  link: { fontSize: 14, fontWeight: "600" },
+  link: { fontSize: 14, fontFamily: fonts.bodySemibold },
   overlay: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", gap: 16 },
   frame: {
     width: "78%",
@@ -284,7 +285,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: "transparent",
   },
-  hint: { color: "#fff", fontSize: 14, fontWeight: "600", textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 4 },
+  hint: { color: "#fff", fontSize: 14, fontFamily: fonts.bodySemibold, textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 4 },
   manualBtn: {
     position: "absolute",
     top: 16,
@@ -297,7 +298,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 999,
   },
-  manualBtnText: { color: "#fff", fontSize: 13, fontWeight: "600" },
+  manualBtnText: { color: "#fff", fontSize: 13, fontFamily: fonts.bodySemibold },
   card: {
     position: "absolute",
     left: 12,
@@ -311,8 +312,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: 12 },
   rowText: { flex: 1, gap: 2 },
   cover: { width: 44, height: 66, borderRadius: 6 },
-  added: { fontSize: 13, fontWeight: "700" },
-  cardText: { fontSize: 15, fontWeight: "500" },
+  added: { fontSize: 13, fontFamily: fonts.bodyBold },
+  cardText: { fontSize: 15, fontFamily: fonts.bodyMedium },
   actions: { flexDirection: "row", gap: 10, marginTop: 12 },
   flex1: { flex: 1 },
   manualBar: {
