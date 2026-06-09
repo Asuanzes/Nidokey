@@ -12,10 +12,9 @@ import { categoryColor } from "@/lib/records/config";
  * Hecho con el `Animated` nativo de RN (una sola interpolación de rotación,
  * useNativeDriver): cero dependencia de worklets en el arranque.
  *
- * El splash nativo pinta bolitas estáticas (assets/images/splash-dots.png,
- * misma geometría) en bronce; al montar el JS pasan a color por categoría y
- * giran. Para igualar el primer frame habría que recolorear ese PNG (rebuild
- * nativo, no OTA).
+ * El splash nativo (expo-splash-screen) usa `splash-blank.png` (en blanco) sobre
+ * el color de fondo del tema, sin bolitas; estas aparecen al montar el JS. El
+ * `assets/images/splash-dots.png` del repo está sin usar (legacy).
  */
 const SIZE = 56; // diámetro del anillo (tamaño original)
 const DOT = 9; // tamaño de cada bolita
