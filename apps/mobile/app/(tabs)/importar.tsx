@@ -594,6 +594,17 @@ export default function ImportarScreen() {
             />
           )}
 
+          {/* Inmuebles: alternativa a la URL → crear a mano (sin anuncio). */}
+          {type === "property" && cfg.addMode === "url" && (
+            <Button
+              label={t("importar.create_manual")}
+              icon="create-outline"
+              variant="ghost"
+              onPress={() => router.push("/property/form" as never)}
+              disabled={isBusy}
+            />
+          )}
+
           {type === "job" && (
             <>
               <View style={styles.sourcesRow}>

@@ -243,6 +243,17 @@ function AuthGate() {
             }}
           />
           <Stack.Screen
+            name="property/form"
+            options={{
+              headerShown: true,
+              headerBackTitle: t("common.back"),
+              headerTintColor: th.primary,
+              headerStyle: { backgroundColor: th.surface },
+              headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
+              title: t("form.create_title"),
+            }}
+          />
+          <Stack.Screen
             name="job/[id]"
             options={{
               headerShown: true,

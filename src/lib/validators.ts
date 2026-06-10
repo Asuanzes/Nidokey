@@ -30,7 +30,9 @@ export const PropertyInput = z.object({
 
   address: z.string().optional().nullable(),
   city: z.string().min(1),
-  province: z.string().min(1),
+  // Provincia puede venir vacía en creación manual (la columna es NOT NULL pero
+  // admite ""); no la forzamos a ≥1 como antes.
+  province: z.string().default(""),
   country: z.string().default("España"),
   postalCode: z.string().optional().nullable(),
   latitude: z.coerce.number().optional().nullable(),

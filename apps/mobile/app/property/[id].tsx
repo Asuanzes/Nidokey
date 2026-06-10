@@ -345,6 +345,7 @@ export default function PropertyDetailScreen() {
 
       <View style={[styles.floatBar, { top: insets.top + 8 }]} pointerEvents="box-none">
         <FloatButton icon="chevron-back" onPress={() => (from === "import" ? router.replace("/") : router.back())} />
+        <FloatButton icon="create-outline" onPress={() => router.push(`/property/form?id=${p.id}` as never)} />
       </View>
 
       <CategoryContextSheet
