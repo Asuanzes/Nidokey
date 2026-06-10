@@ -88,14 +88,14 @@
     "merge_error": "No se pudo completar"
   },
   "types": {
-    "property": { "label": "Inmuebles y Alquiler", "singular": "Inmueble" },
-    "holiday": { "label": "Viajes", "singular": "Viaje" },
-    "crypto": { "label": "Criptos", "singular": "Cripto" },
-    "market": { "label": "Markets", "singular": "Mercado" },
-    "job": { "label": "Empleos", "singular": "Empleo" },
-    "workout": { "label": "Entrenos", "singular": "Producto" },
-    "chat": { "label": "Chat", "singular": "Chat" },
-    "book": { "label": "Libros", "singular": "Libro" }
+    "property": { "label": "Inmuebles y Alquiler", "singular": "Inmueble", "placeholder": "Pega el enlace del anuncio" },
+    "holiday": { "label": "Viajes", "singular": "Viaje", "placeholder": "" },
+    "crypto": { "label": "Criptos", "singular": "Cripto", "placeholder": "BTC, ETH, SOL…" },
+    "market": { "label": "Markets", "singular": "Mercado", "placeholder": "Busca: sxr8, apple, vaneck space…" },
+    "job": { "label": "Empleos", "singular": "Empleo", "placeholder": "Busca: react, enfermero/a, comercial…" },
+    "workout": { "label": "Entrenos", "singular": "Producto", "placeholder": "" },
+    "chat": { "label": "Chat", "singular": "Chat", "placeholder": "" },
+    "book": { "label": "Libros", "singular": "Libro", "placeholder": "Busca: sapiens, el principito, padre rico…" }
   },
   "status": {
     "for_sale": "En venta",
@@ -259,6 +259,17 @@
   "tools": {
     "fallback_title": "Herramienta",
     "not_available": "Herramienta no disponible.",
+    "panel": {
+      "recheck_label": "Actualizar precio",
+      "recheck_hint": "Re-consulta los anuncios",
+      "mortgage_hint": "Cuota y amortización",
+      "catastro_hint": "Referencia y datos OVC",
+      "registro_hint": "Titularidad y cargas",
+      "ine_hint": "Precios y renta (INE)",
+      "alert_label": "Alerta de precio",
+      "news_label": "Noticias (tendencias)",
+      "updating": "Actualizando…"
+    },
     "catastro": {
       "title": "Catastro",
       "ref_title": "Referencia catastral",

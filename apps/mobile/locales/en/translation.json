@@ -88,14 +88,14 @@
     "merge_error": "Couldn't complete"
   },
   "types": {
-    "property": { "label": "Properties & Rentals", "singular": "Property" },
-    "holiday": { "label": "Trips", "singular": "Trip" },
-    "crypto": { "label": "Crypto", "singular": "Crypto" },
-    "market": { "label": "Markets", "singular": "Market" },
-    "job": { "label": "Jobs", "singular": "Job" },
-    "workout": { "label": "Workouts", "singular": "Product" },
-    "chat": { "label": "Chat", "singular": "Chat" },
-    "book": { "label": "Books", "singular": "Book" }
+    "property": { "label": "Properties & Rentals", "singular": "Property", "placeholder": "Paste the listing link" },
+    "holiday": { "label": "Trips", "singular": "Trip", "placeholder": "" },
+    "crypto": { "label": "Crypto", "singular": "Crypto", "placeholder": "BTC, ETH, SOL…" },
+    "market": { "label": "Markets", "singular": "Market", "placeholder": "Search: sxr8, apple, vaneck space…" },
+    "job": { "label": "Jobs", "singular": "Job", "placeholder": "Search: react, nurse, sales…" },
+    "workout": { "label": "Workouts", "singular": "Product", "placeholder": "" },
+    "chat": { "label": "Chat", "singular": "Chat", "placeholder": "" },
+    "book": { "label": "Books", "singular": "Book", "placeholder": "Search: sapiens, the little prince, rich dad…" }
   },
   "status": {
     "for_sale": "For sale",
@@ -259,6 +259,17 @@
   "tools": {
     "fallback_title": "Tool",
     "not_available": "Tool not available.",
+    "panel": {
+      "recheck_label": "Update price",
+      "recheck_hint": "Re-checks the listings",
+      "mortgage_hint": "Installment and amortization",
+      "catastro_hint": "Reference and OVC data",
+      "registro_hint": "Ownership and charges",
+      "ine_hint": "Prices and income (INE)",
+      "alert_label": "Price alert",
+      "news_label": "News (trends)",
+      "updating": "Updating…"
+    },
     "catastro": {
       "title": "Cadastre",
       "ref_title": "Cadastral reference",

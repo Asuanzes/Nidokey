@@ -533,7 +533,7 @@ export default function ImportarScreen() {
               reset();
               if (cfg.searchOnSubmit) setHasSearched(false);
             }}
-            placeholder={cfg.addPlaceholder}
+            placeholder={t(`types.${type}.placeholder`)}
             placeholderTextColor={th.textSubtle}
             keyboardType={cfg.addMode === "url" ? "url" : "default"}
             autoCapitalize={cfg.addMode === "symbol" ? "characters" : "none"}

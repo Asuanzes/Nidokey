@@ -182,19 +182,18 @@ export default function RecordsScreen() {
           contentContainerStyle={styles.railContent}
           showsVerticalScrollIndicator={false}
         >
-          {orderedVisible.map((t) => {
-            const c = RECORD_TYPE_CONFIG[t];
-            const active = type === t;
+          {orderedVisible.map((cat) => {
+            const active = type === cat;
             return (
               <Pressable
-                key={t}
-                onPress={() => setType(t)}
+                key={cat}
+                onPress={() => setType(cat)}
                 accessibilityRole="button"
-                accessibilityLabel={c.label}
+                accessibilityLabel={typeLabel(cat)}
                 accessibilityState={{ selected: active }}
                 style={[styles.railItem, active && { backgroundColor: th.accentSoft }]}
               >
-                <CategoryIcon type={t} size={26} />
+                <CategoryIcon type={cat} size={26} />
               </Pressable>
             );
           })}

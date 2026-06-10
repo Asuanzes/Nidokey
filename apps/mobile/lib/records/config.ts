@@ -22,10 +22,6 @@ import type { RecordType } from "@nidokey/shared";
 export type AddMode = "url" | "symbol" | "search" | "soon" | "wizard";
 
 export type RecordTypeConfig = {
-  /** Etiqueta plural para listas y chips (ej. "Inmuebles"). */
-  label: string;
-  /** Etiqueta singular para cabeceras de detalle (ej. "Inmueble"). */
-  singular: string;
   /** Color de acento del tipo (sobre fondo claro). */
   color: string;
   /** Variante aclarada para legibilidad como glifo/texto sobre fondo oscuro
@@ -37,8 +33,6 @@ export type RecordTypeConfig = {
   enabled: boolean;
   /** Cómo se añade un registro de este tipo. */
   addMode: AddMode;
-  /** Placeholder del input al añadir (según addMode). */
-  addPlaceholder: string;
   /**
    * En addMode "search": si true, busca solo al pulsar (no en vivo al teclear).
    * Para fuentes de PAGO (empleo/Apify) cada búsqueda cuesta → evita gastar
@@ -47,15 +41,19 @@ export type RecordTypeConfig = {
   searchOnSubmit?: boolean;
 };
 
+// Etiquetas y placeholders viven en i18n: `types.{type}.label/singular`
+// (useTypeI18n) y `types.{type}.placeholder` — aquí solo lo NO traducible
+// (color/icono/modo). Los campos legacy label/singular/addPlaceholder se
+// eliminaron al extraer i18n.
 export const RECORD_TYPE_CONFIG: Record<RecordType, RecordTypeConfig> = {
-  property: { label: "Inmuebles y Alquiler", singular: "Inmueble", color: "#3A5F8A", colorDark: "#6E93C0", icon: "home-outline",         enabled: true,  addMode: "url",    addPlaceholder: "Pega el enlace del anuncio" },
-  holiday:  { label: "Viajes",     singular: "Viaje",     color: "#2C7A8A", colorDark: "#5FAEBE", icon: "airplane-outline",     enabled: true,  addMode: "wizard", addPlaceholder: "" },
-  crypto:   { label: "Criptos",    singular: "Cripto",    color: "#B5893B", colorDark: "#D4A95A", icon: "logo-bitcoin",         enabled: true,  addMode: "symbol", addPlaceholder: "BTC, ETH, SOL…" },
-  market:   { label: "Markets",    singular: "Mercado",   color: "#2D6A4F", colorDark: "#5FA383", icon: "trending-up-outline",  enabled: true,  addMode: "search", addPlaceholder: "Busca: sxr8, apple, vaneck space…" },
-  job:      { label: "Empleos",    singular: "Empleo",    color: "#A86A17", colorDark: "#D29A4A", icon: "briefcase-outline",    enabled: true,  addMode: "search", addPlaceholder: "Busca: react, enfermero/a, comercial…", searchOnSubmit: true },
-  workout:  { label: "Entrenos",   singular: "Producto",  color: "#A23E3E", colorDark: "#CF7059", icon: "barbell-outline",      enabled: false, addMode: "soon",   addPlaceholder: "" },
-  chat:     { label: "Chat",       singular: "Chat",      color: "#6C5A9C", colorDark: "#8B79C4", icon: "chatbubbles-outline",  enabled: false, addMode: "soon",   addPlaceholder: "" },
-  book:     { label: "Libros",     singular: "Libro",     color: "#8C4A52", colorDark: "#B86575", icon: "book-outline",         enabled: true,  addMode: "search", addPlaceholder: "Busca: sapiens, el principito, padre rico…", searchOnSubmit: true },
+  property: { color: "#3A5F8A", colorDark: "#6E93C0", icon: "home-outline",        enabled: true,  addMode: "url" },
+  holiday:  { color: "#2C7A8A", colorDark: "#5FAEBE", icon: "airplane-outline",    enabled: true,  addMode: "wizard" },
+  crypto:   { color: "#B5893B", colorDark: "#D4A95A", icon: "logo-bitcoin",        enabled: true,  addMode: "symbol" },
+  market:   { color: "#2D6A4F", colorDark: "#5FA383", icon: "trending-up-outline", enabled: true,  addMode: "search" },
+  job:      { color: "#A86A17", colorDark: "#D29A4A", icon: "briefcase-outline",   enabled: true,  addMode: "search", searchOnSubmit: true },
+  workout:  { color: "#A23E3E", colorDark: "#CF7059", icon: "barbell-outline",     enabled: false, addMode: "soon" },
+  chat:     { color: "#6C5A9C", colorDark: "#8B79C4", icon: "chatbubbles-outline", enabled: false, addMode: "soon" },
+  book:     { color: "#8C4A52", colorDark: "#B86575", icon: "book-outline",        enabled: true,  addMode: "search", searchOnSubmit: true },
 };
 
 export function recordTypeConfig(type: RecordType): RecordTypeConfig {

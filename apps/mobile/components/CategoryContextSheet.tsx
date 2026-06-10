@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
@@ -37,6 +38,7 @@ export function CategoryContextSheet({
   onSelect: (tool: ToolDef) => void;
 }) {
   const { th } = useTheme();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   return (
@@ -75,11 +77,11 @@ export function CategoryContextSheet({
               </View>
               <View style={styles.rowText}>
                 <Text style={[styles.rowLabel, { color: tool.enabled ? th.text : th.textSubtle }]}>
-                  {tool.label}
+                  {t(tool.labelKey)}
                 </Text>
-                {(tool.hint || busy) && (
+                {(tool.hintKey || busy) && (
                   <Text style={[styles.rowHint, { color: th.textSubtle }]} numberOfLines={1}>
-                    {busy ? "Actualizando…" : tool.hint}
+                    {busy ? t("tools.panel.updating") : tool.hintKey ? t(tool.hintKey) : null}
                   </Text>
                 )}
               </View>

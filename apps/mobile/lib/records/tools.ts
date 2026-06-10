@@ -1,5 +1,6 @@
 import type { Ionicons } from "@expo/vector-icons";
 import type { RecordType } from "@nidokey/shared";
+import type { I18nKey } from "@/lib/i18n/keys";
 
 /**
  * Herramientas contextuales por categoría (el "menú lateral / panel contextual"
@@ -20,27 +21,30 @@ export type ToolKind = "action" | "route" | "info" | "share";
 
 export type ToolDef = {
   id: string;
-  label: string;
+  /** CLAVE i18n de la etiqueta (la resuelve el punto de render con t()). El
+   *  `id` es string libre → no cabe template literal tipado; la clave
+   *  explícita queda verificada por tsc igual que t("clave.mala"). */
+  labelKey: I18nKey;
   icon: keyof typeof Ionicons.glyphMap;
   kind: ToolKind;
   enabled: boolean;
-  /** Texto auxiliar (p. ej. "Próximamente" en herramientas deshabilitadas). */
-  hint?: string;
+  /** Clave i18n del texto auxiliar (p. ej. common.soon en deshabilitadas). */
+  hintKey?: I18nKey;
 };
 
 const PROPERTY_TOOLS: ToolDef[] = [
-  { id: "recheck", label: "Actualizar precio", icon: "refresh-outline", kind: "action", enabled: true, hint: "Re-consulta los anuncios" },
-  { id: "mortgage", label: "Simulador de hipoteca", icon: "calculator-outline", kind: "route", enabled: true, hint: "Cuota y amortización" },
-  { id: "catastro", label: "Catastro", icon: "document-text-outline", kind: "route", enabled: true, hint: "Referencia y datos OVC" },
-  { id: "registro", label: "Registro de la Propiedad", icon: "ribbon-outline", kind: "route", enabled: true, hint: "Titularidad y cargas" },
-  { id: "ine", label: "Estadísticas de zona", icon: "bar-chart-outline", kind: "route", enabled: true, hint: "Precios y renta (INE)" },
-  { id: "share", label: "Compartir", icon: "share-outline", kind: "share", enabled: true },
+  { id: "recheck", labelKey: "tools.panel.recheck_label", icon: "refresh-outline", kind: "action", enabled: true, hintKey: "tools.panel.recheck_hint" },
+  { id: "mortgage", labelKey: "tools.mortgage.title", icon: "calculator-outline", kind: "route", enabled: true, hintKey: "tools.panel.mortgage_hint" },
+  { id: "catastro", labelKey: "tools.catastro.title", icon: "document-text-outline", kind: "route", enabled: true, hintKey: "tools.panel.catastro_hint" },
+  { id: "registro", labelKey: "tools.registro.title", icon: "ribbon-outline", kind: "route", enabled: true, hintKey: "tools.panel.registro_hint" },
+  { id: "ine", labelKey: "tools.ine.title", icon: "bar-chart-outline", kind: "route", enabled: true, hintKey: "tools.panel.ine_hint" },
+  { id: "share", labelKey: "common.share", icon: "share-outline", kind: "share", enabled: true },
 ];
 
 const CRYPTO_TOOLS: ToolDef[] = [
-  { id: "alert", label: "Alerta de precio", icon: "notifications-outline", kind: "info", enabled: false, hint: "Próximamente" },
-  { id: "news", label: "Noticias (tendencias)", icon: "newspaper-outline", kind: "info", enabled: false, hint: "Próximamente" },
-  { id: "share", label: "Compartir", icon: "share-outline", kind: "share", enabled: true },
+  { id: "alert", labelKey: "tools.panel.alert_label", icon: "notifications-outline", kind: "info", enabled: false, hintKey: "common.soon" },
+  { id: "news", labelKey: "tools.panel.news_label", icon: "newspaper-outline", kind: "info", enabled: false, hintKey: "common.soon" },
+  { id: "share", labelKey: "common.share", icon: "share-outline", kind: "share", enabled: true },
 ];
 
 const RECORD_TOOLS: Partial<Record<RecordType, ToolDef[]>> = {
