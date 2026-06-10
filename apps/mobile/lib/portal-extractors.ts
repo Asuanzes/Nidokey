@@ -219,28 +219,53 @@ var __metaDesc = function() {
   if (md && md.content) return __cleanText(md.content);
   return '';
 };
-// Prioriza candidatos de JSON (de confianza): limpio, >=20 y no basura.
+// Prioriza candidatos de JSON: limpio, >=20 y no basura. Acepta string u objeto
+// ({text|value|content|es}) o array (algunos portales anidan la descripción).
 var __pickJson = function(cands) {
+  var coerce = function(x) {
+    if (x == null) return '';
+    if (typeof x === 'string') return x;
+    if (Array.isArray(x)) { for (var k = 0; k < x.length; k++) { var v = coerce(x[k]); if (v) return v; } return ''; }
+    if (typeof x === 'object') return coerce(x.text || x.value || x.content || x.es || x.description || '');
+    return '';
+  };
   for (var i = 0; i < (cands || []).length; i++) {
-    var c = __cleanText(cands[i]);
+    var c = __cleanText(coerce(cands[i]));
     if (c && c.length >= 20 && !__isJunkDesc(c)) return c;
   }
   return null;
 };
-// Descripción desde el DOM (fallback): selectores específicos + genéricos, el
-// más largo NO-basura (>=60); si nada, el resumen meta del portal.
-var __descDom = function() {
-  var sels = ['[itemprop="description"]','.adCommentsLanguage','.comment .adCommentsLanguage',
-    '[class*="Description" i]','[class*="description" i]','[class*="comment" i]',
-    '[class*="detail-text" i]','[class*="adText" i]','[class*="texto" i]'];
+// El más largo NO-basura entre unos selectores. Lee textContent (capta texto
+// colapsado tras "ver más", que innerText recortaría).
+var __bestFrom = function(sels, minLen) {
   var best = '';
   for (var s = 0; s < sels.length; s++) {
     var els; try { els = document.querySelectorAll(sels[s]); } catch(e) { continue; }
     for (var i = 0; i < els.length; i++) {
-      var t = __cleanText(els[i].innerText || els[i].textContent || '');
-      if (t.length >= 60 && !__isJunkDesc(t) && t.length > best.length) best = t;
+      var t = __cleanText(els[i].textContent || els[i].innerText || '');
+      if (t.length >= minLen && !__isJunkDesc(t) && t.length > best.length) best = t;
     }
   }
+  return best || null;
+};
+// Descripción desde el DOM: selectores de DESCRIPCIÓN reales (umbral bajo) y
+// luego genéricos (umbral alto, para no colar bloques de UI).
+var __descDom = function() {
+  return __bestFrom(
+    ['[itemprop="description"]', '.adCommentsLanguage', '.comment .adCommentsLanguage', '[class*="commentsLanguage" i]'],
+    30
+  ) || __bestFrom(
+    ['[class*="Description" i]', '[class*="description" i]', '[class*="comment" i]', '[class*="detail-text" i]', '[class*="adText" i]', '[class*="texto" i]'],
+    60
+  );
+};
+// Descripción final: la MÁS RICA (más larga no-basura) entre el JSON del portal
+// y el DOM. Clave para Idealista, cuyo JSON-LD trae solo el título SEO mientras
+// el comentario real del dueño vive en .adCommentsLanguage. Último recurso: meta.
+var __desc = function(cands) {
+  var j = __pickJson(cands);
+  var d = __descDom();
+  var best = j && d ? (d.length >= j.length ? d : j) : (j || d);
   if (best) return best;
   var m = __metaDesc();
   return m && !__isJunkDesc(m) ? m : null;
@@ -308,7 +333,7 @@ if (ad) {
     builtArea: ad.constructedArea || ad.surface || null,
     usableArea: ad.usableArea || null,
     floor: ad.floor || null,
-    description: __pickJson([ad.description, ad.comment]) || __descDom(),
+    description: __desc([ad.description, ad.comment]),
     address: (ad.ubication && ad.ubication.address) || null,
     city: (ad.ubication && (ad.ubication.municipality || ad.ubication.city)) || null,
     province: (ad.ubication && ad.ubication.province) || null,
@@ -328,12 +353,12 @@ if (ld) {
     title: ld.name || document.title,
     price: __price(ld.offers && ld.offers.price) || __priceDom(),
     rooms: ld.numberOfRooms || null,
-    description: __pickJson([ld.description]) || __descDom(),
+    description: __desc([ld.description]),
     images: imgs, features: __features()
   }});
   return;
 }
-__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'FOTOCASA', title: document.title, price: __priceDom(), description: __descDom(), images: __imgs(60), features: __features() }});
+__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'FOTOCASA', title: document.title, price: __priceDom(), description: __desc([]), images: __imgs(60), features: __features() }});
 `;
 
 const PISOS_SCRIPT = (url: string) => `
@@ -355,7 +380,7 @@ if (pr) {
     usableArea: pr.usableArea || null,
     city: pr.city || (pr.location && pr.location.city) || null,
     province: pr.province || (pr.location && pr.location.province) || null,
-    description: __pickJson([pr.description, pr.comment, pr.adText]) || __descDom(),
+    description: __desc([pr.description, pr.comment, pr.adText]),
     images: imgs, features: __features()
   }});
   return;
@@ -368,12 +393,12 @@ if (ld) {
     url: ${JSON.stringify(url)}, portal: 'PISOS_COM',
     title: ld.name || document.title,
     price: __price(ld.offers && ld.offers.price) || __priceDom(),
-    description: __pickJson([ld.description]) || __descDom(),
+    description: __desc([ld.description]),
     images: imgs, features: __features()
   }});
   return;
 }
-__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'PISOS_COM', title: document.title, price: __priceDom(), description: __descDom(), images: __imgs(60), features: __features() }});
+__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'PISOS_COM', title: document.title, price: __priceDom(), description: __desc([]), images: __imgs(60), features: __features() }});
 `;
 
 const HABITACLIA_SCRIPT = (url: string) => `
@@ -394,12 +419,12 @@ if (ad) {
     usableArea: ad.usableArea || null,
     city: (ad.ubication && (ad.ubication.municipality || ad.ubication.city)) || null,
     province: (ad.ubication && ad.ubication.province) || null,
-    description: __pickJson([ad.description, ad.comment]) || __descDom(),
+    description: __desc([ad.description, ad.comment]),
     images: imgs, features: __features()
   }});
   return;
 }
-__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'HABITACLIA', title: document.title, price: __priceDom(), description: __descDom(), images: __imgs(60), features: __features() }});
+__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'HABITACLIA', title: document.title, price: __priceDom(), description: __desc([]), images: __imgs(60), features: __features() }});
 `;
 
 // Idealista (DataDome): la extracción REINTENTA con espera antes de rendirse.
@@ -420,7 +445,7 @@ var __extract = function() {
       url: ${JSON.stringify(url)}, portal: 'IDEALISTA',
       title: ld.name || document.title,
       price: __price(ld.offers && ld.offers.price) || __priceDom(),
-      description: __pickJson([ld.description]) || __descDom(),
+      description: __desc([ld.description]),
       rooms: ld.numberOfRooms || null,
       builtArea: (ld.floorSize && ld.floorSize.value) ? Math.round(ld.floorSize.value) : null,
       address: (ld.address && ld.address.streetAddress) || null,
@@ -440,7 +465,7 @@ var __extract = function() {
       url: ${JSON.stringify(url)}, portal: 'IDEALISTA',
       title: hasTitle ? titleEl.innerText.trim() : document.title,
       price: __priceDom(),
-      description: __descDom(),
+      description: __desc([]),
       images: __imgs(60), features: __features()
     }});
     return true;
@@ -458,7 +483,7 @@ var __run = function() {
   // Sin datos tras ~4,5s y sin challenge detectable: manda lo que haya.
   __post({ type: 'extracted', data: {
     url: ${JSON.stringify(url)}, portal: 'IDEALISTA',
-    title: document.title, price: __priceDom(), description: __descDom(),
+    title: document.title, price: __priceDom(), description: __desc([]),
     images: __imgs(60), features: __features()
   }});
 };
@@ -477,7 +502,7 @@ if (ld) {
     url: ${JSON.stringify(url)}, portal: 'MILANUNCIOS',
     title: ld.name || document.title,
     price: __price(ld.offers && ld.offers.price) || __priceDom(),
-    description: __pickJson([ld.description]) || __descDom(),
+    description: __desc([ld.description]),
     images: imgs, features: __features()
   }});
   return;
@@ -487,7 +512,7 @@ __post({ type: 'extracted', data: {
   url: ${JSON.stringify(url)}, portal: 'MILANUNCIOS',
   title: (titleEl && titleEl.innerText && titleEl.innerText.trim()) || document.title,
   price: __priceDom(),
-  description: __descDom(),
+  description: __desc([]),
   images: __imgs(60), features: __features()
 }});
 `;
@@ -509,7 +534,7 @@ if (pr) {
     bathrooms: pr.bathrooms || null,
     builtArea: pr.area || pr.constructedArea || null,
     city: pr.city || (pr.location && pr.location.city) || null,
-    description: __pickJson([pr.description, pr.comment, pr.adText]) || __descDom(),
+    description: __desc([pr.description, pr.comment, pr.adText]),
     images: imgs, features: __features()
   }});
   return;
@@ -522,12 +547,12 @@ if (ld) {
     url: ${JSON.stringify(url)}, portal: 'YAENCONTRE',
     title: ld.name || document.title,
     price: __price(ld.offers && ld.offers.price) || __priceDom(),
-    description: __pickJson([ld.description]) || __descDom(),
+    description: __desc([ld.description]),
     images: imgs, features: __features()
   }});
   return;
 }
-__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'YAENCONTRE', title: document.title, price: __priceDom(), description: __descDom(), images: __imgs(60), features: __features() }});
+__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: 'YAENCONTRE', title: document.title, price: __priceDom(), description: __desc([]), images: __imgs(60), features: __features() }});
 `;
 
 const GENERIC_SCRIPT = (url: string, portal: string) => `
@@ -542,12 +567,12 @@ if (ld) {
     rooms: ld.numberOfRooms || null,
     builtArea: (ld.floorSize && ld.floorSize.value) ? Math.round(ld.floorSize.value) : null,
     city: (ld.address && ld.address.addressLocality) || null,
-    description: __pickJson([ld.description]) || __descDom(),
+    description: __desc([ld.description]),
     images: imgs, features: __features()
   }});
   return;
 }
-__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: ${JSON.stringify(portal)}, title: document.title, price: __priceDom(), description: __descDom(), images: __imgs(60), features: __features() }});
+__post({ type: 'extracted', data: { url: ${JSON.stringify(url)}, portal: ${JSON.stringify(portal)}, title: document.title, price: __priceDom(), description: __desc([]), images: __imgs(60), features: __features() }});
 `;
 
 // ─── Public API ───────────────────────────────────────────────────────────────

@@ -465,13 +465,18 @@ export async function importListing(
       contractType: payload.contractType ?? undefined,
     });
 
-    // Descripción: sustituir la guardada SOLO si está vacía o es basura (cura
-    // legado en re-imports); nunca pisar una buena (respeta ediciones del dueño).
-    // `payload.description` ya viene limpia y no-basura desde sanitizePayload.
+    // Descripción: sustituir la guardada si está vacía, es basura, o la nueva es
+    // MUCHO más rica (cura legado tipo título-SEO corto de Idealista que no es
+    // "basura" por patrón). Una descripción real ya completa no la supera un
+    // ×1.5, así que respeta ediciones del dueño. `payload.description` ya viene
+    // limpia y no-basura desde sanitizePayload.
     const prevDesc = existing.property.description;
+    const newDesc = payload.description ?? null;
+    const muchRicher =
+      !!newDesc && !!prevDesc && newDesc.length > prevDesc.length * 1.5 && newDesc.length - prevDesc.length > 60;
     const descPatch =
-      payload.description && (!prevDesc || isLikelyJunkDescription(prevDesc))
-        ? { description: payload.description }
+      newDesc && (!prevDesc || isLikelyJunkDescription(prevDesc) || muchRicher)
+        ? { description: newDesc }
         : {};
 
     // El precio nuevo va a su columna según la operación del anuncio: alquiler →
