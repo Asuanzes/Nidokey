@@ -119,6 +119,13 @@ model User {
   jobListings       JobListing[]
   bookRecords       BookRecord[]
   holidays          Holiday[]
+
+  // Chat
+  chatParticipations ConversationParticipant[]
+  chatMessages       ChatMessage[]
+  blocksIssued       UserBlock[] @relation("blocker")
+  blocksReceived     UserBlock[] @relation("blocked")
+  devices            Device[]
 }
 
 // Tablas estándar de NextAuth / Auth.js (Prisma adapter).
@@ -614,4 +621,146 @@ model RecordDuplicateDismissal {
 
   @@unique([ownerId, pairKey])
   @@index([ownerId, recordType])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// CHAT — mensajería interna 1:1 y grupos. La fuente de verdad es esta BBDD
+// (REST en Vercel); el gateway WS del VPS solo hace fan-out efímero y NO la
+// toca. Diseño E2E-ready: el contenido vive SOLO en ChatMessage.body (campo
+// opaco que mañana puede ser ciphertext) y lastMessagePreview (derivado,
+// vaciable). Presencia y typing NO se persisten (memoria del gateway).
+// ─────────────────────────────────────────────────────────────────────────
+enum ConversationKind {
+  DIRECT
+  GROUP
+}
+
+enum ChatRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum ChatMessageKind {
+  TEXT
+  IMAGE
+  FILE
+  AUDIO
+  SYSTEM // "X añadió a Y", "Y salió del grupo"…
+}
+
+model Conversation {
+  id          String           @id @default(cuid())
+  kind        ConversationKind
+  title       String?          // solo grupos (DIRECT deriva del otro participante)
+  imageUrl    String?          // avatar de grupo
+  createdById String?
+  // Dedupe de 1:1: sort(userA,userB).join("|") + "|" + (contextId ?? "general").
+  // Permite chat general Y chat por recurso entre las mismas dos personas.
+  directKey   String?          @unique
+
+  // Vínculo opcional con un registro de la app (soft-ref polimórfica, patrón
+  // ImportLog.propertyId): la conversación sobrevive si el registro se borra.
+  contextType String? // RecordType: "property" | "book" | …
+  contextId   String?
+
+  // Denormalizados para la lista (orden + snippet). Vaciables si E2E futuro.
+  lastMessageAt      DateTime?
+  lastMessagePreview String?   @db.VarChar(140)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  participants ConversationParticipant[]
+  messages     ChatMessage[]
+
+  @@index([lastMessageAt])
+  @@index([contextType, contextId])
+}
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           ChatRole     @default(MEMBER)
+  joinedAt       DateTime     @default(now())
+  leftAt         DateTime?    // salió del grupo (conserva historial hasta ahí)
+
+  // Read receipts baratos: un mensaje está leído por este miembro si
+  // msg.createdAt <= lastReadAt (sin fila por mensaje).
+  lastReadAt      DateTime?
+  lastDeliveredAt DateTime?
+  muteUntil       DateTime?
+  pinnedAt        DateTime?
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model ChatMessage {
+  id             String          @id @default(cuid())
+  conversationId String
+  conversation   Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String?
+  sender         User?           @relation(fields: [senderId], references: [id], onDelete: SetNull)
+  kind           ChatMessageKind @default(TEXT)
+  // Contenido ÚNICO y opaco (texto hoy; ciphertext si E2E mañana, sin migrar).
+  body           String?         @db.Text
+  replyToId      String? // soft-ref a otro ChatMessage (cita)
+  // Idempotencia + UI optimista: reintento con el mismo clientId no duplica.
+  clientId       String?
+  editedAt       DateTime?
+  deletedAt      DateTime? // borrado SUAVE ("mensaje eliminado"); purga física por cron
+  createdAt      DateTime  @default(now())
+
+  attachments ChatAttachment[]
+
+  @@unique([conversationId, senderId, clientId])
+  @@index([conversationId, createdAt])
+  @@index([conversationId, id])
+}
+
+model ChatAttachment {
+  id         String          @id @default(cuid())
+  messageId  String
+  message    ChatMessage     @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  kind       ChatMessageKind // IMAGE | FILE | AUDIO
+  url        String
+  mimeType   String
+  sizeBytes  Int
+  width      Int?
+  height     Int?
+  durationMs Int?
+  blurhash   String?
+  createdAt  DateTime        @default(now())
+
+  @@index([messageId])
+}
+
+model UserBlock {
+  id        String   @id @default(cuid())
+  blockerId String
+  blocker   User     @relation("blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId String
+  blocked   User     @relation("blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+// Push tokens de Expo (notificaciones). Se registra al iniciar sesión/arrancar;
+// se elimina en logout o cuando Expo devuelve DeviceNotRegistered.
+model Device {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expoPushToken String   @unique
+  platform      String // "ios" | "android"
+  lastSeenAt    DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
 }

@@ -577,5 +577,27 @@
     "create": "Crear inmueble",
     "save": "Guardar cambios",
     "save_error": "No se pudo guardar"
+  },
+  "chat": {
+    "new_chat": "Nuevo chat",
+    "load_error": "No se pudieron cargar los chats",
+    "empty_title": "Sin conversaciones",
+    "empty_desc": "Empieza un chat buscando a otra persona por su email.",
+    "no_messages": "Sin mensajes todavía",
+    "members_one": "{{count}} miembro",
+    "members_other": "{{count}} miembros",
+    "context_deleted": "El registro vinculado ya no existe",
+    "composer_placeholder": "Escribe un mensaje…",
+    "send": "Enviar",
+    "send_error": "No se pudo enviar el mensaje",
+    "delete_title": "Eliminar mensaje",
+    "delete_message": "Se eliminará para todos. Esta acción no se puede deshacer.",
+    "message_deleted": "Mensaje eliminado",
+    "edited": "editado ·",
+    "create_error": "No se pudo crear el chat",
+    "search_placeholder": "Email o nombre (mín. 3 letras)",
+    "search_hint": "Busca a la otra persona por su email o nombre para empezar a chatear.",
+    "no_users_title": "Sin resultados",
+    "no_users_desc": "Nadie coincide con esa búsqueda. Comprueba el email."
   }
 }

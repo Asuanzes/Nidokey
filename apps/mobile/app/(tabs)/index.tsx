@@ -21,6 +21,7 @@ import { useBoot } from "@/lib/boot-context";
 import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { BooksByAuthor } from "@/components/BooksByAuthor";
+import { ConversationList } from "@/components/chat/ConversationList";
 import { ReorderableRecordList } from "@/components/ReorderableRecordList";
 import { deleteRecord } from "@/lib/data/records-repository";
 import { getSavedOrder, saveOrder, applySavedOrder } from "@/lib/local-order";
@@ -42,15 +43,20 @@ export default function RecordsScreen() {
   // Importar abre la categoría en la que estás y "Ver {categoría}" vuelve a ella.
   const { category: type, setCategory: setType, orderedVisible } = useCategoryPrefs();
 
-  const { data: records, error, loading, refreshing, refetch } = useRecords({ type });
+  // Chat no es una lista de records: renderiza su propia lista de conversaciones
+  // (abajo) y no consulta /api/records.
+  const isChat = type === "chat";
+  const { data: records, error, loading, refreshing, refetch } = useRecords({ type }, { enabled: !isChat });
 
   // Avisa al arranque cuando la primera carga de registros termina (datos o
   // error) → el loader de bolitas se retira. Tapamos así el spinner propio de la
   // lista: una sola carga, no dos.
   const { markFirstScreenReady } = useBoot();
   useEffect(() => {
-    if (!loading) markFirstScreenReady();
-  }, [loading, markFirstScreenReady]);
+    // Con chat activo el query de records está deshabilitado (loading se queda
+    // en true): la lista de conversaciones gestiona su propia carga.
+    if (!loading || isChat) markFirstScreenReady();
+  }, [loading, isChat, markFirstScreenReady]);
 
   // Modo edición (pulsación larga): muestra ✕ para borrar. Sale al cambiar de
   // tipo o si la lista queda vacía.
@@ -116,7 +122,10 @@ export default function RecordsScreen() {
       <View style={styles.body}>
         {/* Contenido */}
         <View style={styles.main}>
-          {showOpFilter && records && records.length > 0 && (
+          {/* Chat: lista de conversaciones propia (no es una lista de records). */}
+          {isChat && <ConversationList />}
+
+          {!isChat && showOpFilter && records && records.length > 0 && (
             <View style={[styles.opFilter, { borderBottomColor: th.border }]}>
               {(["ALL", "SALE", "RENT"] as const).map((opt) => {
                 const active = opFilter === opt;
@@ -137,13 +146,13 @@ export default function RecordsScreen() {
             </View>
           )}
 
-          {loading && !records && (
+          {!isChat && loading && !records && (
             <View style={styles.center}>
               <ActivityIndicator color={th.primary} />
             </View>
           )}
 
-          {error && (
+          {!isChat && error && (
             <EmptyState
               icon="cloud-offline-outline"
               title={t("records.load_error")}
@@ -153,7 +162,7 @@ export default function RecordsScreen() {
             />
           )}
 
-          {records && records.length === 0 && !error && (
+          {!isChat && records && records.length === 0 && !error && (
             <EmptyState
               icon={cfg.enabled ? "file-tray-outline" : "time-outline"}
               title={cfg.enabled ? t("records.empty_title", { type: typeLabel(type).toLowerCase() }) : t("common.soon")}
@@ -176,7 +185,7 @@ export default function RecordsScreen() {
             />
           )}
 
-          {shown && shown.length > 0 && (
+          {!isChat && shown && shown.length > 0 && (
             <View style={styles.fill}>
               {editing && (
                 <View style={[styles.editBar, { backgroundColor: th.accentSoft, borderBottomColor: th.border }]}>

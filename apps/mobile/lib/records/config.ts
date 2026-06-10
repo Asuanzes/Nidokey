@@ -52,7 +52,7 @@ export const RECORD_TYPE_CONFIG: Record<RecordType, RecordTypeConfig> = {
   market:   { color: "#2D6A4F", colorDark: "#5FA383", icon: "trending-up-outline", enabled: true,  addMode: "search" },
   job:      { color: "#A86A17", colorDark: "#D29A4A", icon: "briefcase-outline",   enabled: true,  addMode: "search", searchOnSubmit: true },
   workout:  { color: "#A23E3E", colorDark: "#CF7059", icon: "barbell-outline",     enabled: false, addMode: "soon" },
-  chat:     { color: "#6C5A9C", colorDark: "#8B79C4", icon: "chatbubbles-outline", enabled: false, addMode: "soon" },
+  chat:     { color: "#6C5A9C", colorDark: "#8B79C4", icon: "chatbubbles-outline", enabled: true,  addMode: "soon" },
   book:     { color: "#8C4A52", colorDark: "#B86575", icon: "book-outline",        enabled: true,  addMode: "search", searchOnSubmit: true },
 };
 

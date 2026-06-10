@@ -9,7 +9,10 @@ import { useQuery, type UseQueryResult } from "./useQuery";
  * plano y refresco periódico (tiempo casi real). Única forma de traer listas
  * de records en toda la app móvil.
  */
-export function useRecords(params: RecordListParams = {}): UseQueryResult<BaseRecord[]> {
+export function useRecords(
+  params: RecordListParams = {},
+  opts: { enabled?: boolean } = {}
+): UseQueryResult<BaseRecord[]> {
   const { type, query, limit } = params;
   const fetcher = useCallback(
     () => fetchRecords({ type, query, limit }),
@@ -18,6 +21,9 @@ export function useRecords(params: RecordListParams = {}): UseQueryResult<BaseRe
   return useQuery(fetcher, [type, query, limit], {
     revalidateOnFocus: true,
     refreshInterval: 60_000,
+    // El chat no es una lista de records (tiene pantalla/endpoints propios):
+    // la pestaña Registros lo desactiva con enabled=false.
+    enabled: opts.enabled ?? true,
     // Al cambiar de categoría, mostrar carga en vez del "Sin … todavía" obsoleto.
     resetOnDepsChange: true,
   });
