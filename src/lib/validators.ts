@@ -3,15 +3,30 @@ import { z } from "zod";
 export const PropertyTypeEnum = z.enum([
   "HOUSE", "PISO", "ATICO", "CHALET", "DUPLEX", "ESTUDIO", "LOFT", "LOCAL", "TERRENO", "OTRO",
 ]);
-export const PropertyStatusEnum = z.enum(["FOR_SALE", "RESERVED", "SOLD", "WITHDRAWN"]);
+export const PropertyStatusEnum = z.enum(["FOR_SALE", "RESERVED", "SOLD", "WITHDRAWN", "FOR_RENT", "RENTED"]);
 export const EnergyRatingEnum = z.enum(["A", "B", "C", "D", "E", "F", "G", "UNKNOWN"]);
+export const OperationTypeEnum = z.enum(["SALE", "RENT", "RENT_TO_OWN"]);
+export const RentalContractTypeEnum = z.enum(["RESIDENTIAL", "SEASONAL", "ROOM", "COMMERCIAL"]);
+export const FurnishedStateEnum = z.enum(["UNFURNISHED", "SEMI", "FURNISHED"]);
 
 export const PropertyInput = z.object({
   title: z.string().min(3),
   description: z.string().optional().nullable(),
   type: PropertyTypeEnum,
   status: PropertyStatusEnum.default("FOR_SALE"),
+  operationType: OperationTypeEnum.default("SALE"),
   currentPrice: z.coerce.number().int().nonnegative().optional().nullable(),
+
+  // Alquiler (todos opcionales; precios en CÉNTIMOS al persistir).
+  monthlyRent: z.coerce.number().int().nonnegative().optional().nullable(),
+  deposit: z.coerce.number().int().nonnegative().optional().nullable(),
+  minStayMonths: z.coerce.number().int().nonnegative().optional().nullable(),
+  maxStayMonths: z.coerce.number().int().nonnegative().optional().nullable(),
+  availableFrom: z.coerce.date().optional().nullable(),
+  utilitiesIncluded: z.coerce.boolean().optional().nullable(),
+  furnished: FurnishedStateEnum.optional().nullable(),
+  petsAllowed: z.coerce.boolean().optional().nullable(),
+  contractType: RentalContractTypeEnum.optional().nullable(),
 
   address: z.string().optional().nullable(),
   city: z.string().min(1),

@@ -10,6 +10,17 @@ export function isValidPriceEur(n: number | null | undefined): n is number {
   return n >= 10000 && n <= 50_000_000;
 }
 
+/**
+ * Renta mensual de alquiler, en EUROS (misma unidad que isValidPriceEur).
+ * Banda 100 €–50.000 €/mes: una renta de 450 € NO debe colarse como "venta de
+ * 450 €" (isValidPriceEur la rechazaría al exigir ≥ 10.000 €), por eso es banda
+ * propia. Cubre desde habitación barata hasta local/oficina de gama alta.
+ */
+export function isValidMonthlyRentEur(n: number | null | undefined): n is number {
+  if (n == null || !Number.isFinite(n)) return false;
+  return n >= 100 && n <= 50_000;
+}
+
 export function isValidBuiltArea(n: number | null | undefined): n is number {
   if (n == null || !Number.isFinite(n)) return false;
   return n >= 5 && n <= 5000;

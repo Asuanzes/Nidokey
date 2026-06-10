@@ -25,6 +25,31 @@ enum PropertyStatus {
   RESERVED
   SOLD
   WITHDRAWN
+  FOR_RENT
+  RENTED
+}
+
+// Tipo de operación dentro de la categoría Inmuebles. SALE es el default
+// retrocompatible (todas las filas existentes son venta).
+enum OperationType {
+  SALE         // compra/venta
+  RENT         // alquiler
+  RENT_TO_OWN  // alquiler con opción a compra
+}
+
+// Modalidad de contrato de alquiler (taxonomía LAU). El alquiler comercial se
+// asocia normalmente a type=LOCAL; el residencial cubre vivienda habitual.
+enum RentalContractType {
+  RESIDENTIAL  // vivienda habitual (LAU art. 2)
+  SEASONAL     // temporada / media estancia
+  ROOM         // habitación
+  COMMERCIAL   // local/oficina (uso distinto de vivienda)
+}
+
+enum FurnishedState {
+  UNFURNISHED
+  SEMI
+  FURNISHED
 }
 
 enum EnergyRating {
@@ -161,7 +186,26 @@ model Property {
   description  String?
   type         PropertyType
   status       PropertyStatus @default(FOR_SALE)
+
+  // Operación principal de la ficha (la del primer anuncio importado). Los
+  // anuncios individuales llevan su propia operación en Listing.operationType,
+  // por lo que una ficha puede ser MIXTA (venta + alquiler del mismo inmueble).
+  operationType OperationType @default(SALE)
+
+  // Venta: precio de compra en céntimos. Alquiler: null.
   currentPrice Int?
+  // Alquiler: renta mensual en céntimos. Venta: null. (Mixta: ambos.)
+  monthlyRent  Int?
+
+  // Condiciones de alquiler (todas opcionales; solo relevantes si hay renta).
+  deposit           Int?                // fianza en céntimos (valor real, no nº de meses)
+  minStayMonths     Int?
+  maxStayMonths     Int?
+  availableFrom     DateTime?
+  utilitiesIncluded Boolean?            // gastos (comunidad/suministros) incluidos
+  furnished         FurnishedState?
+  petsAllowed       Boolean?
+  contractType      RentalContractType?
 
   address      String?
   city         String
@@ -214,6 +258,7 @@ model Property {
   @@index([titleSlug])
   @@index([city, builtArea])
   @@index([recordType])
+  @@index([operationType, status])
 }
 
 model Media {
@@ -237,6 +282,9 @@ model Listing {
   propertyId    String
   property      Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   portal        Portal
+  // Operación de ESTE anuncio (un mismo inmueble puede tener anuncio de venta y
+  // anuncio de alquiler en portales distintos).
+  operationType OperationType   @default(SALE)
   url           String          @unique
   externalId    String?
   status        ListingStatus   @default(ACTIVE)
