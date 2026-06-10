@@ -99,5 +99,40 @@ export const searchChatUsers = (q: string) =>
 export const blockUser = (userId: string) =>
   api("/api/chat/blocks", { method: "POST", body: JSON.stringify({ userId }) });
 
+export const unblockUser = (userId: string) =>
+  api("/api/chat/blocks", { method: "DELETE", body: JSON.stringify({ userId }) });
+
+export type BlockDto = { userId: string; user: ChatUser; createdAt: string };
+
+export const listBlocks = () =>
+  api<{ blocks: BlockDto[] }>("/api/chat/blocks").then((d) => d.blocks);
+
 export const leaveConversation = (conversationId: string) =>
   api(`/api/chat/conversations/${conversationId}`, { method: "PATCH", body: JSON.stringify({ leave: true }) });
+
+/** Silenciar: fecha futura, `null` quita el silencio. "Siempre" = año 9999. */
+export const muteConversation = (conversationId: string, muteUntil: string | null) =>
+  api<ConversationDto>(`/api/chat/conversations/${conversationId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ muteUntil }),
+  });
+
+// ——— Contactos (agenda propia de la app; no se lee la agenda del teléfono) ———
+
+export type ContactDto = { userId: string; alias: string | null; user: ChatUser; createdAt: string };
+
+export const listContacts = () =>
+  api<{ contacts: ContactDto[] }>("/api/chat/contacts").then((d) => d.contacts);
+
+export const saveContact = (userId: string, alias?: string | null) =>
+  api<ContactDto>("/api/chat/contacts", { method: "POST", body: JSON.stringify({ userId, alias }) });
+
+export const deleteContact = (userId: string) =>
+  api("/api/chat/contacts", { method: "DELETE", body: JSON.stringify({ userId }) });
+
+/** Nombre a mostrar de un contacto: alias > nombre > @usuario > email local. */
+export const contactDisplayName = (c: ContactDto): string =>
+  c.alias?.trim() ||
+  c.user.name?.trim() ||
+  (c.user.username ? "@" + c.user.username : "") ||
+  c.user.email.split("@")[0];

@@ -42,7 +42,9 @@
     "username_available": "Disponible ✓",
     "username_taken": "Ya está en uso",
     "username_invalid": "Alias no válido",
-    "username_saved": "Guardado ✓"
+    "username_saved": "Guardado ✓",
+    "privacy": "Privacidad",
+    "blocked_users": "Usuarios bloqueados"
   },
   "settings": {
     "language": {
@@ -607,6 +609,27 @@
     "search_placeholder": "@usuario o email exacto",
     "search_hint": "Escribe el @usuario o el email COMPLETO de la otra persona para chatear.",
     "no_users_title": "Sin resultados",
-    "no_users_desc": "Nadie coincide con esa búsqueda. Comprueba el email."
+    "no_users_desc": "Nadie coincide con esa búsqueda. Comprueba el email.",
+    "action_error": "No se pudo completar la acción",
+    "menu_title": "Opciones del chat",
+    "menu_contact_save": "Guardar contacto",
+    "menu_contact_remove": "Eliminar de contactos",
+    "menu_mute": "Silenciar notificaciones",
+    "menu_muted": "Notificaciones silenciadas",
+    "menu_muted_hint": "Toca para cambiar o reactivar",
+    "menu_block": "Bloquear usuario",
+    "menu_unblock": "Desbloquear",
+    "mute_title": "Silenciar notificaciones",
+    "mute_8h": "8 horas",
+    "mute_1w": "1 semana",
+    "mute_forever": "Siempre",
+    "mute_off": "Reactivar notificaciones",
+    "contacts_title": "Tus contactos",
+    "contact_alias_edit": "Editar alias",
+    "contact_alias_title": "Alias del contacto",
+    "contact_alias_hint": "Solo tú ves este nombre. Déjalo vacío para usar su nombre real.",
+    "blocked_title": "Usuarios bloqueados",
+    "blocked_empty_title": "Nadie bloqueado",
+    "blocked_empty_desc": "Cuando bloquees a alguien desde un chat aparecerá aquí."
   }
 }

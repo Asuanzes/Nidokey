@@ -129,6 +129,8 @@ model User {
   blocksIssued       UserBlock[] @relation("blocker")
   blocksReceived     UserBlock[] @relation("blocked")
   devices            Device[]
+  contacts           Contact[]   @relation("contactOwner")
+  contactOf          Contact[]   @relation("contactTarget")
 }
 
 // Tablas estándar de NextAuth / Auth.js (Prisma adapter).
@@ -752,6 +754,21 @@ model UserBlock {
 
   @@unique([blockerId, blockedId])
   @@index([blockedId])
+}
+
+// Agenda de contactos del chat (guardados manualmente desde la app; NO se lee
+// la agenda del teléfono — identidad por email/@username, modelo Telegram).
+model Contact {
+  id            String   @id @default(cuid())
+  ownerId       String
+  owner         User     @relation("contactOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  contactUserId String
+  contactUser   User     @relation("contactTarget", fields: [contactUserId], references: [id], onDelete: Cascade)
+  alias         String?  @db.VarChar(60) // nombre con el que YO veo al contacto
+  createdAt     DateTime @default(now())
+
+  @@unique([ownerId, contactUserId])
+  @@index([ownerId])
 }
 
 // Push tokens de Expo (notificaciones). Se registra al iniciar sesión/arrancar;

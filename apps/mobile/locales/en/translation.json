@@ -42,7 +42,9 @@
     "username_available": "Available ✓",
     "username_taken": "Already taken",
     "username_invalid": "Invalid handle",
-    "username_saved": "Saved ✓"
+    "username_saved": "Saved ✓",
+    "privacy": "Privacy",
+    "blocked_users": "Blocked users"
   },
   "settings": {
     "language": {
@@ -607,6 +609,27 @@
     "search_placeholder": "@username or exact email",
     "search_hint": "Type the other person's full @username or email to start chatting.",
     "no_users_title": "No results",
-    "no_users_desc": "Nobody matches that search. Check the email."
+    "no_users_desc": "Nobody matches that search. Check the email.",
+    "action_error": "The action could not be completed",
+    "menu_title": "Chat options",
+    "menu_contact_save": "Save contact",
+    "menu_contact_remove": "Remove from contacts",
+    "menu_mute": "Mute notifications",
+    "menu_muted": "Notifications muted",
+    "menu_muted_hint": "Tap to change or unmute",
+    "menu_block": "Block user",
+    "menu_unblock": "Unblock",
+    "mute_title": "Mute notifications",
+    "mute_8h": "8 hours",
+    "mute_1w": "1 week",
+    "mute_forever": "Always",
+    "mute_off": "Unmute notifications",
+    "contacts_title": "Your contacts",
+    "contact_alias_edit": "Edit alias",
+    "contact_alias_title": "Contact alias",
+    "contact_alias_hint": "Only you can see this name. Leave it empty to use their real name.",
+    "blocked_title": "Blocked users",
+    "blocked_empty_title": "Nobody blocked",
+    "blocked_empty_desc": "When you block someone from a chat they will show up here."
   }
 }

@@ -21,14 +21,22 @@ import { fonts } from "@/lib/fonts";
 import { useAuth } from "@/lib/auth-context";
 import { useQuery } from "@/lib/hooks/useQuery";
 import {
+  blockUser,
+  deleteContact,
   deleteMessage,
   getConversation,
+  listBlocks,
+  listContacts,
   listMessages,
   markRead,
+  muteConversation,
+  saveContact,
   sendMessage,
+  unblockUser,
   type MessageDto,
 } from "@/lib/chat/api";
 import { Avatar, chatTime } from "@/components/chat/ConversationList";
+import { ActionsSheet, type SheetOption } from "@/components/chat/ActionsSheet";
 import { setActiveConversation } from "@/lib/chat/push";
 import { ResultModal } from "@/components/ui";
 
@@ -44,7 +52,7 @@ export default function ChatScreen() {
   const { state } = useAuth();
   const myId = state.kind === "authed" ? state.user.id : null;
 
-  const { data: conversation } = useQuery(() => getConversation(id!), [id], {
+  const { data: conversation, refetch: refetchConversation } = useQuery(() => getConversation(id!), [id], {
     enabled: !!id,
     refreshInterval: 10_000,
   });
@@ -61,6 +69,14 @@ export default function ChatScreen() {
   const [confirmDelete, setConfirmDelete] = useState<MessageDto | null>(null);
   const [text, setText] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
+
+  // Menú de cabecera (contacto / silenciar / bloquear).
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [muteOpen, setMuteOpen] = useState(false);
+  const [menuBusy, setMenuBusy] = useState(false);
+  const [isContact, setIsContact] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Mensajes visibles (ASC) dedupe por id y clientId.
   const messages = useMemo(() => {
@@ -161,9 +177,111 @@ export default function ChatScreen() {
 
   const inverted = useMemo(() => [...messages].reverse(), [messages]);
 
+  const muted = !!conversation?.muteUntil && new Date(conversation.muteUntil) > new Date();
+  const isDirect = conversation?.kind === "DIRECT";
+  const otherUserId = isDirect ? other?.userId ?? null : null;
+
+  // Abre el menú y resuelve el estado contacto/bloqueado bajo demanda (listas
+  // pequeñas; evita cargarlas en cada entrada al chat).
+  async function openMenu() {
+    setMenuOpen(true);
+    if (!otherUserId) return;
+    setMenuBusy(true);
+    try {
+      const [contacts, blocks] = await Promise.all([listContacts(), listBlocks()]);
+      setIsContact(contacts.some((c) => c.userId === otherUserId));
+      setIsBlocked(blocks.some((b) => b.userId === otherUserId));
+    } catch {
+      // Sin red: el menú muestra las acciones con el último estado conocido.
+    } finally {
+      setMenuBusy(false);
+    }
+  }
+
+  const menuOptions: SheetOption[] = [];
+  if (otherUserId) {
+    menuOptions.push(
+      isContact
+        ? { id: "contact_remove", icon: "person-remove-outline", label: t("chat.menu_contact_remove") }
+        : { id: "contact_save", icon: "person-add-outline", label: t("chat.menu_contact_save") }
+    );
+  }
+  menuOptions.push({
+    id: "mute",
+    icon: muted ? "notifications-outline" : "notifications-off-outline",
+    label: muted ? t("chat.menu_muted") : t("chat.menu_mute"),
+    hint: muted ? t("chat.menu_muted_hint") : undefined,
+  });
+  if (otherUserId) {
+    menuOptions.push(
+      isBlocked
+        ? { id: "unblock", icon: "lock-open-outline", label: t("chat.menu_unblock") }
+        : { id: "block", icon: "ban-outline", label: t("chat.menu_block"), danger: true }
+    );
+  }
+
+  async function onMenuSelect(option: SheetOption) {
+    if (option.id === "mute") {
+      setMenuOpen(false);
+      setMuteOpen(true);
+      return;
+    }
+    setMenuOpen(false);
+    if (!otherUserId) return;
+    try {
+      if (option.id === "contact_save") {
+        await saveContact(otherUserId);
+        setIsContact(true);
+      } else if (option.id === "contact_remove") {
+        await deleteContact(otherUserId);
+        setIsContact(false);
+      } else if (option.id === "block") {
+        await blockUser(otherUserId);
+        setIsBlocked(true);
+      } else if (option.id === "unblock") {
+        await unblockUser(otherUserId);
+        setIsBlocked(false);
+      }
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : t("chat.action_error"));
+    }
+  }
+
+  const muteOptions: SheetOption[] = [
+    { id: "8h", icon: "time-outline", label: t("chat.mute_8h") },
+    { id: "1w", icon: "calendar-outline", label: t("chat.mute_1w") },
+    { id: "forever", icon: "infinite-outline", label: t("chat.mute_forever") },
+    ...(muted
+      ? [{ id: "none", icon: "notifications-outline" as const, label: t("chat.mute_off") }]
+      : []),
+  ];
+
+  async function onMuteSelect(option: SheetOption) {
+    setMuteOpen(false);
+    const until =
+      option.id === "8h"
+        ? new Date(Date.now() + 8 * 3600_000).toISOString()
+        : option.id === "1w"
+          ? new Date(Date.now() + 7 * 24 * 3600_000).toISOString()
+          : option.id === "forever"
+            ? new Date("9999-01-01T00:00:00.000Z").toISOString()
+            : null;
+    try {
+      await muteConversation(id!, until);
+      await refetchConversation();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : t("chat.action_error"));
+    }
+  }
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: th.bg }]} edges={["top", "bottom"]}>
       <Stack.Screen options={{ headerShown: false }} />
+
+      {/* Un único KAV a pantalla completa: con edge-to-edge Android ignora
+          adjustResize, así que el "padding" del KAV es lo que sube el composer
+          (y encoge la FlatList invertida → el último mensaje sigue visible). */}
+      <KeyboardAvoidingView style={styles.flex} behavior="padding">
 
       {/* Header propio: volver + avatar + título */}
       <View style={[styles.header, { backgroundColor: th.surface, borderBottomColor: th.border }]}>
@@ -172,15 +290,29 @@ export default function ChatScreen() {
         </Pressable>
         <Avatar title={conversation?.title ?? "…"} imageUrl={conversation?.imageUrl ?? null} size={34} />
         <View style={styles.headerText}>
-          <Text style={[styles.headerTitle, { color: th.text }]} numberOfLines={1}>
-            {conversation?.title ?? t("common.loading")}
-          </Text>
+          <View style={styles.headerTitleRow}>
+            <Text style={[styles.headerTitle, { color: th.text }]} numberOfLines={1}>
+              {conversation?.title ?? t("common.loading")}
+            </Text>
+            {muted && <Ionicons name="notifications-off-outline" size={14} color={th.textSubtle} />}
+          </View>
           {conversation?.kind === "GROUP" && (
             <Text style={[styles.headerSub, { color: th.textMuted }]} numberOfLines={1}>
               {t("chat.members", { count: conversation.participants.length })}
             </Text>
           )}
         </View>
+        {conversation && (
+          <Pressable
+            onPress={() => void openMenu()}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={t("chat.menu_title")}
+            style={styles.headerMenu}
+          >
+            <Ionicons name="ellipsis-vertical" size={20} color={th.textMuted} />
+          </Pressable>
+        )}
       </View>
 
       {/* Banner del registro vinculado */}
@@ -239,6 +371,8 @@ export default function ChatScreen() {
             />
           )}
           contentContainerStyle={styles.list}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
           onEndReached={loadOlder}
           onEndReachedThreshold={0.3}
           ListFooterComponent={loadingOlder ? <ActivityIndicator color={th.primary} style={{ marginVertical: 8 }} /> : null}
@@ -246,27 +380,27 @@ export default function ChatScreen() {
       )}
 
       {/* Composer */}
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <View style={[styles.composer, { backgroundColor: th.surface, borderTopColor: th.border }]}>
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            placeholder={t("chat.composer_placeholder")}
-            placeholderTextColor={th.textSubtle}
-            multiline
-            maxLength={4000}
-            style={[styles.input, { color: th.text, backgroundColor: th.bg, borderColor: th.border }]}
-          />
-          <Pressable
-            onPress={onSend}
-            disabled={!text.trim()}
-            accessibilityRole="button"
-            accessibilityLabel={t("chat.send")}
-            style={[styles.sendBtn, { backgroundColor: text.trim() ? th.primary : th.border }]}
-          >
-            <Ionicons name="send" size={18} color="#fff" />
-          </Pressable>
-        </View>
+      <View style={[styles.composer, { backgroundColor: th.surface, borderTopColor: th.border }]}>
+        <TextInput
+          value={text}
+          onChangeText={setText}
+          placeholder={t("chat.composer_placeholder")}
+          placeholderTextColor={th.textSubtle}
+          multiline
+          maxLength={4000}
+          style={[styles.input, { color: th.text, backgroundColor: th.bg, borderColor: th.border }]}
+        />
+        <Pressable
+          onPress={onSend}
+          disabled={!text.trim()}
+          accessibilityRole="button"
+          accessibilityLabel={t("chat.send")}
+          style={[styles.sendBtn, { backgroundColor: text.trim() ? th.primary : th.border }]}
+        >
+          <Ionicons name="send" size={18} color="#fff" />
+        </Pressable>
+      </View>
+
       </KeyboardAvoidingView>
 
       <ResultModal
@@ -288,6 +422,30 @@ export default function ChatScreen() {
         message={sendError ?? undefined}
         actions={[{ label: t("common.understood"), onPress: () => setSendError(null) }]}
         onRequestClose={() => setSendError(null)}
+      />
+      <ResultModal
+        visible={!!actionError}
+        tone="error"
+        title={t("chat.action_error")}
+        message={actionError ?? undefined}
+        actions={[{ label: t("common.understood"), onPress: () => setActionError(null) }]}
+        onRequestClose={() => setActionError(null)}
+      />
+
+      <ActionsSheet
+        visible={menuOpen}
+        title={conversation?.title ?? ""}
+        options={menuOptions}
+        busy={menuBusy}
+        onSelect={(o) => void onMenuSelect(o)}
+        onClose={() => setMenuOpen(false)}
+      />
+      <ActionsSheet
+        visible={muteOpen}
+        title={t("chat.mute_title")}
+        options={muteOptions}
+        onSelect={(o) => void onMuteSelect(o)}
+        onClose={() => setMuteOpen(false)}
       />
     </SafeAreaView>
   );
@@ -361,6 +519,7 @@ function Bubble({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  flex: { flex: 1 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   header: {
     flexDirection: "row",
@@ -372,7 +531,9 @@ const styles = StyleSheet.create({
   },
   headerBack: { padding: 4 },
   headerText: { flex: 1 },
-  headerTitle: { fontSize: 16, fontFamily: fonts.bodySemibold },
+  headerTitleRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  headerMenu: { padding: 4 },
+  headerTitle: { fontSize: 16, fontFamily: fonts.bodySemibold, flexShrink: 1 },
   headerSub: { fontSize: 11 },
   ctxBanner: {
     flexDirection: "row",

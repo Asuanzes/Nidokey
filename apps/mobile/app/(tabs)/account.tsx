@@ -76,6 +76,14 @@ export default function AccountScreen() {
         </Pressable>
       </Section>
 
+      <Section label={t("account.privacy")}>
+        <Pressable style={styles.toggleRow} onPress={() => router.push("/chat/blocked" as never)}>
+          <Ionicons name="ban-outline" size={20} color={th.textMuted} />
+          <Text style={[styles.toggleLabel, { color: th.text }]}>{t("account.blocked_users")}</Text>
+          <Ionicons name="chevron-forward" size={18} color={th.textSubtle} />
+        </Pressable>
+      </Section>
+
       <Button
         label={t("account.logout")}
         icon="log-out-outline"

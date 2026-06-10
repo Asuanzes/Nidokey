@@ -259,6 +259,17 @@ function AuthGate() {
             }}
           />
           <Stack.Screen
+            name="chat/blocked"
+            options={{
+              headerShown: true,
+              headerBackTitle: t("common.back"),
+              headerTintColor: th.primary,
+              headerStyle: { backgroundColor: th.surface },
+              headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
+              title: t("chat.blocked_title"),
+            }}
+          />
+          <Stack.Screen
             name="property/form"
             options={{
               headerShown: true,
