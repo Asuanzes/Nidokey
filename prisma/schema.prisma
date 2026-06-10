@@ -750,9 +750,12 @@ model ChatAttachment {
   messageId  String
   message    ChatMessage     @relation(fields: [messageId], references: [id], onDelete: Cascade)
   kind       ChatMessageKind // IMAGE | FILE | AUDIO
+  // Key de R2 (p. ej. "chat/u/<userId>/<id>.jpg"); se sirve como URL GET
+  // firmada al cliente. URLs http(s) completas se sirven tal cual (legacy).
   url        String
   mimeType   String
   sizeBytes  Int
+  fileName   String?         @db.VarChar(180) // nombre original (kind FILE)
   width      Int?
   height     Int?
   durationMs Int?

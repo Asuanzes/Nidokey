@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -23,6 +24,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useQuery } from "@/lib/hooks/useQuery";
 import {
   blockUser,
+  chatBootstrap,
   deleteContact,
   deleteMessage,
   getConversation,
@@ -32,15 +34,40 @@ import {
   markRead,
   muteConversation,
   saveContact,
+  sendMediaMessage,
   sendMessage,
+  stableAttachmentUrl,
   toggleReaction,
   unblockUser,
+  type AttachmentDto,
   type MessageDto,
 } from "@/lib/chat/api";
+import {
+  audioModuleAvailable,
+  formatBytes,
+  pickDocument,
+  pickImages,
+  pickersAvailable,
+  takePhoto,
+  uploadAttachment,
+  type PickedAttachment,
+} from "@/lib/chat/media";
 import { Avatar, chatTime } from "@/components/chat/ConversationList";
 import { ActionsSheet, type SheetOption } from "@/components/chat/ActionsSheet";
 import { setActiveConversation } from "@/lib/chat/push";
 import { ResultModal } from "@/components/ui";
+
+// Componentes que importan expo-audio (nativo) ESTÁTICAMENTE: se cargan en
+// perezoso solo si el binario trae el módulo — una OTA sobre un build viejo
+// no crashea (mismo blindaje que lib/chat/push.ts).
+/* eslint-disable @typescript-eslint/no-require-imports */
+const VoiceRecorder = audioModuleAvailable()
+  ? (require("@/components/chat/VoiceRecorder") as typeof import("@/components/chat/VoiceRecorder")).VoiceRecorder
+  : null;
+const AudioBubble = audioModuleAvailable()
+  ? (require("@/components/chat/AudioBubble") as typeof import("@/components/chat/AudioBubble")).AudioBubble
+  : null;
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 /**
  * Pantalla de conversación. F1 = polling: mensajes cada 4 s (la página más
@@ -58,6 +85,8 @@ export default function ChatScreen() {
     enabled: !!id,
     refreshInterval: 10_000,
   });
+  // Flags del servidor (adjuntos/voz dependen de que R2 esté configurado).
+  const { data: boot } = useQuery(chatBootstrap, [], { revalidateOnFocus: false });
   const {
     data: latest,
     loading,
@@ -72,6 +101,12 @@ export default function ChatScreen() {
   const [msgActions, setMsgActions] = useState<MessageDto | null>(null);
   const [text, setText] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
+
+  // Adjuntos (B1/B2/B4): sheet del "+", subida en curso, grabadora y visor.
+  const [attachOpen, setAttachOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
 
   // Menú de cabecera (contacto / silenciar / bloquear).
   const [menuOpen, setMenuOpen] = useState(false);
@@ -181,6 +216,53 @@ export default function ChatScreen() {
       await refetch();
     } catch (e) {
       setActionError(e instanceof Error ? e.message : t("chat.action_error"));
+    }
+  }
+
+  // ——— Adjuntos: subir a R2 (presigned PUT) y enviar UN mensaje con todos ———
+  const canAttach = !!boot?.flags.attachments && pickersAvailable();
+  const canVoice = canAttach && !!boot?.flags.voice && !!VoiceRecorder;
+
+  async function sendAttachments(kind: "IMAGE" | "FILE" | "AUDIO", files: PickedAttachment[]) {
+    if (files.length === 0) return;
+    setUploading(true);
+    try {
+      const uploaded = [];
+      for (const f of files) uploaded.push(await uploadAttachment(kind, f));
+      const clientId = `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+      await sendMediaMessage(id!, { clientId, kind, attachments: uploaded });
+      setRecording(false);
+      await refetch();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : t("chat.upload_error"));
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  const attachOptions: SheetOption[] = [
+    { id: "camera", icon: "camera-outline", label: t("chat.attach_camera") },
+    { id: "gallery", icon: "images-outline", label: t("chat.attach_gallery") },
+    { id: "file", icon: "document-outline", label: t("chat.attach_file") },
+    ...(canVoice ? [{ id: "voice", icon: "mic-outline" as const, label: t("chat.attach_voice") }] : []),
+  ];
+
+  async function onAttachSelect(option: SheetOption) {
+    setAttachOpen(false);
+    try {
+      if (option.id === "gallery") {
+        await sendAttachments("IMAGE", await pickImages(6));
+      } else if (option.id === "camera") {
+        const f = await takePhoto();
+        if (f) await sendAttachments("IMAGE", [f]);
+      } else if (option.id === "file") {
+        const f = await pickDocument();
+        if (f) await sendAttachments("FILE", [f]);
+      } else if (option.id === "voice") {
+        setRecording(true);
+      }
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : t("chat.upload_error"));
     }
   }
 
@@ -383,6 +465,7 @@ export default function ChatScreen() {
                 if (item.kind !== "SYSTEM" && !item.deleted && !item.id.startsWith("tmp_")) setMsgActions(item);
               }}
               onToggleReaction={(emoji) => void onReact(item, emoji)}
+              onOpenImage={(url) => setViewerUrl(url)}
             />
           )}
           contentContainerStyle={styles.list}
@@ -394,27 +477,51 @@ export default function ChatScreen() {
         />
       )}
 
-      {/* Composer */}
-      <View style={[styles.composer, { backgroundColor: th.surface, borderTopColor: th.border }]}>
-        <TextInput
-          value={text}
-          onChangeText={setText}
-          placeholder={t("chat.composer_placeholder")}
-          placeholderTextColor={th.textSubtle}
-          multiline
-          maxLength={4000}
-          style={[styles.input, { color: th.text, backgroundColor: th.bg, borderColor: th.border }]}
+      {/* Composer (o grabadora de voz en su lugar) */}
+      {recording && VoiceRecorder ? (
+        <VoiceRecorder
+          busy={uploading}
+          onCancel={() => setRecording(false)}
+          onSend={(f) => void sendAttachments("AUDIO", [f])}
         />
-        <Pressable
-          onPress={onSend}
-          disabled={!text.trim()}
-          accessibilityRole="button"
-          accessibilityLabel={t("chat.send")}
-          style={[styles.sendBtn, { backgroundColor: text.trim() ? th.primary : th.border }]}
-        >
-          <Ionicons name="send" size={18} color="#fff" />
-        </Pressable>
-      </View>
+      ) : (
+        <View style={[styles.composer, { backgroundColor: th.surface, borderTopColor: th.border }]}>
+          {canAttach && (
+            <Pressable
+              onPress={() => setAttachOpen(true)}
+              disabled={uploading}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel={t("chat.attach_title")}
+              style={styles.attachBtn}
+            >
+              {uploading ? (
+                <ActivityIndicator size="small" color={th.primary} />
+              ) : (
+                <Ionicons name="add-circle-outline" size={26} color={th.primary} />
+              )}
+            </Pressable>
+          )}
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            placeholder={t("chat.composer_placeholder")}
+            placeholderTextColor={th.textSubtle}
+            multiline
+            maxLength={4000}
+            style={[styles.input, { color: th.text, backgroundColor: th.bg, borderColor: th.border }]}
+          />
+          <Pressable
+            onPress={onSend}
+            disabled={!text.trim()}
+            accessibilityRole="button"
+            accessibilityLabel={t("chat.send")}
+            style={[styles.sendBtn, { backgroundColor: text.trim() ? th.primary : th.border }]}
+          >
+            <Ionicons name="send" size={18} color="#fff" />
+          </Pressable>
+        </View>
+      )}
 
       </KeyboardAvoidingView>
 
@@ -463,6 +570,21 @@ export default function ChatScreen() {
         onClose={() => setMuteOpen(false)}
       />
 
+      <ActionsSheet
+        visible={attachOpen}
+        title={t("chat.attach_title")}
+        options={attachOptions}
+        onSelect={(o) => void onAttachSelect(o)}
+        onClose={() => setAttachOpen(false)}
+      />
+
+      {/* Visor de imagen a pantalla completa */}
+      <Modal visible={!!viewerUrl} transparent animationType="fade" onRequestClose={() => setViewerUrl(null)}>
+        <Pressable style={styles.viewerBackdrop} onPress={() => setViewerUrl(null)}>
+          {viewerUrl && <Image source={{ uri: viewerUrl }} style={styles.viewerImg} contentFit="contain" />}
+        </Pressable>
+      </Modal>
+
       {/* Long-press en un mensaje: reacciones rápidas + eliminar (si es mío) */}
       <MessageActionsSheet
         message={msgActions}
@@ -476,6 +598,52 @@ export default function ChatScreen() {
         onClose={() => setMsgActions(null)}
       />
     </SafeAreaView>
+  );
+}
+
+/** Un adjunto dentro de la burbuja: imagen (tap = visor), audio o fila de archivo. */
+function AttachmentView({ a, onOpenImage }: { a: AttachmentDto; onOpenImage: (url: string) => void }) {
+  const { th } = useTheme();
+  const { t } = useTranslation();
+  const url = stableAttachmentUrl(a);
+
+  if (a.kind === "IMAGE") {
+    const ratio = a.width && a.height ? Math.min(Math.max(a.width / a.height, 0.6), 1.8) : 4 / 3;
+    return (
+      <Pressable onPress={() => onOpenImage(url)}>
+        <Image
+          source={{ uri: url }}
+          style={[styles.attachImg, { aspectRatio: ratio, backgroundColor: th.imagePlaceholder }]}
+          contentFit="cover"
+          transition={120}
+        />
+      </Pressable>
+    );
+  }
+
+  if (a.kind === "AUDIO" && AudioBubble) {
+    return <AudioBubble url={url} durationMs={a.durationMs} />;
+  }
+
+  // FILE — y AUDIO de respaldo si el binario no trae expo-audio.
+  return (
+    <Pressable
+      onPress={() => void Linking.openURL(url).catch(() => {})}
+      style={[styles.fileRow, { borderColor: th.border, backgroundColor: th.bg }]}
+    >
+      <Ionicons
+        name={a.kind === "AUDIO" ? "musical-notes-outline" : "document-outline"}
+        size={18}
+        color={th.primary}
+      />
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.fileName, { color: th.text }]} numberOfLines={1}>
+          {a.fileName ?? (a.kind === "AUDIO" ? t("chat.voice_note") : t("chat.file_generic"))}
+        </Text>
+        <Text style={[styles.fileMeta, { color: th.textSubtle }]}>{formatBytes(a.sizeBytes)}</Text>
+      </View>
+      <Ionicons name="download-outline" size={16} color={th.textSubtle} />
+    </Pressable>
   );
 }
 
@@ -550,6 +718,7 @@ function Bubble({
   otherDeliveredAt,
   onLongPress,
   onToggleReaction,
+  onOpenImage,
 }: {
   m: MessageDto;
   mine: boolean;
@@ -558,6 +727,7 @@ function Bubble({
   otherDeliveredAt: string | null;
   onLongPress: () => void;
   onToggleReaction: (emoji: string) => void;
+  onOpenImage: (url: string) => void;
 }) {
   const { th } = useTheme();
   const { t, i18n } = useTranslation();
@@ -596,7 +766,16 @@ function Bubble({
         {m.deleted ? (
           <Text style={[styles.deletedText, { color: th.textSubtle }]}>{t("chat.message_deleted")}</Text>
         ) : (
-          <Text style={[styles.bubbleText, { color: th.text }]}>{m.body}</Text>
+          <>
+            {m.attachments.length > 0 && (
+              <View style={styles.attachmentsWrap}>
+                {m.attachments.map((a) => (
+                  <AttachmentView key={a.id} a={a} onOpenImage={onOpenImage} />
+                ))}
+              </View>
+            )}
+            {!!m.body && <Text style={[styles.bubbleText, { color: th.text }]}>{m.body}</Text>}
+          </>
         )}
         <View style={styles.bubbleMeta}>
           {m.editedAt && !m.deleted && (
@@ -701,6 +880,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  // Adjuntos
+  attachBtn: { paddingHorizontal: 2, paddingVertical: 6 },
+  attachmentsWrap: { gap: 6, marginBottom: 2 },
+  attachImg: { width: 220, borderRadius: 10 },
+  fileRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    minWidth: 200,
+  },
+  fileName: { fontSize: 13, fontFamily: fonts.bodyMedium },
+  fileMeta: { fontSize: 11 },
+  viewerBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.92)",
+    justifyContent: "center",
+  },
+  viewerImg: { width: "100%", height: "100%" },
   // Reacciones
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 4 },
   reactionChip: {

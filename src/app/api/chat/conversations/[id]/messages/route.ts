@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth-helpers";
-import { CHAT_LIMITS } from "@/lib/chat/config";
+import { allowedMimesFor, CHAT_FLAGS, CHAT_LIMITS } from "@/lib/chat/config";
 import { anyBlockBetween, getParticipantOrNull, withinMessageRate } from "@/lib/chat/guard";
 import { messagePreview, sanitizeMessageBody } from "@/lib/chat/util";
 import { messageDto } from "@/lib/chat/serialize";
+import { signMessageAttachments } from "@/lib/chat/r2";
 import { sendChatPush } from "@/lib/chat/push";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -38,17 +39,31 @@ export async function GET(req: NextRequest, { params }: Ctx) {
 
   const hasMore = rows.length === limit;
   const nextCursor = hasMore ? rows[rows.length - 1].id : null;
-  // ASC para que el cliente pinte de arriba (viejo) a abajo (nuevo).
-  const messages = rows.reverse().map((m) => messageDto(m, userId));
+  // ASC para que el cliente pinte de arriba (viejo) a abajo (nuevo). Las URLs
+  // de adjuntos se firman al servir (R2 privado; firmar es crypto local).
+  const messages = await Promise.all(rows.reverse().map((m) => signMessageAttachments(messageDto(m, userId))));
 
   return NextResponse.json({ messages, nextCursor });
 }
 
+const AttachmentInput = z.object({
+  /** Key devuelta por /api/chat/uploads (verificada: prefijo del remitente). */
+  key: z.string().min(8).max(300),
+  mime: z.string().min(3).max(120),
+  sizeBytes: z.coerce.number().int().positive(),
+  fileName: z.string().trim().max(180).optional().nullable(),
+  width: z.coerce.number().int().positive().optional().nullable(),
+  height: z.coerce.number().int().positive().optional().nullable(),
+  durationMs: z.coerce.number().int().positive().optional().nullable(),
+});
+
 const SendInput = z.object({
   clientId: z.string().min(1).max(64).optional(),
-  kind: z.enum(["TEXT"]).default("TEXT"), // IMAGE/FILE/AUDIO llegan en F4
-  body: z.string().min(1),
+  kind: z.enum(["TEXT", "IMAGE", "FILE", "AUDIO"]).default("TEXT"),
+  // TEXT: obligatorio. Media: opcional (pie de foto).
+  body: z.string().optional().nullable(),
   replyToId: z.string().optional().nullable(),
+  attachments: z.array(AttachmentInput).max(CHAT_LIMITS.maxAttachmentsPerMessage).default([]),
 });
 
 /**
@@ -66,9 +81,31 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
   const input = parsed.data;
+  const isMedia = input.kind !== "TEXT";
 
   const body = sanitizeMessageBody(input.body, CHAT_LIMITS.maxMessageChars);
-  if (!body) return NextResponse.json({ error: "Mensaje vacío" }, { status: 400 });
+  if (!isMedia && !body) return NextResponse.json({ error: "Mensaje vacío" }, { status: 400 });
+
+  // Adjuntos: flag activo, al menos uno, MIME del tipo correcto y key propia
+  // (chat/u/<userId>/… — impide referenciar subidas de otros usuarios).
+  // (`!== "TEXT"` en vez de `isMedia` para que TS estreche input.kind.)
+  if (input.kind !== "TEXT") {
+    if (!CHAT_FLAGS.attachments || (input.kind === "AUDIO" && !CHAT_FLAGS.voice)) {
+      return NextResponse.json({ error: "Adjuntos desactivados" }, { status: 403 });
+    }
+    if (input.attachments.length === 0) {
+      return NextResponse.json({ error: "Falta el adjunto" }, { status: 400 });
+    }
+    const allow = allowedMimesFor(input.kind);
+    for (const a of input.attachments) {
+      if (!a.key.startsWith(`chat/u/${userId}/`)) {
+        return NextResponse.json({ error: "Adjunto no válido" }, { status: 400 });
+      }
+      if (!allow.includes(a.mime.toLowerCase())) {
+        return NextResponse.json({ error: `Tipo no admitido (${a.mime})` }, { status: 400 });
+      }
+    }
+  }
 
   // Idempotencia: el mismo clientId no crea duplicado.
   if (input.clientId) {
@@ -82,7 +119,9 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       },
       include: { attachments: true, reactions: { select: { emoji: true, userId: true } } },
     });
-    if (existing) return NextResponse.json(messageDto(existing, userId), { status: 200 });
+    if (existing) {
+      return NextResponse.json(await signMessageAttachments(messageDto(existing, userId)), { status: 200 });
+    }
   }
 
   // Bloqueos en DIRECT: si cualquiera bloqueó al otro, no se envía.
@@ -116,6 +155,20 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         body,
         replyToId: input.replyToId ?? null,
         clientId: input.clientId ?? null,
+        attachments: isMedia
+          ? {
+              create: input.attachments.map((a) => ({
+                kind: input.kind,
+                url: a.key, // key de R2; se sirve firmada
+                mimeType: a.mime.toLowerCase(),
+                sizeBytes: a.sizeBytes,
+                fileName: a.fileName ?? null,
+                width: a.width ?? null,
+                height: a.height ?? null,
+                durationMs: a.durationMs ?? null,
+              })),
+            }
+          : undefined,
       },
       include: { attachments: true },
     }),
@@ -138,5 +191,5 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     // nunca rompe el envío
   }
 
-  return NextResponse.json(messageDto(message, userId), { status: 201 });
+  return NextResponse.json(await signMessageAttachments(messageDto(message, userId)), { status: 201 });
 }

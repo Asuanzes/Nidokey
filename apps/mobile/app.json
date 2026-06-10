@@ -120,7 +120,20 @@
           "color": "#6C5A9C"
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Nidokey usa el micrófono para grabar notas de voz en el chat."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Nidokey accede a tus fotos para enviarlas en el chat.",
+          "cameraPermission": "Nidokey usa la cámara para hacer fotos y enviarlas en el chat."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

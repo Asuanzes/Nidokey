@@ -107,6 +107,7 @@ export function messageDto(
           url: a.url,
           mimeType: a.mimeType,
           sizeBytes: a.sizeBytes,
+          fileName: a.fileName,
           width: a.width,
           height: a.height,
           durationMs: a.durationMs,

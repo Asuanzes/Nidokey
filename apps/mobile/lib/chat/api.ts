@@ -35,6 +35,19 @@ export type ConversationDto = {
 
 export type ReactionChip = { emoji: string; count: number; mine: boolean };
 
+export type AttachmentDto = {
+  id: string;
+  kind: string;
+  url: string;
+  mimeType: string;
+  sizeBytes: number;
+  fileName: string | null;
+  width: number | null;
+  height: number | null;
+  durationMs: number | null;
+  blurhash: string | null;
+};
+
 export type MessageDto = {
   id: string;
   conversationId: string;
@@ -47,7 +60,7 @@ export type MessageDto = {
   deleted: boolean;
   createdAt: string;
   reactions: ReactionChip[];
-  attachments: { id: string; kind: string; url: string; mimeType: string }[];
+  attachments: AttachmentDto[];
 };
 
 export type ChatBootstrap = {
@@ -89,6 +102,42 @@ export const sendMessage = (conversationId: string, input: { clientId: string; b
     method: "POST",
     body: JSON.stringify({ ...input, kind: "TEXT" }),
   });
+
+export const sendMediaMessage = (
+  conversationId: string,
+  input: {
+    clientId: string;
+    kind: "IMAGE" | "FILE" | "AUDIO";
+    attachments: {
+      key: string;
+      mime: string;
+      sizeBytes: number;
+      fileName?: string | null;
+      width?: number | null;
+      height?: number | null;
+      durationMs?: number | null;
+    }[];
+    body?: string | null;
+  }
+) =>
+  api<MessageDto>(`/api/chat/conversations/${conversationId}/messages`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+
+/**
+ * Las URLs de adjuntos van FIRMADAS y cambian en cada respuesta (rompería la
+ * caché de expo-image y haría parpadear las fotos en cada poll). Fijamos la
+ * primera URL vista por attachment.id (la firma dura 7 días).
+ */
+const attachmentUrlCache = new Map<string, string>();
+export function stableAttachmentUrl(a: { id: string; url: string }): string {
+  const cached = attachmentUrlCache.get(a.id);
+  if (cached) return cached;
+  if (attachmentUrlCache.size > 500) attachmentUrlCache.clear();
+  attachmentUrlCache.set(a.id, a.url);
+  return a.url;
+}
 
 export const markRead = (conversationId: string) =>
   api<{ ok: true; lastReadAt: string }>(`/api/chat/conversations/${conversationId}/read`, { method: "POST" });
