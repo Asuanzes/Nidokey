@@ -258,9 +258,23 @@ export default function ChatScreen() {
     ...(canVoice ? [{ id: "voice", icon: "mic-outline" as const, label: t("chat.attach_voice") }] : []),
   ];
 
+  // Candado: en iOS un picker que falla al presentarse queda "en curso" y el
+  // siguiente intento da "Different document picking in progress".
+  const pickingRef = useRef(false);
+
   async function onAttachSelect(option: SheetOption) {
     setAttachOpen(false);
+    if (option.id === "voice") {
+      setRecording(true);
+      return;
+    }
+    if (pickingRef.current) return;
+    pickingRef.current = true;
     try {
+      // iOS no puede presentar el picker mientras nuestro sheet (Modal) aún se
+      // está descartando: esperar al dismiss o el picker falla en silencio.
+      if (Platform.OS === "ios") await new Promise((r) => setTimeout(r, 500));
+
       if (option.id === "gallery") {
         await sendAttachments("IMAGE", await pickImages(6));
       } else if (option.id === "camera") {
@@ -268,12 +282,14 @@ export default function ChatScreen() {
         if (f) await sendAttachments("IMAGE", [f]);
       } else if (option.id === "file") {
         const f = await pickDocument();
-        if (f) await sendAttachments("FILE", [f]);
-      } else if (option.id === "voice") {
-        setRecording(true);
+        // Una imagen elegida "como archivo" se envía como FOTO (burbuja con
+        // visor), no como fila de descarga.
+        if (f) await sendAttachments(f.mime.startsWith("image/") ? "IMAGE" : "FILE", [f]);
       }
     } catch (e) {
       setActionError(e instanceof Error ? e.message : t("chat.upload_error"));
+    } finally {
+      pickingRef.current = false;
     }
   }
 
@@ -618,7 +634,9 @@ function AttachmentView({ a, onOpenImage }: { a: AttachmentDto; onOpenImage: (ur
   const { t } = useTranslation();
   const url = stableAttachmentUrl(a);
 
-  if (a.kind === "IMAGE") {
+  // Imagen por kind O por MIME: cubre mensajes antiguos enviados como FILE
+  // con una foto dentro (se ven como foto, no como fila de descarga).
+  if (a.kind === "IMAGE" || a.mimeType.startsWith("image/")) {
     const ratio = a.width && a.height ? Math.min(Math.max(a.width / a.height, 0.6), 1.8) : 4 / 3;
     return (
       <Pressable onPress={() => onOpenImage(url)}>
