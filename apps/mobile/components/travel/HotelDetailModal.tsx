@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 import { formatMoney } from "@nidokey/shared";
 import { api } from "@/lib/api";
@@ -63,6 +64,7 @@ export function HotelDetailModal({
   onChoose,
 }: Props) {
   const { th } = useTheme();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [hotel, setHotel] = useState<HotelInfo | null>(null);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -84,7 +86,7 @@ export function HotelDetailModal({
         setHotel(r.hotel);
         setRooms(r.rooms ?? []);
       } catch (e) {
-        if (alive) setError(e instanceof Error ? e.message : "No se pudo cargar el hotel");
+        if (alive) setError(e instanceof Error ? e.message : t("travel.load_error"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -149,7 +151,7 @@ export function HotelDetailModal({
           {/* Servicios */}
           {hotel?.amenities && hotel.amenities.length > 0 ? (
             <View style={{ gap: 6 }}>
-              <Text style={[styles.sectionTitle, { color: th.text }]}>Servicios</Text>
+              <Text style={[styles.sectionTitle, { color: th.text }]}>{t("travel.services")}</Text>
               <View style={styles.chipsWrap}>
                 {hotel.amenities.map((a) => (
                   <View key={a} style={[styles.amenityChip, { backgroundColor: th.surface, borderColor: th.border }]}>
@@ -162,10 +164,10 @@ export function HotelDetailModal({
 
           {/* Habitaciones */}
           <View style={{ gap: 8 }}>
-            <Text style={[styles.sectionTitle, { color: th.text }]}>Habitaciones</Text>
+            <Text style={[styles.sectionTitle, { color: th.text }]}>{t("travel.rooms")}</Text>
             {rooms.length === 0 && !loading ? (
               <Text style={{ color: th.textSubtle, fontSize: 13 }}>
-                No hay desglose de habitaciones para estas fechas. Puedes elegir el hotel con su precio mostrado.
+                {t("travel.no_rooms")}
               </Text>
             ) : null}
             {rooms.map((room, i) => (
@@ -184,7 +186,7 @@ export function HotelDetailModal({
                   <Text style={{ color: th.accent, fontFamily: fonts.bodyBold }}>
                     {formatMoney(room.priceCents, room.currency)}
                   </Text>
-                  <Text style={{ color: th.accent, fontSize: 12, fontFamily: fonts.bodySemibold }}>Elegir</Text>
+                  <Text style={{ color: th.accent, fontSize: 12, fontFamily: fonts.bodySemibold }}>{t("travel.choose")}</Text>
                 </View>
               </Pressable>
             ))}
@@ -194,10 +196,12 @@ export function HotelDetailModal({
         {/* Pie: elegir hotel con el precio actual (sin desglose) */}
         <View style={[styles.footer, { borderTopColor: th.border, backgroundColor: th.surface }]}>
           <Button
-            label={`Elegir hotel · ${formatMoney(
-              rooms.length ? Math.min(...rooms.map((r) => r.priceCents)) : fallbackPriceCents,
-              "EUR"
-            )}`}
+            label={t("travel.choose_hotel_price", {
+              price: formatMoney(
+                rooms.length ? Math.min(...rooms.map((r) => r.priceCents)) : fallbackPriceCents,
+                "EUR"
+              ),
+            })}
             onPress={() => {
               const best = rooms.length ? Math.min(...rooms.map((r) => r.priceCents)) : fallbackPriceCents;
               onChoose(best, null);

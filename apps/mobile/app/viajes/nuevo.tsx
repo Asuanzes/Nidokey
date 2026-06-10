@@ -11,7 +11,8 @@ import {
 import { Image } from "expo-image";
 import { Stack, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Calendar, LocaleConfig, type DateData } from "react-native-calendars";
+import { Calendar, type DateData } from "react-native-calendars";
+import { useTranslation } from "react-i18next";
 
 import {
   buildHolidayImport,
@@ -22,6 +23,7 @@ import {
 import { api, ApiError } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
+import { useCalendarLocale, shortMonth, type CalendarLang } from "@/lib/i18n/calendar-locales";
 import { ResultModal } from "@/components/ui";
 import { HotelDetailModal } from "@/components/travel/HotelDetailModal";
 
@@ -73,31 +75,21 @@ const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Una habitación: adultos + edades de los niños. */
 type Room = { adults: number; children: number[] };
-/** Tipos de viaje sugeridos (el usuario puede escribir uno propio). */
-const TRIP_TYPES = ["Vacaciones", "Negocios", "Trabajo", "Familia", "Pareja", "Grupo", "Amigos"];
+/** Tipos de viaje SUGERIDOS (claves i18n trip.type_*; el usuario puede escribir
+ *  uno propio). El valor elegido se guarda tal cual se muestra (texto libre). */
+const TRIP_TYPE_KEYS = ["vacaciones", "negocios", "trabajo", "familia", "pareja", "grupo", "amigos"] as const;
 
-/** Paquete del viaje: qué se reserva (decide qué pasos se muestran). */
+/** Paquete del viaje: qué se reserva (decide qué pasos se muestran). La
+ *  etiqueta sale de i18n (trip.pkg_{id}, template literal tipado sobre Pkg). */
 type Pkg = "flight_hotel" | "hotel" | "flight" | "flight_hotel_transfer";
-const PKGS: { id: Pkg; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { id: "flight_hotel", label: "Vuelo + Hotel", icon: "airplane" },
-  { id: "hotel", label: "Solo Hotel", icon: "bed" },
-  { id: "flight", label: "Solo Vuelo", icon: "airplane-outline" },
-  { id: "flight_hotel_transfer", label: "Vuelo + Hotel + Traslado", icon: "car" },
+const PKGS: { id: Pkg; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { id: "flight_hotel", icon: "airplane" },
+  { id: "hotel", icon: "bed" },
+  { id: "flight", icon: "airplane-outline" },
+  { id: "flight_hotel_transfer", icon: "car" },
 ];
 /** Traslado aeropuerto↔hotel: estimación mientras no haya proveedor en vivo. */
 const TRANSFER_ESTIMATE_CENTS = 4000; // ~40 € ida y vuelta (estimado)
-
-// Calendario en español (react-native-calendars, JS puro).
-LocaleConfig.locales.es = {
-  monthNames: ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"],
-  monthNamesShort: ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"],
-  dayNames: ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"],
-  dayNamesShort: ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"],
-  today: "Hoy",
-};
-LocaleConfig.defaultLocale = "es";
-
-const MONTHS_SHORT = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
 
 /** "YYYY-MM-DD" de HOY en hora local (minDate del calendario). */
 function todayISO(): string {
@@ -107,10 +99,11 @@ function todayISO(): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
-/** "2026-07-15" → "15 jul". TZ-safe (no usa new Date sobre el ISO). */
-function fmtDay(iso: string): string {
+/** "2026-07-15" → "15 jul" / "15 Jul". TZ-safe (no usa new Date sobre el ISO);
+ *  el mes corto sale del locale del calendario activo. */
+function fmtDay(iso: string, lang: CalendarLang): string {
   const [, m, d] = iso.split("-").map(Number);
-  return `${d} ${MONTHS_SHORT[(m ?? 1) - 1]}`;
+  return `${d} ${shortMonth(lang, m ?? 1)}`;
 }
 
 type DayMark = { startingDay?: boolean; endingDay?: boolean; color: string; textColor: string };
@@ -132,6 +125,11 @@ function rangeMarks(start: string, end: string, color: string, textColor: string
 
 export default function NewTrip() {
   const { th } = useTheme();
+  const { t } = useTranslation();
+  // Locale del calendario sincronizado con el idioma; también alimenta fmtDay y
+  // se usa como `key` del <Calendar> (fuerza remount al cambiar idioma).
+  const calLang = useCalendarLocale();
+  const tripTypes = TRIP_TYPE_KEYS.map((k) => t(`trip.type_${k}`));
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -150,14 +148,19 @@ export default function NewTrip() {
   const [origin, setOrigin] = useState("MAD");
   const [startISO, setStartISO] = useState("");
   const [endISO, setEndISO] = useState("");
-  const [tripType, setTripType] = useState("Vacaciones");
+  const [tripType, setTripType] = useState(() => t("trip.type_vacaciones"));
   const [rooms, setRooms] = useState<Room[]>([{ adults: 2, children: [] }]);
 
   const totalAdults = rooms.reduce((s, r) => s + r.adults, 0);
   const allChildAges = rooms.flatMap((r) => r.children);
-  const occSummary =
-    `${rooms.length} hab. · ${totalAdults} adulto${totalAdults !== 1 ? "s" : ""}` +
-    (allChildAges.length ? ` · ${allChildAges.length} niño${allChildAges.length !== 1 ? "s" : ""}` : "");
+  // Mismos plurales que la ficha de viaje (detail.holiday.*).
+  const occSummary = [
+    t("detail.holiday.rooms", { count: rooms.length }),
+    t("detail.holiday.adults", { count: totalAdults }),
+    allChildAges.length ? t("detail.holiday.children", { count: allChildAges.length }) : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   function setAdults(i: number, delta: number) {
     setRooms((rs) => rs.map((r, j) => (j === i ? { ...r, adults: Math.max(1, Math.min(6, r.adults + delta)) } : r)));
@@ -217,7 +220,7 @@ export default function NewTrip() {
       const { items } = await api<{ items: Place[] }>(`/api/travel/places?q=${encodeURIComponent(q)}`);
       setPlaces(items);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error buscando destino");
+      setError(e instanceof Error ? e.message : t("trip.err_search_place"));
     } finally {
       setSearching(false);
     }
@@ -237,11 +240,11 @@ export default function NewTrip() {
 
   async function loadHotels() {
     if (!dest) {
-      setError("Elige un destino de la lista");
+      setError(t("trip.err_destination"));
       return;
     }
     if (!ISO.test(startISO) || !ISO.test(endISO)) {
-      setError("Elige las fechas en el calendario");
+      setError(t("trip.err_dates"));
       return;
     }
     setLoading(true);
@@ -264,7 +267,7 @@ export default function NewTrip() {
       setHotel(null);
       setStep(2);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error cargando hoteles");
+      setError(e instanceof Error ? e.message : t("trip.err_load_hotels"));
     } finally {
       setLoading(false);
     }
@@ -302,11 +305,11 @@ export default function NewTrip() {
   // Navegación dependiente del paquete: salta los pasos que no aplican.
   function startFromStep1() {
     if (!dest) {
-      setError("Elige un destino de la lista");
+      setError(t("trip.err_destination"));
       return;
     }
     if (!ISO.test(startISO) || !ISO.test(endISO)) {
-      setError("Elige las fechas en el calendario");
+      setError(t("trip.err_dates"));
       return;
     }
     setError(null);
@@ -324,15 +327,15 @@ export default function NewTrip() {
 
   async function createTrip() {
     if (!dest) {
-      setError("Falta el destino");
+      setError(t("trip.err_missing_destination"));
       return;
     }
     if (wantHotel && !hotel) {
-      setError("Falta el alojamiento");
+      setError(t("trip.err_missing_hotel"));
       return;
     }
     if (pkg === "flight" && !flight) {
-      setError("Falta el vuelo");
+      setError(t("trip.err_missing_flight"));
       return;
     }
     setLoading(true);
@@ -370,7 +373,8 @@ export default function NewTrip() {
     const transfer: TransportLeg | null = wantTransfer
       ? {
           mode: "car",
-          provider: "Traslado aeropuerto ↔ hotel",
+          // Se persiste en el idioma activo al crear (no se retraduce después).
+          provider: t("trip.transfer_provider"),
           from: dest.iata,
           to: hotel?.name ?? null,
           priceCents: TRANSFER_ESTIMATE_CENTS,
@@ -402,7 +406,7 @@ export default function NewTrip() {
       // Confirmación con modal de la app (no Alert nativo).
       setBooked({ id: saved?.id ?? null, hotelRef: booking.hotelRef ?? "", flightRef: booking.flightRef });
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "No se pudo reservar el viaje");
+      setError(e instanceof ApiError ? e.message : t("trip.err_book"));
     } finally {
       setLoading(false);
     }
@@ -439,7 +443,7 @@ export default function NewTrip() {
         </Pressable>
         <Pressable onPress={() => setExploreHotel(h)} style={styles.linkRow} hitSlop={4}>
           <Ionicons name="information-circle-outline" size={15} color={th.accent} />
-          <Text style={{ color: th.accent, fontSize: 12, fontFamily: fonts.bodySemibold }}>Ver habitaciones y detalles</Text>
+          <Text style={{ color: th.accent, fontSize: 12, fontFamily: fonts.bodySemibold }}>{t("trip.view_rooms_details")}</Text>
         </Pressable>
       </View>
     );
@@ -447,7 +451,7 @@ export default function NewTrip() {
 
   function flightCard(f: FlightOption) {
     const sel = sameFlight(flight, f);
-    const stopsLabel = f.stops === 0 ? "Directo" : `${f.stops} escala${f.stops > 1 ? "s" : ""}`;
+    const stopsLabel = f.stops === 0 ? t("trip.direct") : t("trip.stops", { count: f.stops });
     const time = f.departISO ? f.departISO.slice(11, 16) : null;
     return (
       <Pressable
@@ -457,7 +461,7 @@ export default function NewTrip() {
       >
         <Ionicons name="airplane" size={18} color={th.textSubtle} />
         <View style={styles.flex}>
-          <Text style={{ color: th.text, fontFamily: fonts.bodySemibold }} numberOfLines={1}>{f.airline ?? "Vuelo"}</Text>
+          <Text style={{ color: th.text, fontFamily: fonts.bodySemibold }} numberOfLines={1}>{f.airline ?? t("detail.holiday.flight_fallback")}</Text>
           <Text style={{ color: th.textSubtle, fontSize: 12 }}>{[time, stopsLabel].filter(Boolean).join(" · ")}</Text>
         </View>
         <Text style={{ color: th.accent, fontFamily: fonts.bodyBold }}>{formatMoney(f.priceCents, f.currency)}</Text>
@@ -465,14 +469,19 @@ export default function NewTrip() {
     );
   }
 
-  const STEP_TITLES = ["Destino y fechas", "Alojamiento", "Desplazamiento", "Resumen"];
+  const STEP_TITLES = [
+    t("trip.step1_title"),
+    t("trip.step2_title"),
+    t("trip.step3_title"),
+    t("trip.step4_title"),
+  ];
 
   return (
     <>
-      <Stack.Screen options={{ title: "Nuevo viaje" }} />
+      <Stack.Screen options={{ title: t("trip.title") }} />
       <ScrollView style={{ backgroundColor: th.bg }} contentContainerStyle={styles.content}>
         <Text style={[styles.stepLabel, { color: th.textSubtle }]}>
-          Paso {stepIndex} de {activeSteps.length} · {STEP_TITLES[step - 1]}
+          {t("trip.step_label", { n: stepIndex, total: activeSteps.length, title: STEP_TITLES[step - 1] })}
         </Text>
 
         {error && <Text style={[styles.error, { color: th.dangerFg }]}>{error}</Text>}
@@ -480,7 +489,7 @@ export default function NewTrip() {
         {/* ── Paso 1 ── */}
         {step === 1 && (
           <View style={{ gap: 10 }}>
-            <Text style={[styles.label, { color: th.textMuted }]}>¿Qué quieres reservar?</Text>
+            <Text style={[styles.label, { color: th.textMuted }]}>{t("trip.what_book")}</Text>
             <View style={styles.chipsWrap}>
               {PKGS.map((p) => {
                 const on = pkg === p.id;
@@ -491,13 +500,13 @@ export default function NewTrip() {
                     style={[styles.pkgChip, { borderColor: on ? th.accent : th.border, backgroundColor: on ? th.accentSoft : th.surface }]}
                   >
                     <Ionicons name={p.icon} size={15} color={on ? th.accent : th.textMuted} />
-                    <Text style={{ color: on ? th.accent : th.textMuted, fontSize: 13, fontFamily: fonts.bodySemibold }}>{p.label}</Text>
+                    <Text style={{ color: on ? th.accent : th.textMuted, fontSize: 13, fontFamily: fonts.bodySemibold }}>{t(`trip.pkg_${p.id}`)}</Text>
                   </Pressable>
                 );
               })}
             </View>
 
-            <Text style={[styles.label, { color: th.textMuted, marginTop: 6 }]}>Destino</Text>
+            <Text style={[styles.label, { color: th.textMuted, marginTop: 6 }]}>{t("trip.destination")}</Text>
             {dest ? (
               <Pressable
                 onPress={() => setDest(null)}
@@ -516,7 +525,7 @@ export default function NewTrip() {
                   <TextInput
                     value={placeQuery}
                     onChangeText={setPlaceQuery}
-                    placeholder="Ciudad de destino…"
+                    placeholder={t("trip.destination_placeholder")}
                     placeholderTextColor={th.textSubtle}
                     autoCapitalize="words"
                     autoCorrect={false}
@@ -553,25 +562,25 @@ export default function NewTrip() {
               </>
             )}
 
-            <Text style={[styles.label, { color: th.textMuted, marginTop: 6 }]}>Tipo de viaje</Text>
+            <Text style={[styles.label, { color: th.textMuted, marginTop: 6 }]}>{t("trip.trip_type")}</Text>
             <View style={styles.chipsWrap}>
-              {TRIP_TYPES.map((t) => {
-                const on = tripType === t;
+              {tripTypes.map((label) => {
+                const on = tripType === label;
                 return (
                   <Pressable
-                    key={t}
-                    onPress={() => setTripType(t)}
+                    key={label}
+                    onPress={() => setTripType(label)}
                     style={[styles.typeChip, { borderColor: on ? th.accent : th.border, backgroundColor: on ? th.accentSoft : th.surface }]}
                   >
-                    <Text style={{ color: on ? th.accent : th.textMuted, fontSize: 13, fontFamily: fonts.bodySemibold }}>{t}</Text>
+                    <Text style={{ color: on ? th.accent : th.textMuted, fontSize: 13, fontFamily: fonts.bodySemibold }}>{label}</Text>
                   </Pressable>
                 );
               })}
             </View>
             <TextInput
-              value={TRIP_TYPES.includes(tripType) ? "" : tripType}
+              value={tripTypes.includes(tripType) ? "" : tripType}
               onChangeText={setTripType}
-              placeholder="…u otro tipo (escríbelo)"
+              placeholder={t("trip.other_type_placeholder")}
               placeholderTextColor={th.textSubtle}
               autoCapitalize="sentences"
               style={[styles.input, { backgroundColor: th.surface, borderColor: th.border, color: th.text }]}
@@ -579,7 +588,7 @@ export default function NewTrip() {
 
             {wantFlight && (
               <>
-                <Text style={[styles.label, { color: th.textMuted, marginTop: 6 }]}>Origen (IATA)</Text>
+                <Text style={[styles.label, { color: th.textMuted, marginTop: 6 }]}>{t("trip.origin_iata")}</Text>
                 <TextInput
                   value={origin}
                   onChangeText={(t) => setOrigin(t.toUpperCase().slice(0, 3))}
@@ -592,16 +601,17 @@ export default function NewTrip() {
               </>
             )}
 
-            <Text style={[styles.label, { color: th.textMuted, marginTop: 6 }]}>Fechas</Text>
+            <Text style={[styles.label, { color: th.textMuted, marginTop: 6 }]}>{t("trip.dates")}</Text>
             <Text style={{ color: startISO ? th.text : th.textSubtle, fontSize: 13, fontFamily: fonts.bodyMedium }}>
               {startISO && endISO
-                ? `${fmtDay(startISO)} → ${fmtDay(endISO)}`
+                ? `${fmtDay(startISO, calLang)} → ${fmtDay(endISO, calLang)}`
                 : startISO
-                ? `Entrada ${fmtDay(startISO)} · elige la salida`
-                : "Elige la fecha de entrada"}
+                ? t("trip.pick_end", { date: fmtDay(startISO, calLang) })
+                : t("trip.pick_start")}
             </Text>
             <View style={[styles.calendarWrap, { borderColor: th.border, backgroundColor: th.surface }]}>
               <Calendar
+                key={calLang}
                 minDate={todayISO()}
                 firstDay={1}
                 markingType="period"
@@ -619,25 +629,25 @@ export default function NewTrip() {
               />
             </View>
 
-            <Text style={[styles.label, { color: th.textMuted, marginTop: 6 }]}>Viajeros y habitaciones</Text>
+            <Text style={[styles.label, { color: th.textMuted, marginTop: 6 }]}>{t("trip.travelers_rooms")}</Text>
             <Text style={{ color: th.textSubtle, fontSize: 12 }}>{occSummary}</Text>
             {rooms.map((r, i) => (
               <View key={i} style={[styles.roomCard, { backgroundColor: th.surface, borderColor: th.border }]}>
                 <View style={styles.roomHeader}>
-                  <Text style={{ color: th.text, fontFamily: fonts.bodyBold }}>Habitación {i + 1}</Text>
+                  <Text style={{ color: th.text, fontFamily: fonts.bodyBold }}>{t("trip.room_n", { n: i + 1 })}</Text>
                   {rooms.length > 1 ? (
                     <Pressable onPress={() => removeRoom(i)} hitSlop={8}>
                       <Ionicons name="trash-outline" size={18} color={th.dangerFg} />
                     </Pressable>
                   ) : null}
                 </View>
-                <Stepper label="Adultos" value={r.adults} onMinus={() => setAdults(i, -1)} onPlus={() => setAdults(i, 1)} th={th} />
-                <Stepper label="Niños" value={r.children.length} onMinus={() => setChildrenCount(i, -1)} onPlus={() => setChildrenCount(i, 1)} th={th} />
+                <Stepper label={t("trip.adults")} value={r.adults} onMinus={() => setAdults(i, -1)} onPlus={() => setAdults(i, 1)} th={th} />
+                <Stepper label={t("trip.children")} value={r.children.length} onMinus={() => setChildrenCount(i, -1)} onPlus={() => setChildrenCount(i, 1)} th={th} />
                 {r.children.length > 0 ? (
                   <View style={styles.agesRow}>
                     {r.children.map((age, ci) => (
                       <View key={ci} style={[styles.ageBox, { borderColor: th.border, backgroundColor: th.bg }]}>
-                        <Text style={{ color: th.textSubtle, fontSize: 10 }}>Edad</Text>
+                        <Text style={{ color: th.textSubtle, fontSize: 10 }}>{t("trip.age")}</Text>
                         <Pressable onPress={() => setChildAge(i, ci, age - 1)} hitSlop={6}>
                           <Ionicons name="remove" size={14} color={th.accent} />
                         </Pressable>
@@ -654,11 +664,11 @@ export default function NewTrip() {
             {rooms.length < 4 ? (
               <Pressable onPress={addRoom} style={[styles.addRoomBtn, { borderColor: th.border }]}>
                 <Ionicons name="add" size={16} color={th.accent} />
-                <Text style={{ color: th.accent, fontFamily: fonts.bodySemibold }}>Añadir habitación</Text>
+                <Text style={{ color: th.accent, fontFamily: fonts.bodySemibold }}>{t("trip.add_room")}</Text>
               </Pressable>
             ) : null}
 
-            <PrimaryBtn label="Siguiente" loading={loading} onPress={() => startFromStep1()} th={th} />
+            <PrimaryBtn label={t("trip.next")} loading={loading} onPress={() => startFromStep1()} th={th} />
           </View>
         )}
 
@@ -668,23 +678,23 @@ export default function NewTrip() {
             {hotels.length === 0 ? (
               <Text style={{ color: th.textSubtle }}>
                 {hotelsReason === "no_city"
-                  ? `Sin hoteles para «${dest?.name ?? "ese destino"}» (en pruebas la cobertura es limitada; prueba una ciudad grande).`
-                  : "No hay disponibilidad para esas fechas. Prueba otras fechas."}
+                  ? t("trip.no_hotels_city", { name: dest?.name ?? t("trip.that_destination") })
+                  : t("trip.no_availability")}
               </Text>
             ) : hotel ? (
               <>
                 {hotelCard(hotel)}
                 <Pressable onPress={() => setHotel(null)} style={styles.linkRow}>
                   <Ionicons name="swap-horizontal" size={16} color={th.accent} />
-                  <Text style={{ color: th.accent, fontFamily: fonts.bodySemibold }}>Ver otros hoteles ({hotels.length})</Text>
+                  <Text style={{ color: th.accent, fontFamily: fonts.bodySemibold }}>{t("trip.view_other_hotels", { count: hotels.length })}</Text>
                 </Pressable>
               </>
             ) : (
               hotels.map((h) => hotelCard(h))
             )}
             <View style={styles.navRow}>
-              <GhostBtn label="Atrás" onPress={() => setStep(1)} th={th} />
-              <PrimaryBtn label="Siguiente" loading={loading} disabled={!hotel} onPress={() => afterHotels()} th={th} />
+              <GhostBtn label={t("common.back")} onPress={() => setStep(1)} th={th} />
+              <PrimaryBtn label={t("trip.next")} loading={loading} disabled={!hotel} onPress={() => afterHotels()} th={th} />
             </View>
           </View>
         )}
@@ -694,7 +704,7 @@ export default function NewTrip() {
           <View style={{ gap: 8 }}>
             {flights.length === 0 ? (
               <Text style={{ color: th.textSubtle }}>
-                Sin vuelos para esta ruta/fechas. Puedes continuar solo con el alojamiento.
+                {t("trip.no_flights")}
               </Text>
             ) : flight ? (
               <>
@@ -702,7 +712,7 @@ export default function NewTrip() {
                 {flights.length > 1 ? (
                   <Pressable onPress={() => setFlight(null)} style={styles.linkRow}>
                     <Ionicons name="swap-horizontal" size={16} color={th.accent} />
-                    <Text style={{ color: th.accent, fontFamily: fonts.bodySemibold }}>Ver otros vuelos ({flights.length})</Text>
+                    <Text style={{ color: th.accent, fontFamily: fonts.bodySemibold }}>{t("trip.view_other_flights", { count: flights.length })}</Text>
                   </Pressable>
                 ) : null}
               </>
@@ -710,13 +720,13 @@ export default function NewTrip() {
               <>
                 {flights.map((f) => flightCard(f))}
                 <Text style={{ color: th.textSubtle, fontSize: 12 }}>
-                  Elige un vuelo, o pulsa Siguiente para continuar sin vuelo.
+                  {t("trip.choose_flight_hint")}
                 </Text>
               </>
             )}
             <View style={styles.navRow}>
-              <GhostBtn label="Atrás" onPress={() => setStep(wantHotel ? 2 : 1)} th={th} />
-              <PrimaryBtn label="Siguiente" onPress={() => setStep(4)} th={th} />
+              <GhostBtn label={t("common.back")} onPress={() => setStep(wantHotel ? 2 : 1)} th={th} />
+              <PrimaryBtn label={t("trip.next")} onPress={() => setStep(4)} th={th} />
             </View>
           </View>
         )}
@@ -724,14 +734,14 @@ export default function NewTrip() {
         {/* ── Paso 4: resumen / previsualización de la reserva (SIN comisión) ── */}
         {step === 4 && dest && (hotel || !wantHotel) && (
           <View style={{ gap: 12 }}>
-            <Text style={[styles.label, { color: th.textMuted }]}>Revisa tu reserva</Text>
+            <Text style={[styles.label, { color: th.textMuted }]}>{t("trip.review")}</Text>
 
             {/* Datos del viaje */}
             <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
-              <Row k="Destino" v={dest.name} th={th} />
-              {tripType.trim() ? <Row k="Tipo" v={tripType.trim()} th={th} /> : null}
-              <Row k="Fechas" v={`${fmtDay(startISO)} → ${fmtDay(endISO)}`} th={th} />
-              <Row k="Viajeros" v={occSummary} th={th} />
+              <Row k={t("detail.holiday.row_destination")} v={dest.name} th={th} />
+              {tripType.trim() ? <Row k={t("detail.holiday.row_type")} v={tripType.trim()} th={th} /> : null}
+              <Row k={t("detail.holiday.row_dates")} v={`${fmtDay(startISO, calLang)} → ${fmtDay(endISO, calLang)}`} th={th} />
+              <Row k={t("detail.holiday.row_travelers")} v={occSummary} th={th} />
             </View>
 
             {/* Alojamiento (previsualización con foto) */}
@@ -748,10 +758,10 @@ export default function NewTrip() {
                   </View>
                 )}
                 <View style={styles.flex}>
-                  <Text style={{ color: th.textSubtle, fontSize: 11, fontFamily: fonts.bodySemibold }}>ALOJAMIENTO</Text>
+                  <Text style={{ color: th.textSubtle, fontSize: 11, fontFamily: fonts.bodySemibold }}>{t("trip.summary_accommodation")}</Text>
                   <Text style={{ color: th.text, fontFamily: fonts.bodySemibold }} numberOfLines={2}>{hotel.name}</Text>
                   <Text style={{ color: th.textSubtle, fontSize: 12 }}>
-                    {[hotel.stars ? "★".repeat(Math.round(hotel.stars)) : null, roomLabel ?? "Ver habitaciones"].filter(Boolean).join(" · ")}
+                    {[hotel.stars ? "★".repeat(Math.round(hotel.stars)) : null, roomLabel ?? t("trip.view_rooms")].filter(Boolean).join(" · ")}
                   </Text>
                 </View>
                 <Text style={{ color: th.accent, fontFamily: fonts.bodyBold }}>{formatMoney(hotel.priceCents, hotel.currency)}</Text>
@@ -765,13 +775,13 @@ export default function NewTrip() {
                   <Ionicons name="airplane" size={22} color={th.textSubtle} />
                 </View>
                 <View style={styles.flex}>
-                  <Text style={{ color: th.textSubtle, fontSize: 11, fontFamily: fonts.bodySemibold }}>VUELO</Text>
-                  <Text style={{ color: th.text, fontFamily: fonts.bodySemibold }} numberOfLines={1}>{flight.airline ?? "Vuelo"}</Text>
+                  <Text style={{ color: th.textSubtle, fontSize: 11, fontFamily: fonts.bodySemibold }}>{t("trip.summary_flight")}</Text>
+                  <Text style={{ color: th.text, fontFamily: fonts.bodySemibold }} numberOfLines={1}>{flight.airline ?? t("detail.holiday.flight_fallback")}</Text>
                   <Text style={{ color: th.textSubtle, fontSize: 12 }}>
                     {[
                       `${origin.trim().toUpperCase()} → ${dest.iata ?? ""}`,
                       flight.departISO ? flight.departISO.slice(11, 16) : null,
-                      flight.stops === 0 ? "Directo" : `${flight.stops} escala${flight.stops > 1 ? "s" : ""}`,
+                      flight.stops === 0 ? t("trip.direct") : t("trip.stops", { count: flight.stops }),
                     ].filter(Boolean).join(" · ")}
                   </Text>
                 </View>
@@ -786,9 +796,9 @@ export default function NewTrip() {
                   <Ionicons name="car" size={22} color={th.textSubtle} />
                 </View>
                 <View style={styles.flex}>
-                  <Text style={{ color: th.textSubtle, fontSize: 11, fontFamily: fonts.bodySemibold }}>TRASLADO</Text>
-                  <Text style={{ color: th.text, fontFamily: fonts.bodySemibold }}>Aeropuerto ↔ hotel</Text>
-                  <Text style={{ color: th.textSubtle, fontSize: 12 }}>Ida y vuelta · estimado</Text>
+                  <Text style={{ color: th.textSubtle, fontSize: 11, fontFamily: fonts.bodySemibold }}>{t("trip.summary_transfer")}</Text>
+                  <Text style={{ color: th.text, fontFamily: fonts.bodySemibold }}>{t("trip.transfer_name")}</Text>
+                  <Text style={{ color: th.textSubtle, fontSize: 12 }}>{t("trip.transfer_note")}</Text>
                 </View>
                 <Text style={{ color: th.accent, fontFamily: fonts.bodyBold }}>{formatMoney(TRANSFER_ESTIMATE_CENTS, "EUR")}</Text>
               </View>
@@ -797,17 +807,17 @@ export default function NewTrip() {
             {/* Total (⚠️ NUNCA comisión aquí) */}
             <View style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]}>
               <View style={styles.totalRowTop}>
-                <Text style={{ color: th.text, fontFamily: fonts.bodyBold }}>Total</Text>
+                <Text style={{ color: th.text, fontFamily: fonts.bodyBold }}>{t("trip.total")}</Text>
                 <Text style={{ color: th.accent, fontFamily: fonts.bodyBold, fontSize: 19 }}>{formatMoney(totalCents, "EUR")}</Text>
               </View>
               <Text style={{ color: th.textSubtle, fontSize: 11 }}>
-                Reserva de prueba — el cobro real se activará al publicar.
+                {t("trip.test_booking")}
               </Text>
             </View>
 
             <View style={styles.navRow}>
-              <GhostBtn label="Atrás" onPress={() => backFromStep4()} th={th} />
-              <PrimaryBtn label="Reservar viaje" loading={loading} onPress={() => void createTrip()} th={th} />
+              <GhostBtn label={t("common.back")} onPress={() => backFromStep4()} th={th} />
+              <PrimaryBtn label={t("trip.book_btn")} loading={loading} onPress={() => void createTrip()} th={th} />
             </View>
           </View>
         )}
@@ -836,13 +846,13 @@ export default function NewTrip() {
       <ResultModal
         visible={!!booked}
         tone="success"
-        title="¡Reserva realizada!"
-        message="Reserva de prueba — el cobro real se activará al publicar."
+        title={t("trip.booked_title")}
+        message={t("trip.test_booking")}
         detail={
           booked
             ? [
-                booked.hotelRef ? `Alojamiento ${booked.hotelRef}` : null,
-                booked.flightRef ? `Vuelo ${booked.flightRef}` : null,
+                booked.hotelRef ? t("trip.ref_accommodation", { ref: booked.hotelRef }) : null,
+                booked.flightRef ? t("detail.holiday.ref_flight", { ref: booked.flightRef }) : null,
               ]
                 .filter(Boolean)
                 .join("   ·   ") || null
@@ -850,7 +860,7 @@ export default function NewTrip() {
         }
         actions={[
           {
-            label: "Ver viaje",
+            label: t("trip.view_trip"),
             onPress: () => {
               const id = booked?.id;
               setBooked(null);
