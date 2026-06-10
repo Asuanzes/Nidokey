@@ -223,6 +223,17 @@ export default function ChatScreen() {
   const canAttach = !!boot?.flags.attachments && pickersAvailable();
   const canVoice = canAttach && !!boot?.flags.voice && !!VoiceRecorder;
 
+  // Diagnóstico (solo dev): por qué se oculta el "+" — flags del servidor vs
+  // módulos nativos ausentes en el binario (build sin recompilar).
+  useEffect(() => {
+    if (__DEV__) {
+      console.log(
+        `[chat] attach diag → flags.attachments=${boot?.flags.attachments ?? "boot-null"} ` +
+          `pickers=${pickersAvailable()} audio=${audioModuleAvailable()} → boton+=${canAttach}`
+      );
+    }
+  }, [boot, canAttach]);
+
   async function sendAttachments(kind: "IMAGE" | "FILE" | "AUDIO", files: PickedAttachment[]) {
     if (files.length === 0) return;
     setUploading(true);
