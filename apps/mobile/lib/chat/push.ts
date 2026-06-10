@@ -66,6 +66,11 @@ function projectId(): string | undefined {
 /** Pide permiso, obtiene el token de Expo y lo registra en el backend. */
 export async function registerForPush(): Promise<void> {
   try {
+    // iOS DESACTIVADO de momento: sin cuenta Apple de pago no hay APNs y el
+    // entitlement aps-environment impide firmar el build (plugin
+    // expo-notifications retirado de app.json). Para reactivar: re-añadir el
+    // plugin ["expo-notifications", {"color": "#6C5A9C"}] y quitar este return.
+    if (Platform.OS === "ios") return;
     if (!Notifications || !Device || !Device.isDevice) return; // sin módulo nativo o emulador
 
     if (Platform.OS === "android") {

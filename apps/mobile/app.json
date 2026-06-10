@@ -114,12 +114,6 @@
           "barcodeScannerEnabled": true
         }
       ],
-      [
-        "expo-notifications",
-        {
-          "color": "#6C5A9C"
-        }
-      ],
       "expo-font",
       [
         "expo-audio",
