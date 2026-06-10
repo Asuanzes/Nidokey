@@ -307,12 +307,20 @@ function movingAverage(data: number[], window: number): (number | null)[] {
 }
 
 // ── Genérica (inmuebles y resto) ──────────────────────────────────────────
-type StatusKey = "status.for_sale" | "status.reserved" | "status.sold" | "status.withdrawn";
+type StatusKey =
+  | "status.for_sale"
+  | "status.reserved"
+  | "status.sold"
+  | "status.withdrawn"
+  | "status.for_rent"
+  | "status.rented";
 const STATUS_STYLE: Record<string, { key: StatusKey; color: string; bg: string }> = {
   FOR_SALE: { key: "status.for_sale", color: "#15803D", bg: "#E8F1EC" },
   RESERVED: { key: "status.reserved", color: "#A86A17", bg: "#F7EFDE" },
   SOLD: { key: "status.sold", color: "#666", bg: "#f3f3f3" },
   WITHDRAWN: { key: "status.withdrawn", color: "#666", bg: "#f3f3f3" },
+  FOR_RENT: { key: "status.for_rent", color: "#2C7A8A", bg: "#E2EFF1" },
+  RENTED: { key: "status.rented", color: "#666", bg: "#f3f3f3" },
 };
 
 // Etiqueta del portal de origen (bajo la miniatura, en azul). Solo portales

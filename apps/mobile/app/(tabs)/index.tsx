@@ -55,7 +55,11 @@ export default function RecordsScreen() {
   // Modo edición (pulsación larga): muestra ✕ para borrar. Sale al cambiar de
   // tipo o si la lista queda vacía.
   const [editing, setEditing] = useState(false);
-  useEffect(() => { setEditing(false); }, [type]);
+  // Filtro de operación (solo Inmuebles): Todo / Venta / Alquiler. Client-side
+  // sobre meta.operationType — no necesita endpoint nuevo. Se resetea al cambiar
+  // de categoría.
+  const [opFilter, setOpFilter] = useState<"ALL" | "SALE" | "RENT">("ALL");
+  useEffect(() => { setEditing(false); setOpFilter("ALL"); }, [type]);
   useEffect(() => { if (records && records.length === 0) setEditing(false); }, [records]);
 
   // Orden manual local: aplica el orden guardado (SecureStore) a los registros
@@ -96,12 +100,43 @@ export default function RecordsScreen() {
 
   const cfg = RECORD_TYPE_CONFIG[type];
   const ordered = items ?? records;
+  // Solo Inmuebles ofrece el segmento de operación. RENT cubre alquiler y
+  // alquiler con opción a compra (todo lo que no sea venta pura).
+  const showOpFilter = type === "property" && !editing;
+  const shown =
+    showOpFilter && ordered && opFilter !== "ALL"
+      ? ordered.filter((r) => {
+          const op = metaField<string>(r, "operationType", "SALE");
+          return opFilter === "RENT" ? op !== "SALE" : op === "SALE";
+        })
+      : ordered;
 
   return (
     <Screen>
       <View style={styles.body}>
         {/* Contenido */}
         <View style={styles.main}>
+          {showOpFilter && records && records.length > 0 && (
+            <View style={[styles.opFilter, { borderBottomColor: th.border }]}>
+              {(["ALL", "SALE", "RENT"] as const).map((opt) => {
+                const active = opFilter === opt;
+                const label =
+                  opt === "ALL" ? t("records.op_all") : opt === "SALE" ? t("records.op_sale") : t("records.op_rent");
+                return (
+                  <Pressable
+                    key={opt}
+                    onPress={() => setOpFilter(opt)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    style={[styles.opChip, active && { backgroundColor: th.accentSoft, borderColor: th.accent }]}
+                  >
+                    <Text style={[styles.opChipText, { color: active ? th.accent : th.textMuted }]}>{label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+
           {loading && !records && (
             <View style={styles.center}>
               <ActivityIndicator color={th.primary} />
@@ -132,7 +167,16 @@ export default function RecordsScreen() {
             />
           )}
 
-          {ordered && ordered.length > 0 && (
+          {/* Filtro de operación activo sin resultados (pero sí hay inmuebles). */}
+          {showOpFilter && opFilter !== "ALL" && records && records.length > 0 && shown && shown.length === 0 && (
+            <EmptyState
+              icon="funnel-outline"
+              title={t("records.filter_empty_title")}
+              description={t("records.filter_empty_desc")}
+            />
+          )}
+
+          {shown && shown.length > 0 && (
             <View style={styles.fill}>
               {editing && (
                 <View style={[styles.editBar, { backgroundColor: th.accentSoft, borderBottomColor: th.border }]}>
@@ -149,7 +193,7 @@ export default function RecordsScreen() {
                 // edición (long-press) cae a la lista plana de abajo, donde el
                 // drag y el borrado funcionan como en el resto de categorías.
                 <BooksByAuthor
-                  data={ordered}
+                  data={shown}
                   refreshing={refreshing}
                   onRefresh={refetch}
                   onEnterEdit={() => setEditing(true)}
@@ -158,7 +202,7 @@ export default function RecordsScreen() {
                 />
               ) : (
                 <ReorderableRecordList
-                  data={ordered}
+                  data={shown}
                   editing={editing}
                   refreshing={refreshing}
                   onRefresh={refetch}
@@ -252,6 +296,21 @@ const styles = StyleSheet.create({
   },
   editHint: { fontSize: 12, fontFamily: fonts.bodyMedium, flex: 1, marginRight: 8 },
   editDone: { fontSize: 14, fontFamily: fonts.bodyBold },
+  opFilter: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  opChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  opChipText: { fontSize: 12, fontFamily: fonts.bodySemibold },
   center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
   rail: {
     width: 60,

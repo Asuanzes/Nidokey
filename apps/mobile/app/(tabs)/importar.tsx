@@ -71,6 +71,10 @@ export default function ImportarScreen() {
   const [addedKeys, setAddedKeys] = useState<Set<number>>(new Set());
   const [addingIndex, setAddingIndex] = useState<number | null>(null);
   const [progress, setProgress] = useState(0); // carga del anuncio (0–1)
+  // Operación para el import por URL de inmuebles. AUTO = la detecta el extractor
+  // por la ruta del portal; el usuario puede forzar Venta/Alquiler si la web no
+  // lo deja claro.
+  const [opOverride, setOpOverride] = useState<"AUTO" | "SALE" | "RENT">("AUTO");
   // Alta manual de libro (fallback final del híbrido): cuando ni el share ni la
   // búsqueda encuentran el libro, se mete a mano (título/autor/ISBN).
   const [manualOpen, setManualOpen] = useState(false);
@@ -376,11 +380,14 @@ export default function ImportarScreen() {
       setStatus("error");
       return;
     }
+    // Override manual de la operación (si el usuario lo fijó); si no, vale la
+    // que detectó el extractor por la ruta del portal.
+    const payload = opOverride === "AUTO" ? data : { ...data, operationType: opOverride };
     setStatus("sending");
     try {
       const res = await api<ImportResult>("/api/listings/import", {
         method: "POST",
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
       setOkMsg(res.created ? t("importar.ok_property_created") : res.priceChanged ? t("importar.ok_price_updated") : t("importar.ok_already_have"));
       setStatus("ok");
@@ -493,6 +500,7 @@ export default function ImportarScreen() {
                 setJobSources({ infojobs: true, linkedin: true, indeed: true });
                 setAddedKeys(new Set());
                 setAddingIndex(null);
+                setOpOverride("AUTO");
                 reset();
               }}
               style={[styles.typeItem, active && { backgroundColor: th.accentSoft }]}
@@ -545,6 +553,36 @@ export default function ImportarScreen() {
             }}
             style={[styles.input, { backgroundColor: th.surface, borderColor: th.border, color: th.text }]}
           />
+
+          {/* Operación (solo inmuebles por URL): Auto / Venta / Alquiler. */}
+          {type === "property" && cfg.addMode === "url" && (
+            <View style={styles.opRow}>
+              {(["AUTO", "SALE", "RENT"] as const).map((opt) => {
+                const active = opOverride === opt;
+                const label =
+                  opt === "AUTO"
+                    ? t("importar.operation_auto")
+                    : opt === "SALE"
+                    ? t("importar.operation_sale")
+                    : t("importar.operation_rent");
+                return (
+                  <Pressable
+                    key={opt}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    onPress={() => setOpOverride(opt)}
+                    disabled={isBusy}
+                    style={[
+                      styles.opChip,
+                      { borderColor: active ? th.accent : th.border, backgroundColor: active ? th.accentSoft : th.surface },
+                    ]}
+                  >
+                    <Text style={[styles.opChipText, { color: active ? th.accent : th.textMuted }]}>{label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
 
           {cfg.addMode !== "search" && (
             <Button
@@ -1008,6 +1046,14 @@ const styles = StyleSheet.create({
   coverCheck: { position: "absolute", top: 2, right: 2, borderRadius: 999, backgroundColor: "#fff" },
   remoteToggle: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 2 },
   remoteLabel: { fontSize: 13, fontFamily: fonts.bodyMedium },
+  opRow: { flexDirection: "row", gap: 8 },
+  opChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  opChipText: { fontSize: 13, fontFamily: fonts.bodySemibold },
   sourcesRow: { flexDirection: "row", gap: 8 },
   sourceChip: {
     flex: 1,

@@ -159,6 +159,27 @@ export default function PropertyDetailScreen() {
   }
 
   const photos = p.media.filter((m) => m.kind === "PHOTO");
+  const isRent = p.operationType === "RENT";
+  // Ficha mixta: el mismo inmueble se vende Y se alquila → enseñamos ambos y la
+  // rentabilidad bruta (renta anual / precio de compra).
+  const hasBoth = p.currentPrice != null && p.monthlyRent != null;
+  const grossYield =
+    hasBoth && p.currentPrice
+      ? ((p.monthlyRent! * 12) / p.currentPrice) * 100
+      : null;
+  const FURNISHED_LABEL: Record<string, string> = {
+    UNFURNISHED: t("detail.property.rent_furnished_unfurnished"),
+    SEMI: t("detail.property.rent_furnished_semi"),
+    FURNISHED: t("detail.property.rent_furnished_furnished"),
+  };
+  const CONTRACT_LABEL: Record<string, string> = {
+    RESIDENTIAL: t("detail.property.rent_contract_residential"),
+    SEASONAL: t("detail.property.rent_contract_seasonal"),
+    ROOM: t("detail.property.rent_contract_room"),
+    COMMERCIAL: t("detail.property.rent_contract_commercial"),
+  };
+  const boolLabel = (v: boolean | null) =>
+    v == null ? "—" : v ? t("common.yes") : t("common.no");
 
   return (
     <View style={[styles.container, { backgroundColor: th.bg }]}>
@@ -191,10 +212,27 @@ export default function PropertyDetailScreen() {
           <Text style={[styles.location, { color: th.textMuted }]}>
             {[TYPE_LABEL[p.type], p.neighborhood, p.city, p.province].filter(Boolean).join(" · ")}
           </Text>
-          <Text style={[styles.price, { color: th.accent }]}>{formatPrice(p.currentPrice)}</Text>
-          {p.builtArea && p.currentPrice && (
+          <Text style={[styles.price, { color: th.accent }]}>
+            {isRent
+              ? t("card.per_month", { value: formatPrice(p.monthlyRent) })
+              : formatPrice(p.currentPrice)}
+          </Text>
+          {/* Ficha mixta: además del precio principal, el otro importe en pequeño. */}
+          {hasBoth && (
+            <Text style={[styles.pricePerSqm, { color: th.textMuted }]}>
+              {isRent
+                ? formatPrice(p.currentPrice)
+                : t("card.per_month", { value: formatPrice(p.monthlyRent) })}
+            </Text>
+          )}
+          {!isRent && p.builtArea && p.currentPrice && (
             <Text style={[styles.pricePerSqm, { color: th.accent }]}>
               {Math.round(p.currentPrice / 100 / p.builtArea).toLocaleString("es-ES")} €/m²
+            </Text>
+          )}
+          {grossYield != null && (
+            <Text style={[styles.pricePerSqm, { color: th.accent }]}>
+              {t("detail.property.rent_gross_yield", { value: grossYield.toFixed(1) })}
             </Text>
           )}
           <Pressable
@@ -239,6 +277,34 @@ export default function PropertyDetailScreen() {
           </View>
         </View>
 
+        {p.operationType !== "SALE" && (
+          <View style={[styles.section, { backgroundColor: th.surface, borderColor: th.border }]}>
+            <Text style={[styles.sectionTitle, { color: th.textMuted }]}>{t("detail.property.section_rental")}</Text>
+            <View style={styles.grid}>
+              <Spec
+                label={t("detail.property.rent_monthly")}
+                value={p.monthlyRent != null ? t("card.per_month", { value: formatPrice(p.monthlyRent) }) : "—"}
+              />
+              <Spec
+                label={t("detail.property.rent_deposit")}
+                value={p.deposit != null ? formatPrice(p.deposit) : "—"}
+              />
+              <Spec
+                label={t("detail.property.rent_min_stay")}
+                value={p.minStayMonths != null ? t("detail.property.months", { count: p.minStayMonths }) : "—"}
+              />
+              <Spec
+                label={t("detail.property.rent_max_stay")}
+                value={p.maxStayMonths != null ? t("detail.property.months", { count: p.maxStayMonths }) : "—"}
+              />
+              <Spec label={t("detail.property.rent_furnished")} value={p.furnished ? FURNISHED_LABEL[p.furnished] ?? "—" : "—"} />
+              <Spec label={t("detail.property.rent_utilities")} value={boolLabel(p.utilitiesIncluded)} />
+              <Spec label={t("detail.property.rent_pets")} value={boolLabel(p.petsAllowed)} />
+              <Spec label={t("detail.property.rent_contract")} value={p.contractType ? CONTRACT_LABEL[p.contractType] ?? "—" : "—"} />
+            </View>
+          </View>
+        )}
+
         {p.description && (
           <View style={[styles.section, { backgroundColor: th.surface, borderColor: th.border }]}>
             <Text style={[styles.sectionTitle, { color: th.textMuted }]}>{t("detail.description")}</Text>
@@ -257,7 +323,11 @@ export default function PropertyDetailScreen() {
               >
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.listingPortal, { color: th.text }]}>{portalLabel(l.portal)}</Text>
-                  <Text style={[styles.listingMeta, { color: th.accent }]}>{formatPrice(l.lastPrice)}</Text>
+                  <Text style={[styles.listingMeta, { color: th.accent }]}>
+                    {l.operationType === "RENT"
+                      ? t("card.per_month", { value: formatPrice(l.lastPrice) })
+                      : formatPrice(l.lastPrice)}
+                  </Text>
                 </View>
                 <Ionicons name="open-outline" size={18} color={th.primary} />
               </TouchableOpacity>

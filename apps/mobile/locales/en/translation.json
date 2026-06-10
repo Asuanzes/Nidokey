@@ -13,7 +13,9 @@
     "soon": "Coming soon",
     "share": "Share",
     "close": "Close",
-    "go_back": "Back"
+    "go_back": "Back",
+    "yes": "Yes",
+    "no": "No"
   },
   "tabs": {
     "records": "Records",
@@ -72,7 +74,12 @@
     "edit_hint": "Drag to reorder · ✕ deletes",
     "delete_title": "Delete record",
     "delete_message": "Delete “{{title}}”? This can't be undone.",
-    "delete_error": "Couldn't delete the record"
+    "delete_error": "Couldn't delete the record",
+    "op_all": "All",
+    "op_sale": "Sale",
+    "op_rent": "Rent",
+    "filter_empty_title": "No results",
+    "filter_empty_desc": "No properties for this filter."
   },
   "matches": {
     "load_error": "Couldn't load duplicates",
@@ -89,20 +96,54 @@
     "action_error": "Couldn't complete the action"
   },
   "types": {
-    "property": { "label": "Properties & Rentals", "singular": "Property", "placeholder": "Paste the listing link" },
-    "holiday": { "label": "Trips", "singular": "Trip", "placeholder": "" },
-    "crypto": { "label": "Crypto", "singular": "Crypto", "placeholder": "BTC, ETH, SOL…" },
-    "market": { "label": "Markets", "singular": "Market", "placeholder": "Search: sxr8, apple, vaneck space…" },
-    "job": { "label": "Jobs", "singular": "Job", "placeholder": "Search: react, nurse, sales…" },
-    "workout": { "label": "Workouts", "singular": "Product", "placeholder": "" },
-    "chat": { "label": "Chat", "singular": "Chat", "placeholder": "" },
-    "book": { "label": "Books", "singular": "Book", "placeholder": "Search: sapiens, the little prince, rich dad…" }
+    "property": {
+      "label": "Properties & Rentals",
+      "singular": "Property",
+      "placeholder": "Paste the listing link"
+    },
+    "holiday": {
+      "label": "Trips",
+      "singular": "Trip",
+      "placeholder": ""
+    },
+    "crypto": {
+      "label": "Crypto",
+      "singular": "Crypto",
+      "placeholder": "BTC, ETH, SOL…"
+    },
+    "market": {
+      "label": "Markets",
+      "singular": "Market",
+      "placeholder": "Search: sxr8, apple, vaneck space…"
+    },
+    "job": {
+      "label": "Jobs",
+      "singular": "Job",
+      "placeholder": "Search: react, nurse, sales…"
+    },
+    "workout": {
+      "label": "Workouts",
+      "singular": "Product",
+      "placeholder": ""
+    },
+    "chat": {
+      "label": "Chat",
+      "singular": "Chat",
+      "placeholder": ""
+    },
+    "book": {
+      "label": "Books",
+      "singular": "Book",
+      "placeholder": "Search: sapiens, the little prince, rich dad…"
+    }
   },
   "status": {
     "for_sale": "For sale",
     "reserved": "Reserved",
     "sold": "Sold",
-    "withdrawn": "Withdrawn"
+    "withdrawn": "Withdrawn",
+    "for_rent": "For rent",
+    "rented": "Rented"
   },
   "card": {
     "period_day": "day",
@@ -119,7 +160,8 @@
     "updated_d": "Updated {{n}} d ago",
     "rooms_count": "{{count}} bd",
     "baths_one": "{{count}} bath",
-    "baths_other": "{{count}} baths"
+    "baths_other": "{{count}} baths",
+    "per_month": "{{value}}/mo"
   },
   "detail": {
     "not_found": "Not found",
@@ -165,7 +207,26 @@
       "notice_updated_title": "Price updated",
       "notice_updated_msg": "The linked listings have been refreshed.",
       "notice_error_title": "Couldn't update",
-      "unknown_error": "Unknown error"
+      "unknown_error": "Unknown error",
+      "section_rental": "Rental terms",
+      "rent_monthly": "Rent",
+      "rent_deposit": "Deposit",
+      "rent_min_stay": "Min. stay",
+      "rent_max_stay": "Max. stay",
+      "rent_furnished": "Furnished",
+      "rent_furnished_unfurnished": "Unfurnished",
+      "rent_furnished_semi": "Semi-furnished",
+      "rent_furnished_furnished": "Furnished",
+      "rent_utilities": "Utilities included",
+      "rent_pets": "Pets",
+      "rent_contract": "Contract",
+      "rent_contract_residential": "Primary residence",
+      "rent_contract_seasonal": "Seasonal",
+      "rent_contract_room": "Room",
+      "rent_contract_commercial": "Commercial",
+      "rent_gross_yield": "Gross yield {{value}}%",
+      "months_one": "{{count}} month",
+      "months_other": "{{count}} months"
     },
     "book": {
       "row_authors": "Authors",
@@ -467,6 +528,9 @@
     "err_book_not_identified": "I couldn't identify the book. Search below by title/author/ISBN or add it manually.",
     "err_book_service_down": "The books service is unavailable right now. Try again in a few minutes.",
     "book_fallback": "Book",
-    "captcha_hint": "🔐 Solve the verification to continue"
+    "captcha_hint": "🔐 Solve the verification to continue",
+    "operation_auto": "Auto",
+    "operation_sale": "Sale",
+    "operation_rent": "Rent"
   }
 }

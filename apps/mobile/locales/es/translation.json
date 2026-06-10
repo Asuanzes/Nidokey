@@ -13,7 +13,9 @@
     "soon": "Próximamente",
     "share": "Compartir",
     "close": "Cerrar",
-    "go_back": "Volver"
+    "go_back": "Volver",
+    "yes": "Sí",
+    "no": "No"
   },
   "tabs": {
     "records": "Registros",
@@ -72,7 +74,12 @@
     "edit_hint": "Arrastra para reordenar · ✕ borra",
     "delete_title": "Eliminar registro",
     "delete_message": "¿Eliminar «{{title}}»? Esta acción no se puede deshacer.",
-    "delete_error": "No se pudo eliminar el registro"
+    "delete_error": "No se pudo eliminar el registro",
+    "op_all": "Todo",
+    "op_sale": "Venta",
+    "op_rent": "Alquiler",
+    "filter_empty_title": "Sin resultados",
+    "filter_empty_desc": "No hay inmuebles para este filtro."
   },
   "matches": {
     "load_error": "No se pudieron cargar los duplicados",
@@ -89,20 +96,54 @@
     "action_error": "No se pudo completar la acción"
   },
   "types": {
-    "property": { "label": "Inmuebles y Alquiler", "singular": "Inmueble", "placeholder": "Pega el enlace del anuncio" },
-    "holiday": { "label": "Viajes", "singular": "Viaje", "placeholder": "" },
-    "crypto": { "label": "Criptos", "singular": "Cripto", "placeholder": "BTC, ETH, SOL…" },
-    "market": { "label": "Markets", "singular": "Mercado", "placeholder": "Busca: sxr8, apple, vaneck space…" },
-    "job": { "label": "Empleos", "singular": "Empleo", "placeholder": "Busca: react, enfermero/a, comercial…" },
-    "workout": { "label": "Entrenos", "singular": "Producto", "placeholder": "" },
-    "chat": { "label": "Chat", "singular": "Chat", "placeholder": "" },
-    "book": { "label": "Libros", "singular": "Libro", "placeholder": "Busca: sapiens, el principito, padre rico…" }
+    "property": {
+      "label": "Inmuebles y Alquiler",
+      "singular": "Inmueble",
+      "placeholder": "Pega el enlace del anuncio"
+    },
+    "holiday": {
+      "label": "Viajes",
+      "singular": "Viaje",
+      "placeholder": ""
+    },
+    "crypto": {
+      "label": "Criptos",
+      "singular": "Cripto",
+      "placeholder": "BTC, ETH, SOL…"
+    },
+    "market": {
+      "label": "Markets",
+      "singular": "Mercado",
+      "placeholder": "Busca: sxr8, apple, vaneck space…"
+    },
+    "job": {
+      "label": "Empleos",
+      "singular": "Empleo",
+      "placeholder": "Busca: react, enfermero/a, comercial…"
+    },
+    "workout": {
+      "label": "Entrenos",
+      "singular": "Producto",
+      "placeholder": ""
+    },
+    "chat": {
+      "label": "Chat",
+      "singular": "Chat",
+      "placeholder": ""
+    },
+    "book": {
+      "label": "Libros",
+      "singular": "Libro",
+      "placeholder": "Busca: sapiens, el principito, padre rico…"
+    }
   },
   "status": {
     "for_sale": "En venta",
     "reserved": "Reservado",
     "sold": "Vendido",
-    "withdrawn": "Retirado"
+    "withdrawn": "Retirado",
+    "for_rent": "En alquiler",
+    "rented": "Alquilado"
   },
   "card": {
     "period_day": "día",
@@ -119,7 +160,8 @@
     "updated_d": "Actualizado hace {{n}} d",
     "rooms_count": "{{count}} hab",
     "baths_one": "{{count}} baño",
-    "baths_other": "{{count}} baños"
+    "baths_other": "{{count}} baños",
+    "per_month": "{{value}}/mes"
   },
   "detail": {
     "not_found": "No encontrado",
@@ -165,7 +207,26 @@
       "notice_updated_title": "Precio actualizado",
       "notice_updated_msg": "Se han revisado los anuncios vinculados.",
       "notice_error_title": "No se pudo actualizar",
-      "unknown_error": "Error desconocido"
+      "unknown_error": "Error desconocido",
+      "section_rental": "Condiciones de alquiler",
+      "rent_monthly": "Renta",
+      "rent_deposit": "Fianza",
+      "rent_min_stay": "Estancia mín.",
+      "rent_max_stay": "Estancia máx.",
+      "rent_furnished": "Amueblado",
+      "rent_furnished_unfurnished": "Sin amueblar",
+      "rent_furnished_semi": "Semiamueblado",
+      "rent_furnished_furnished": "Amueblado",
+      "rent_utilities": "Gastos incluidos",
+      "rent_pets": "Mascotas",
+      "rent_contract": "Contrato",
+      "rent_contract_residential": "Vivienda habitual",
+      "rent_contract_seasonal": "Temporada",
+      "rent_contract_room": "Habitación",
+      "rent_contract_commercial": "Local/oficina",
+      "rent_gross_yield": "Rentabilidad bruta {{value}}%",
+      "months_one": "{{count}} mes",
+      "months_other": "{{count}} meses"
     },
     "book": {
       "row_authors": "Autores",
@@ -467,6 +528,9 @@
     "err_book_not_identified": "No pude identificar el libro. Búscalo abajo por título/autor/ISBN o añádelo a mano.",
     "err_book_service_down": "El servicio de libros no está disponible ahora mismo. Inténtalo de nuevo en unos minutos.",
     "book_fallback": "Libro",
-    "captcha_hint": "🔐 Resuelve la verificación para continuar"
+    "captcha_hint": "🔐 Resuelve la verificación para continuar",
+    "operation_auto": "Auto",
+    "operation_sale": "Venta",
+    "operation_rent": "Alquiler"
   }
 }

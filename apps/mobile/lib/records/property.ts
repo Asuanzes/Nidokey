@@ -11,7 +11,17 @@ export type PropertyDetail = {
   description: string | null;
   type: string;
   status: string;
+  operationType: string; // "SALE" | "RENT" | "RENT_TO_OWN"
   currentPrice: number | null;
+  monthlyRent: number | null;
+  deposit: number | null;
+  minStayMonths: number | null;
+  maxStayMonths: number | null;
+  availableFrom: string | null;
+  utilitiesIncluded: boolean | null;
+  furnished: string | null; // "UNFURNISHED" | "SEMI" | "FURNISHED"
+  petsAllowed: boolean | null;
+  contractType: string | null; // "RESIDENTIAL" | "SEASONAL" | "ROOM" | "COMMERCIAL"
   address: string | null;
   city: string;
   province: string;
@@ -37,6 +47,7 @@ export type PropertyDetail = {
   listings: {
     id: string;
     portal: string;
+    operationType: string;
     url: string;
     lastPrice: number | null;
     lastCheckedAt: string | null;

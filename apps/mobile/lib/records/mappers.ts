@@ -16,7 +16,9 @@ export type RawPropertyListItem = {
   neighborhood?: string | null;
   type: string;
   status: string;
+  operationType?: string | null;
   currentPrice: number | null;
+  monthlyRent?: number | null;
   rooms?: number | null;
   bathrooms?: number | null;
   builtArea?: number | null;
@@ -40,21 +42,33 @@ export function propertyToRecord(p: RawPropertyListItem): BaseRecord {
     ]
       .filter(Boolean)
       .join(" · ") || null;
+  // Alquiler: el valor principal es la renta mensual con sufijo "/mes".
+  const isRent = p.operationType === "RENT";
+  const primaryValue = isRent
+    ? p.monthlyRent != null
+      ? i18n.t("card.per_month", { value: formatPrice(p.monthlyRent) })
+      : null
+    : p.currentPrice != null
+      ? formatPrice(p.currentPrice)
+      : null;
+
   return {
     id: p.id,
     type: "property",
     title: p.title,
     subtitle,
     status: p.status,
-    primaryValue: p.currentPrice != null ? formatPrice(p.currentPrice) : null,
+    primaryValue,
     imageUrl: p.media?.[0]?.url ?? null,
     createdAt: p.createdAt ?? null,
     updatedAt: p.updatedAt ?? null,
     meta: {
       propertyType: p.type,
+      operationType: p.operationType ?? "SALE",
       city: p.city,
       neighborhood: p.neighborhood ?? null,
       currentPrice: p.currentPrice,
+      monthlyRent: p.monthlyRent ?? null,
       rooms: p.rooms ?? null,
       bathrooms: p.bathrooms ?? null,
       builtArea: p.builtArea ?? null,
