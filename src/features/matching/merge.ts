@@ -81,6 +81,11 @@ export async function mergeProperties(sourceId: string, targetId: string): Promi
     "yearBuilt", "hasElevator", "hasGarage", "hasStorage", "hasTerrace",
     "hasFireplace", "hasGarden", "hasPool", "cadastralRef", "cadastralData",
     "titleSlug",
+    // Alquiler: rellenan huecos del target. Clave para la ficha MIXTA — fusionar
+    // un anuncio de alquiler en una ficha de venta backfillea monthlyRent y sus
+    // condiciones sin pisar currentPrice (que NO está en la lista → se conserva).
+    "monthlyRent", "deposit", "minStayMonths", "maxStayMonths", "availableFrom",
+    "utilitiesIncluded", "furnished", "petsAllowed", "contractType",
   ];
   const t = target as unknown as Record<string, unknown>;
   const s = source as unknown as Record<string, unknown>;

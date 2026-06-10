@@ -1,0 +1,52 @@
+/**
+ * Tests del guard de auto-merge (operación-aware).
+ * Ejecutar:  node --import tsx --test src/features/matching/auto-merge-guard.test.ts
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+
+import { autoMergeSafety, type MergeGuardProperty } from "./auto-merge-guard";
+
+const sale = (price: number | null, type = "PISO"): MergeGuardProperty => ({
+  type,
+  operationType: "SALE",
+  currentPrice: price,
+  monthlyRent: null,
+});
+const rent = (rentCents: number | null, type = "PISO"): MergeGuardProperty => ({
+  type,
+  operationType: "RENT",
+  currentPrice: null,
+  monthlyRent: rentCents,
+});
+
+test("misma operación, precios casi iguales → no bloquea", () => {
+  const r = autoMergeSafety(sale(18_500_000), sale(18_600_000));
+  assert.equal(r.blocked, false);
+});
+
+test("misma operación (venta), precios muy distintos → bloquea por precio", () => {
+  const r = autoMergeSafety(sale(18_500_000), sale(30_000_000));
+  assert.equal(r.priceTooDifferent, true);
+  assert.equal(r.blocked, true);
+});
+
+test("tipo distinto → bloquea aunque el precio cuadre", () => {
+  const r = autoMergeSafety(sale(18_500_000, "PISO"), sale(18_500_000, "LOCAL"));
+  assert.equal(r.typeMismatch, true);
+  assert.equal(r.blocked, true);
+});
+
+test("caso MIXTO: venta + alquiler del mismo inmueble → NO bloquea por precio", () => {
+  // 185.000 € de venta vs 850 €/mes de alquiler: importes incomparables, pero
+  // es el mismo piso (mismo catastro/fotos lo detectó). Debe permitir la fusión.
+  const r = autoMergeSafety(sale(18_500_000), rent(85_000));
+  assert.equal(r.priceTooDifferent, false);
+  assert.equal(r.blocked, false);
+});
+
+test("dos alquileres con rentas muy distintas → bloquea por renta", () => {
+  const r = autoMergeSafety(rent(85_000), rent(200_000));
+  assert.equal(r.priceTooDifferent, true);
+  assert.equal(r.blocked, true);
+});

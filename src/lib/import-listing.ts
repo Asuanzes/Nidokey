@@ -6,11 +6,13 @@ import { dhashFromUrl } from "@/lib/dhash";
 import { slugifyTitle } from "@nidokey/shared";
 import { findSimilar } from "@/features/matching/find-similar";
 import { mergeProperties } from "@/features/matching/merge";
+import { autoMergeSafety } from "@/features/matching/auto-merge-guard";
 import { borrowFieldsFromSimilar } from "@/features/matching/borrow-fields";
 import { geocodeAddress } from "@/lib/geocode";
 import { logImportEvent } from "@/lib/import-log";
 import {
   isValidPriceEur,
+  isValidMonthlyRentEur,
   isValidBuiltArea,
   isValidPlotArea,
   isValidYear,
@@ -29,8 +31,21 @@ export const ImportListingInput = z.object({
   title: z.string().min(2),
   description: z.string().optional().nullable(),
 
-  // precio en EUROS enteros (lo convertimos a céntimos al guardar)
+  // precio en EUROS enteros (lo convertimos a céntimos al guardar). Según la
+  // operación se interpreta como precio de venta (SALE) o renta mensual (RENT).
   price: z.coerce.number().int().nonnegative().optional().nullable(),
+
+  // Operación del anuncio. Por defecto SALE (retrocompatible con imports viejos).
+  operationType: z.enum(["SALE", "RENT", "RENT_TO_OWN"]).optional(),
+
+  // Condiciones de alquiler (opcionales; deposit en EUROS → céntimos al guardar).
+  deposit: z.coerce.number().int().nonnegative().optional().nullable(),
+  minStayMonths: z.coerce.number().int().optional().nullable(),
+  maxStayMonths: z.coerce.number().int().optional().nullable(),
+  utilitiesIncluded: z.boolean().optional().nullable(),
+  furnished: z.enum(["UNFURNISHED", "SEMI", "FURNISHED"]).optional().nullable(),
+  petsAllowed: z.boolean().optional().nullable(),
+  contractType: z.enum(["RESIDENTIAL", "SEASONAL", "ROOM", "COMMERCIAL"]).optional().nullable(),
 
   type: z.enum(["HOUSE", "PISO", "ATICO", "CHALET", "DUPLEX", "ESTUDIO", "LOFT", "LOCAL", "TERRENO", "OTRO"]).optional(),
 
@@ -185,6 +200,29 @@ export function parseFeaturesArray(features: string[] | undefined): Partial<Impo
       if (out.hasPool == null && /\bpiscina\b/i.test(low)) out.hasPool = !neg;
     }
 
+    // ── Condiciones de alquiler (no requieren número salvo la fianza).
+    {
+      if (out.furnished == null) {
+        if (/semi-?amueblad/i.test(low)) out.furnished = "SEMI";
+        else if (/sin amueblar|no amueblad|sin amueblamiento/i.test(low)) out.furnished = "UNFURNISHED";
+        else if (/\bamueblad/i.test(low)) out.furnished = "FURNISHED";
+      }
+      if (out.utilitiesIncluded == null && /gastos\b/i.test(low)) {
+        if (/gastos\s+(no\s+inclu|aparte|no\s+incluidos)/i.test(low)) out.utilitiesIncluded = false;
+        else if (/gastos\s+inclu/i.test(low)) out.utilitiesIncluded = true;
+      }
+      if (out.petsAllowed == null && /mascota/i.test(low)) {
+        out.petsAllowed = !/no\s+se\s+admiten|sin\s+mascota|no\s+(se\s+)?permit/i.test(low);
+      }
+      if (out.contractType == null && /\btemporada\b/i.test(low)) out.contractType = "SEASONAL";
+      // Fianza con importe en € (no "X meses": eso necesita la renta para resolver).
+      if (out.deposit == null && /fianza/i.test(low) && /€|eur/i.test(low)) {
+        const fm = t.replace(/[\.\s]/g, "").match(/(\d{3,})(?:€|eur)/i);
+        const dep = fm ? parseInt(fm[1], 10) : null;
+        if (dep != null && dep >= 100 && dep <= 100_000) out.deposit = dep;
+      }
+    }
+
     // Descartar €/m²
     if (/€\s*\/\s*m|€\/m|€\s*por\s*m/i.test(t)) continue;
     const num = (() => {
@@ -242,8 +280,13 @@ export function parseFeaturesArray(features: string[] | undefined): Partial<Impo
  */
 export function sanitizePayload(p: ImportListingPayload): ImportListingPayload {
   const out = { ...p };
-  // 1. Validar y nulear lo que no sea cuerdo
-  if (!isValidPriceEur(out.price ?? null)) out.price = null;
+  // 1. Validar y nulear lo que no sea cuerdo. El precio se valida con la banda
+  //    de su operación: alquiler 100–50.000 €/mes, venta ≥ 10.000 €. Así una
+  //    renta de 450 € no se descarta (isValidPriceEur la rechazaría) ni un
+  //    precio de venta bajo se cuela como renta.
+  const isRent = out.operationType === "RENT";
+  const priceOk = isRent ? isValidMonthlyRentEur(out.price ?? null) : isValidPriceEur(out.price ?? null);
+  if (!priceOk) out.price = null;
   if (!isValidBuiltArea(out.builtArea ?? null)) out.builtArea = null;
   if (!isValidBuiltArea(out.usableArea ?? null)) out.usableArea = null;
   if (out.plotArea != null && !isValidPlotArea(out.plotArea)) out.plotArea = null;
@@ -298,7 +341,10 @@ export async function importListing(
 ): Promise<ImportResult> {
   const payload = sanitizePayload(rawPayload);
   const portal = payload.portal ?? detectPortal(payload.url);
+  const operationType = payload.operationType ?? "SALE";
+  const isRent = operationType === "RENT";
   const priceCents = payload.price != null ? payload.price * 100 : null;
+  const depositCents = payload.deposit != null ? payload.deposit * 100 : null;
   const ownerId = opts.ownerId ?? null;
 
   const existing = await prisma.listing.findUnique({
@@ -316,6 +362,11 @@ export async function importListing(
     }
 
     const previousPrice = existing.lastPrice ?? null;
+    // La operación la marca el ANUNCIO (cada listing tiene la suya): un mismo
+    // inmueble puede tener anuncio de venta y de alquiler. Reusamos la del
+    // listing existente (no la del payload) para no cambiar de operación al
+    // re-importar la misma URL.
+    const existingIsRent = existing.operationType === "RENT";
 
     // Sanity check: si el cambio es brutal (>5x o <0.2x), NO escribimos
     // el precio nuevo ni creamos snapshot. Log para revisión.
@@ -395,13 +446,29 @@ export async function importListing(
       hasGarden: payload.hasGarden ?? undefined,
       hasPool: payload.hasPool ?? undefined,
       energyRating: payload.energyRating ?? undefined,
+      // Condiciones de alquiler: solo rellenan huecos (no pisan lo editado).
+      deposit: depositCents ?? undefined,
+      minStayMonths: payload.minStayMonths ?? undefined,
+      maxStayMonths: payload.maxStayMonths ?? undefined,
+      utilitiesIncluded: payload.utilitiesIncluded ?? undefined,
+      furnished: payload.furnished ?? undefined,
+      petsAllowed: payload.petsAllowed ?? undefined,
+      contractType: payload.contractType ?? undefined,
     });
 
+    // El precio nuevo va a su columna según la operación del anuncio: alquiler →
+    // monthlyRent, venta → currentPrice. Así una ficha mixta conserva ambos.
+    const priceColumn =
+      priceChanged && priceCents != null
+        ? existingIsRent
+          ? { monthlyRent: priceCents }
+          : { currentPrice: priceCents }
+        : {};
     await prisma.property.update({
       where: { id: existing.propertyId },
       data: {
         ...propPatch,
-        ...(priceChanged && priceCents != null ? { currentPrice: priceCents } : {}),
+        ...priceColumn,
       },
     });
 
@@ -459,8 +526,18 @@ export async function importListing(
       titleSlug: slugifyTitle(payload.title),
       description: payload.description ?? null,
       type: inferredType,
-      status: "FOR_SALE",
-      currentPrice: priceCents,
+      operationType,
+      status: isRent ? "FOR_RENT" : "FOR_SALE",
+      // El precio va a su columna según la operación (venta vs renta mensual).
+      currentPrice: isRent ? null : priceCents,
+      monthlyRent: isRent ? priceCents : null,
+      deposit: depositCents,
+      minStayMonths: payload.minStayMonths ?? null,
+      maxStayMonths: payload.maxStayMonths ?? null,
+      utilitiesIncluded: payload.utilitiesIncluded ?? null,
+      furnished: payload.furnished ?? null,
+      petsAllowed: payload.petsAllowed ?? null,
+      contractType: payload.contractType ?? null,
 
       address: payload.address ?? null,
       city: payload.city ?? "Desconocida",
@@ -500,6 +577,7 @@ export async function importListing(
       listings: {
         create: {
           portal,
+          operationType,
           url: payload.url,
           externalId: payload.externalId ?? null,
           lastPrice: priceCents,
@@ -624,15 +702,15 @@ async function postImportTasks(propertyId: string, opts: { skipAutoMerge?: boole
       const candidates = await findSimilar(propertyId);
       const top = candidates[0];
       if (top && top.score >= 95) {
-        // Safety: si los precios difieren >30%, NO auto-merge.
+        // Safety: bloquear auto-merge si tipo distinto o, en la MISMA operación,
+        // precios que difieren > 30 %. La operación distinta (venta vs alquiler
+        // del mismo inmueble) es el caso mixto legítimo y NO se bloquea por
+        // precio. Ver autoMergeSafety (función pura testeada).
         const me = await prisma.property.findUnique({ where: { id: propertyId } });
         const them = await prisma.property.findUnique({ where: { id: top.propertyId } });
-        const priceA = me?.currentPrice ?? null;
-        const priceB = them?.currentPrice ?? null;
-        const priceTooDifferent =
-          priceA && priceB && Math.abs(priceA - priceB) / Math.max(priceA, priceB) > 0.3;
-        const typeMismatch = me && them && me.type !== them.type;
-        if (priceTooDifferent || typeMismatch) {
+        const safety = me && them ? autoMergeSafety(me, them) : { blocked: false, priceTooDifferent: false, typeMismatch: false };
+        const { priceTooDifferent, typeMismatch } = safety;
+        if (safety.blocked) {
           await logImportEvent("MATCH", {
             propertyId, ok: true,
             message: `Sugerencia ${top.score}% bloqueada por safety (precio/tipo distinto)`,

@@ -21,21 +21,33 @@ export function propertyToBaseRecord(p: PropertyWithCover): BaseRecord {
       .filter(Boolean)
       .join(" · ") || null;
 
+  // Alquiler: el valor principal es la renta mensual con sufijo "/mes".
+  const isRent = p.operationType === "RENT";
+  const primaryValue = isRent
+    ? p.monthlyRent != null
+      ? `${formatPrice(p.monthlyRent)}/mes`
+      : null
+    : p.currentPrice != null
+      ? formatPrice(p.currentPrice)
+      : null;
+
   return {
     id: p.id,
     type: "property",
     title: p.title,
     subtitle,
     status: p.status,
-    primaryValue: p.currentPrice != null ? formatPrice(p.currentPrice) : null,
+    primaryValue,
     imageUrl: p.media?.[0]?.url ?? null,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
     meta: {
       propertyType: p.type,
+      operationType: p.operationType,
       city: p.city,
       neighborhood: p.neighborhood,
       currentPrice: p.currentPrice,
+      monthlyRent: p.monthlyRent,
       rooms: p.rooms,
       bathrooms: p.bathrooms,
       builtArea: p.builtArea,
