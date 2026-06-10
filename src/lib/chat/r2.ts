@@ -34,9 +34,15 @@ function getClient(): { client: S3Client; bucket: string } {
   const e = envs();
   if (!e) throw new Error("R2 no configurado (faltan env R2_*)");
   if (!client) {
+    // R2_ENDPOINT (opcional) = la URL S3 exacta que muestra Cloudflare junto a
+    // las claves. Imprescindible con jurisdicción EU
+    // (https://<account_id>.eu.r2.cloudflarestorage.com); sin ella se asume Default.
+    const endpoint =
+      process.env.R2_ENDPOINT?.trim().replace(/\/+$/, "") ||
+      `https://${e.accountId}.r2.cloudflarestorage.com`;
     client = new S3Client({
       region: "auto",
-      endpoint: `https://${e.accountId}.r2.cloudflarestorage.com`,
+      endpoint,
       credentials: { accessKeyId: e.accessKeyId, secretAccessKey: e.secretAccessKey },
     });
     clientBucket = e.bucket;
