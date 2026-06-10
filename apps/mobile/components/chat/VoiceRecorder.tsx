@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { AudioModule, RecordingPresets, useAudioRecorder, useAudioRecorderState } from "expo-audio";
+import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from "expo-audio";
 import { useTranslation } from "react-i18next";
 
 import { useTheme } from "@/lib/theme";
@@ -40,6 +40,10 @@ export function VoiceRecorder({
         setFailed(true);
         return;
       }
+      // OBLIGATORIO en iOS antes de grabar: configurar la sesión de audio
+      // (sin esto la grabación puede tirar la app / fallar la categoría AV).
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      if (cancelled) return;
       await recorder.prepareToRecordAsync();
       recorder.record();
     })().catch(() => setFailed(true));
@@ -49,6 +53,9 @@ export function VoiceRecorder({
         stoppedRef.current = true;
         void recorder.stop().catch(() => {});
       }
+      // Restaurar la sesión: con allowsRecording activo, iOS enruta la
+      // REPRODUCCIÓN al auricular en vez del altavoz.
+      void setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
