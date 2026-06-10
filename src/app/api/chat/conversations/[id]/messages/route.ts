@@ -6,6 +6,7 @@ import { CHAT_LIMITS } from "@/lib/chat/config";
 import { anyBlockBetween, getParticipantOrNull, withinMessageRate } from "@/lib/chat/guard";
 import { messagePreview, sanitizeMessageBody } from "@/lib/chat/util";
 import { messageDto } from "@/lib/chat/serialize";
+import { sendChatPush } from "@/lib/chat/push";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -129,7 +130,13 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     }),
   ]);
 
-  // F2: push a participantes offline · F3: webhook al gateway WS. (Hooks aquí.)
+  // Push a los demás participantes (best-effort, no bloquea la respuesta más de
+  // una llamada HTTP rápida). F3: webhook al gateway WS cuando exista.
+  try {
+    await sendChatPush(message);
+  } catch {
+    // nunca rompe el envío
+  }
 
   return NextResponse.json(messageDto(message), { status: 201 });
 }

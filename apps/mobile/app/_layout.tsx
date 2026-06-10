@@ -23,6 +23,7 @@ import { PendingImportProvider, usePendingImport } from "@/lib/pending-import";
 import { BrandLoading } from "@/components/BrandLoading";
 import { BootProvider, useBoot } from "@/lib/boot-context";
 import { CategoryPrefsProvider } from "@/lib/records/category-prefs-context";
+import { useChatNotificationTap } from "@/lib/chat/push";
 import "@/lib/i18n"; // inicializa i18next (debe importarse antes de usar t())
 import { useTranslation } from "react-i18next";
 import { LanguageProvider } from "@/lib/i18n/language-context";
@@ -139,6 +140,9 @@ function AuthGate() {
     const id = setTimeout(() => setMinElapsed(true), 1000);
     return () => clearTimeout(id);
   }, []);
+
+  // Al tocar una notificación de chat → abrir la conversación (deep-link).
+  useEffect(() => useChatNotificationTap(), []);
 
   // Red de seguridad: nunca dejar el loader colgado más de 8 s si los registros
   // tardaran o fallaran sin avisar.

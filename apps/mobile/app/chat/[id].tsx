@@ -29,6 +29,7 @@ import {
   type MessageDto,
 } from "@/lib/chat/api";
 import { Avatar, chatTime } from "@/components/chat/ConversationList";
+import { setActiveConversation } from "@/lib/chat/push";
 import { ResultModal } from "@/components/ui";
 
 /**
@@ -78,6 +79,12 @@ export default function ChatScreen() {
     out.sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
     return out;
   }, [older, latest, pending]);
+
+  // Mientras esta conversación está abierta, no mostrar su propia notificación.
+  useEffect(() => {
+    setActiveConversation(id ?? null);
+    return () => setActiveConversation(null);
+  }, [id]);
 
   // Marcar como leído cuando llegan mensajes nuevos de otros.
   const lastReadIdRef = useRef<string | null>(null);

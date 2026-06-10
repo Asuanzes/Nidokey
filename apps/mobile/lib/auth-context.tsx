@@ -9,6 +9,7 @@ import {
 } from "react";
 import { authRequestOtp, authVerifyOtp, TOKEN_KEY } from "./api";
 import { getItem, setItem, deleteItem } from "./secure-store";
+import { registerForPush, unregisterPush } from "./chat/push";
 
 type User = { id: string; email: string; name: string | null };
 
@@ -80,9 +81,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    // Baja del push ANTES de borrar el token (la llamada necesita el JWT).
+    await unregisterPush();
     await Promise.all([deleteItem(TOKEN_KEY), deleteItem(USER_KEY)]);
     setState({ kind: "unauthed" });
   }, []);
+
+  // Registrar el token de push cuando hay sesión (idempotente: upsert backend).
+  useEffect(() => {
+    if (state.kind === "authed") void registerForPush();
+  }, [state.kind]);
 
   const value = useMemo<AuthContextValue>(
     () => ({ state, requestOtp, verifyOtp, logout }),
