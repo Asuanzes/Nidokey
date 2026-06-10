@@ -33,6 +33,8 @@ export type ConversationDto = {
   createdAt: string;
 };
 
+export type ReactionChip = { emoji: string; count: number; mine: boolean };
+
 export type MessageDto = {
   id: string;
   conversationId: string;
@@ -44,6 +46,7 @@ export type MessageDto = {
   editedAt: string | null;
   deleted: boolean;
   createdAt: string;
+  reactions: ReactionChip[];
   attachments: { id: string; kind: string; url: string; mimeType: string }[];
 };
 
@@ -92,6 +95,13 @@ export const markRead = (conversationId: string) =>
 
 export const deleteMessage = (messageId: string) =>
   api<MessageDto>(`/api/chat/messages/${messageId}`, { method: "DELETE" });
+
+/** Toggle de reacción (mismo emoji = quitar; otro = sustituir). */
+export const toggleReaction = (messageId: string, emoji: string) =>
+  api<{ reactions: ReactionChip[] }>(`/api/chat/messages/${messageId}/reactions`, {
+    method: "POST",
+    body: JSON.stringify({ emoji }),
+  }).then((d) => d.reactions);
 
 export const searchChatUsers = (q: string) =>
   api<{ users: ChatUser[] }>(`/api/chat/users/search?q=${encodeURIComponent(q)}`).then((d) => d.users);

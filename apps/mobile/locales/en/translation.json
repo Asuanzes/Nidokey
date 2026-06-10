@@ -628,6 +628,7 @@
     "contact_alias_edit": "Edit alias",
     "contact_alias_title": "Contact alias",
     "contact_alias_hint": "Only you can see this name. Leave it empty to use their real name.",
+    "react_label": "React",
     "blocked_title": "Blocked users",
     "blocked_empty_title": "Nobody blocked",
     "blocked_empty_desc": "When you block someone from a chat they will show up here."

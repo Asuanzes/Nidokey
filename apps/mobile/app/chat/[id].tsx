@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -13,7 +14,7 @@ import {
 import { Image } from "expo-image";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { useTheme } from "@/lib/theme";
@@ -32,6 +33,7 @@ import {
   muteConversation,
   saveContact,
   sendMessage,
+  toggleReaction,
   unblockUser,
   type MessageDto,
 } from "@/lib/chat/api";
@@ -67,6 +69,7 @@ export default function ChatScreen() {
   const [pending, setPending] = useState<MessageDto[]>([]);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<MessageDto | null>(null);
+  const [msgActions, setMsgActions] = useState<MessageDto | null>(null);
   const [text, setText] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
 
@@ -143,6 +146,7 @@ export default function ChatScreen() {
       editedAt: null,
       deleted: false,
       createdAt: new Date().toISOString(),
+      reactions: [],
       attachments: [],
     };
     setText("");
@@ -167,6 +171,16 @@ export default function ChatScreen() {
       await refetch();
     } catch {
       // el mensaje sigue; el usuario puede reintentar
+    }
+  }
+
+  async function onReact(message: MessageDto, emoji: string) {
+    setMsgActions(null);
+    try {
+      await toggleReaction(message.id, emoji);
+      await refetch();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : t("chat.action_error"));
     }
   }
 
@@ -366,8 +380,9 @@ export default function ChatScreen() {
               otherReadAt={otherReadAt}
               otherDeliveredAt={otherDeliveredAt}
               onLongPress={() => {
-                if (item.senderId === myId && !item.deleted && !item.id.startsWith("tmp_")) setConfirmDelete(item);
+                if (item.kind !== "SYSTEM" && !item.deleted && !item.id.startsWith("tmp_")) setMsgActions(item);
               }}
+              onToggleReaction={(emoji) => void onReact(item, emoji)}
             />
           )}
           contentContainerStyle={styles.list}
@@ -447,7 +462,83 @@ export default function ChatScreen() {
         onSelect={(o) => void onMuteSelect(o)}
         onClose={() => setMuteOpen(false)}
       />
+
+      {/* Long-press en un mensaje: reacciones rápidas + eliminar (si es mío) */}
+      <MessageActionsSheet
+        message={msgActions}
+        mine={msgActions?.senderId === myId}
+        onReact={(emoji) => msgActions && void onReact(msgActions, emoji)}
+        onDelete={() => {
+          const m = msgActions;
+          setMsgActions(null);
+          if (m) setConfirmDelete(m);
+        }}
+        onClose={() => setMsgActions(null)}
+      />
     </SafeAreaView>
+  );
+}
+
+const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+
+function MessageActionsSheet({
+  message,
+  mine,
+  onReact,
+  onDelete,
+  onClose,
+}: {
+  message: MessageDto | null;
+  mine: boolean;
+  onReact: (emoji: string) => void;
+  onDelete: () => void;
+  onClose: () => void;
+}) {
+  const { th } = useTheme();
+  const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const myEmoji = message?.reactions.find((r) => r.mine)?.emoji ?? null;
+
+  return (
+    <Modal visible={!!message} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
+      <Pressable style={styles.backdrop} onPress={onClose} />
+      <View
+        style={[
+          styles.msgSheet,
+          { backgroundColor: th.surface, borderColor: th.border, paddingBottom: insets.bottom + 12 },
+        ]}
+      >
+        <View style={[styles.msgSheetHandle, { backgroundColor: th.border }]} />
+        <View style={styles.reactRow}>
+          {QUICK_REACTIONS.map((emoji) => (
+            <Pressable
+              key={emoji}
+              onPress={() => onReact(emoji)}
+              accessibilityRole="button"
+              accessibilityLabel={t("chat.react_label")}
+              style={({ pressed }) => [
+                styles.reactBtn,
+                myEmoji === emoji && { backgroundColor: th.primarySoft },
+                pressed && { opacity: 0.6 },
+              ]}
+            >
+              <Text style={styles.reactEmoji}>{emoji}</Text>
+            </Pressable>
+          ))}
+        </View>
+        {mine && (
+          <Pressable
+            onPress={onDelete}
+            style={({ pressed }) => [styles.msgSheetRow, pressed && { backgroundColor: th.imagePlaceholder }]}
+          >
+            <View style={[styles.msgSheetIcon, { backgroundColor: th.dangerSoft }]}>
+              <Ionicons name="trash-outline" size={18} color={th.dangerFg} />
+            </View>
+            <Text style={[styles.msgSheetLabel, { color: th.dangerFg }]}>{t("chat.delete_title")}</Text>
+          </Pressable>
+        )}
+      </View>
+    </Modal>
   );
 }
 
@@ -458,6 +549,7 @@ function Bubble({
   otherReadAt,
   otherDeliveredAt,
   onLongPress,
+  onToggleReaction,
 }: {
   m: MessageDto;
   mine: boolean;
@@ -465,6 +557,7 @@ function Bubble({
   otherReadAt: string | null;
   otherDeliveredAt: string | null;
   onLongPress: () => void;
+  onToggleReaction: (emoji: string) => void;
 }) {
   const { th } = useTheme();
   const { t, i18n } = useTranslation();
@@ -512,6 +605,25 @@ function Bubble({
           <Text style={[styles.bubbleTime, { color: th.textSubtle }]}>{chatTime(m.createdAt, i18n.language)}</Text>
           {tick && <Ionicons name={tick.icon} size={13} color={tick.color} />}
         </View>
+        {m.reactions.length > 0 && (
+          <View style={styles.chipRow}>
+            {m.reactions.map((r) => (
+              <Pressable
+                key={r.emoji}
+                onPress={() => onToggleReaction(r.emoji)}
+                style={[
+                  styles.reactionChip,
+                  { backgroundColor: th.bg, borderColor: r.mine ? th.primary : th.border },
+                ]}
+              >
+                <Text style={styles.reactionChipText}>
+                  {r.emoji}
+                  {r.count > 1 ? ` ${r.count}` : ""}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
       </View>
     </Pressable>
   );
@@ -589,4 +701,41 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  // Reacciones
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 4 },
+  reactionChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  reactionChipText: { fontSize: 12 },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.4)" },
+  msgSheet: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    borderWidth: 1,
+    paddingTop: 8,
+    paddingHorizontal: 12,
+  },
+  msgSheetHandle: { alignSelf: "center", width: 36, height: 4, borderRadius: 2, marginBottom: 10 },
+  reactRow: { flexDirection: "row", justifyContent: "space-around", paddingVertical: 6, marginBottom: 4 },
+  reactBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  reactEmoji: { fontSize: 24 },
+  msgSheetRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderRadius: 10,
+  },
+  msgSheetIcon: { width: 38, height: 38, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  msgSheetLabel: { fontSize: 15, fontFamily: fonts.bodyMedium },
 });

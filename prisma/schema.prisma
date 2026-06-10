@@ -131,6 +131,7 @@ model User {
   devices            Device[]
   contacts           Contact[]   @relation("contactOwner")
   contactOf          Contact[]   @relation("contactTarget")
+  chatReactions      ChatMessageReaction[]
 }
 
 // Tablas estándar de NextAuth / Auth.js (Prisma adapter).
@@ -721,10 +722,27 @@ model ChatMessage {
   createdAt      DateTime  @default(now())
 
   attachments ChatAttachment[]
+  reactions   ChatMessageReaction[]
 
   @@unique([conversationId, senderId, clientId])
   @@index([conversationId, createdAt])
   @@index([conversationId, id])
+}
+
+// Reacción a un mensaje (long-press → emoji). Modelo WhatsApp: UNA reacción
+// por usuario y mensaje (reaccionar con otro emoji la sustituye; con el mismo,
+// la quita). El cliente las agrega a chips {emoji, count, mine}.
+model ChatMessageReaction {
+  id        String      @id @default(cuid())
+  messageId String
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String      @db.VarChar(16)
+  createdAt DateTime    @default(now())
+
+  @@unique([messageId, userId])
+  @@index([messageId])
 }
 
 model ChatAttachment {

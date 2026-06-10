@@ -67,7 +67,24 @@ export function conversationDto(
 
 export type ConversationDto = ReturnType<typeof conversationDto>;
 
-export function messageDto(m: ChatMessage & { attachments?: ChatAttachment[] }) {
+type ReactionRow = { emoji: string; userId: string };
+
+/** Agrega filas de reacción a chips {emoji, count, mine}, ordenados por count. */
+export function aggregateReactions(rows: ReactionRow[], meId?: string) {
+  const byEmoji = new Map<string, { emoji: string; count: number; mine: boolean }>();
+  for (const r of rows) {
+    const entry = byEmoji.get(r.emoji) ?? { emoji: r.emoji, count: 0, mine: false };
+    entry.count += 1;
+    if (meId && r.userId === meId) entry.mine = true;
+    byEmoji.set(r.emoji, entry);
+  }
+  return [...byEmoji.values()].sort((a, b) => b.count - a.count || a.emoji.localeCompare(b.emoji));
+}
+
+export function messageDto(
+  m: ChatMessage & { attachments?: ChatAttachment[]; reactions?: ReactionRow[] },
+  meId?: string
+) {
   const deleted = !!m.deletedAt;
   return {
     id: m.id,
@@ -81,6 +98,7 @@ export function messageDto(m: ChatMessage & { attachments?: ChatAttachment[] }) 
     editedAt: m.editedAt?.toISOString() ?? null,
     deleted,
     createdAt: m.createdAt.toISOString(),
+    reactions: deleted ? [] : aggregateReactions(m.reactions ?? [], meId),
     attachments: deleted
       ? []
       : (m.attachments ?? []).map((a) => ({

@@ -33,13 +33,13 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     take: limit,
-    include: { attachments: true },
+    include: { attachments: true, reactions: { select: { emoji: true, userId: true } } },
   });
 
   const hasMore = rows.length === limit;
   const nextCursor = hasMore ? rows[rows.length - 1].id : null;
   // ASC para que el cliente pinte de arriba (viejo) a abajo (nuevo).
-  const messages = rows.reverse().map(messageDto);
+  const messages = rows.reverse().map((m) => messageDto(m, userId));
 
   return NextResponse.json({ messages, nextCursor });
 }
@@ -80,9 +80,9 @@ export async function POST(req: NextRequest, { params }: Ctx) {
           clientId: input.clientId,
         },
       },
-      include: { attachments: true },
+      include: { attachments: true, reactions: { select: { emoji: true, userId: true } } },
     });
-    if (existing) return NextResponse.json(messageDto(existing), { status: 200 });
+    if (existing) return NextResponse.json(messageDto(existing, userId), { status: 200 });
   }
 
   // Bloqueos en DIRECT: si cualquiera bloqueó al otro, no se envía.
@@ -138,5 +138,5 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     // nunca rompe el envío
   }
 
-  return NextResponse.json(messageDto(message), { status: 201 });
+  return NextResponse.json(messageDto(message, userId), { status: 201 });
 }
