@@ -259,13 +259,68 @@ var __descDom = function() {
     60
   );
 };
-// Descripción final: la MÁS RICA (más larga no-basura) entre el JSON del portal
-// y el DOM. Clave para Idealista, cuyo JSON-LD trae solo el título SEO mientras
-// el comentario real del dueño vive en .adCommentsLanguage. Último recurso: meta.
+// Raíces JSON embebidas en la página (agnóstico de portal): estados de framework
+// + todos los <script> JSON/JSON-LD. Cada parse protegido.
+var __jsonRoots = function() {
+  var roots = [];
+  var globals = ['__NEXT_DATA__', '__INITIAL_STATE__', '__NUXT__', '__APP_STATE__', '__PRELOADED_STATE__'];
+  for (var g = 0; g < globals.length; g++) {
+    try { var w = window[globals[g]]; if (w && typeof w === 'object') roots.push(w); } catch(e) {}
+  }
+  try {
+    var scr = document.querySelectorAll('script[type="application/json"],script[type="application/ld+json"]');
+    for (var i = 0; i < scr.length; i++) {
+      var txt = scr[i].textContent || '';
+      if (txt.length < 30 || txt.length > 2000000) continue;
+      try { roots.push(JSON.parse(txt)); } catch(e) {}
+    }
+  } catch(e) {}
+  return roots;
+};
+// Barrido genérico: busca en el estado JSON el valor de cualquier clave de
+// descripción (description/comentario/adText…) y devuelve el más largo no-basura.
+// Acotado en nodos y profundidad para no penalizar el rendimiento.
+var __DESC_KEY = /^(description|descripcion|comment|comments|comentario|comentarios|adtext|longdescription|shortdescription|bodytext|detaildescription)$/i;
+var __deepDesc = function() {
+  var roots = __jsonRoots();
+  var best = '';
+  var budget = 20000;
+  var consider = function(v) {
+    var c = __pickJson([v]); // reusa coacción objeto/array + limpieza + no-junk
+    if (c && c.length >= 40 && c.length > best.length) best = c;
+  };
+  var walk = function(node, depth) {
+    if (budget <= 0 || depth > 8 || node == null) return;
+    if (typeof node !== 'object') return;
+    if (Array.isArray(node)) {
+      for (var i = 0; i < node.length && budget > 0; i++) { budget--; walk(node[i], depth + 1); }
+      return;
+    }
+    for (var k in node) {
+      if (budget <= 0) break;
+      if (!Object.prototype.hasOwnProperty.call(node, k)) continue;
+      budget--;
+      var val = node[k];
+      if (typeof val === 'string') {
+        if ((__DESC_KEY.test(k) || /descripci|comentari/i.test(k)) && val.length >= 40) consider(val);
+      } else if (val && typeof val === 'object') {
+        // descripción anidada como objeto { text/value/es }
+        if (__DESC_KEY.test(k)) consider(val);
+        walk(val, depth + 1);
+      }
+    }
+  };
+  for (var r = 0; r < roots.length && budget > 0; r++) walk(roots[r], 0);
+  return best || null;
+};
+// Descripción final: la MÁS RICA (más larga no-basura) entre 4 fuentes — claves
+// JSON del portal, barrido JSON genérico (cualquier portal), DOM, y meta del
+// portal como último recurso. El comentario real del dueño suele ser el más
+// largo; los títulos SEO/meta son cortos y pierden.
 var __desc = function(cands) {
-  var j = __pickJson(cands);
-  var d = __descDom();
-  var best = j && d ? (d.length >= j.length ? d : j) : (j || d);
+  var cs = [__pickJson(cands), __deepDesc(), __descDom()];
+  var best = '';
+  for (var i = 0; i < cs.length; i++) { if (cs[i] && cs[i].length > best.length) best = cs[i]; }
   if (best) return best;
   var m = __metaDesc();
   return m && !__isJunkDesc(m) ? m : null;
