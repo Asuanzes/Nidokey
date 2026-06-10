@@ -1,39 +1,60 @@
 import { Platform } from "react-native";
-import * as Notifications from "expo-notifications";
-import * as Device from "expo-device";
 import Constants from "expo-constants";
 import { router } from "expo-router";
 
 import { api } from "@/lib/api";
 
 /**
- * Notificaciones push del chat (lado cliente). Registra el token de Expo en el
- * backend (/api/devices), gestiona el canal Android y el deep-link al tocar una
- * notificación. IMPORTANTE: recibir push requiere un BUILD NATIVO (EAS build),
- * no basta una OTA, porque expo-notifications es módulo nativo; en iOS además
- * necesita APNs (cuenta Apple de pago). El envío (backend) ya funciona al
- * desplegar.
+ * Notificaciones push del chat (lado cliente).
+ *
+ * BLINDAJE OTA: expo-notifications/expo-device son módulos NATIVOS. Si el
+ * binario instalado NO los trae (p. ej. tras una OTA de este JS sobre un build
+ * antiguo), importarlos/usarlos crashearía la app al arrancar. Por eso se cargan
+ * con require() dentro de try/catch y TODA llamada nativa va protegida: en un
+ * binario sin el módulo, el chat funciona y el push queda inerte; con un build
+ * nuevo (EAS), el push opera. Recibir push exige BUILD NATIVO, no basta OTA; en
+ * iOS además necesita APNs (cuenta Apple de pago) — un dev build con Apple ID
+ * gratis envía mensajes pero no recibe push (se auto-desactiva sin crashear).
  */
 
-// En primer plano: mostrar banner salvo que el usuario esté en esa conversación
-// (lo decide setActiveConversation). Sonido sí, badge gestionado por el SO.
+type NotificationsModule = typeof import("expo-notifications");
+type DeviceModule = typeof import("expo-device");
+
+let Notifications: NotificationsModule | null = null;
+let Device: DeviceModule | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  Notifications = require("expo-notifications") as NotificationsModule;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  Device = require("expo-device") as DeviceModule;
+} catch {
+  Notifications = null;
+  Device = null;
+}
+
+// En primer plano: mostrar banner salvo que estés en esa conversación.
 let activeConversationId: string | null = null;
 export function setActiveConversation(id: string | null): void {
   activeConversationId = id;
 }
 
-Notifications.setNotificationHandler({
-  handleNotification: async (notification) => {
-    const convId = (notification.request.content.data as { conversationId?: string } | undefined)?.conversationId;
-    const muted = convId != null && convId === activeConversationId;
-    return {
-      shouldShowBanner: !muted,
-      shouldShowList: true,
-      shouldPlaySound: !muted,
-      shouldSetBadge: true,
-    };
-  },
-});
+// El handler es JS, pero lo envolvemos por si el módulo nativo falta.
+try {
+  Notifications?.setNotificationHandler({
+    handleNotification: async (notification) => {
+      const convId = (notification.request.content.data as { conversationId?: string } | undefined)?.conversationId;
+      const muted = convId != null && convId === activeConversationId;
+      return {
+        shouldShowBanner: !muted,
+        shouldShowList: true,
+        shouldPlaySound: !muted,
+        shouldSetBadge: true,
+      };
+    },
+  });
+} catch {
+  // binario sin expo-notifications: sin handler, sin crash
+}
 
 function projectId(): string | undefined {
   return (
@@ -45,7 +66,7 @@ function projectId(): string | undefined {
 /** Pide permiso, obtiene el token de Expo y lo registra en el backend. */
 export async function registerForPush(): Promise<void> {
   try {
-    if (!Device.isDevice) return; // los emuladores no reciben push
+    if (!Notifications || !Device || !Device.isDevice) return; // sin módulo nativo o emulador
 
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync("chat", {
@@ -76,7 +97,7 @@ export async function registerForPush(): Promise<void> {
 /** Baja del token (logout). Mejor esfuerzo. */
 export async function unregisterPush(): Promise<void> {
   try {
-    if (!Device.isDevice) return;
+    if (!Notifications || !Device || !Device.isDevice) return;
     const token = (await Notifications.getExpoPushTokenAsync({ projectId: projectId() })).data;
     await api("/api/devices", { method: "DELETE", body: JSON.stringify({ expoPushToken: token }) });
   } catch {
@@ -86,11 +107,16 @@ export async function unregisterPush(): Promise<void> {
 
 /** Suscribe el deep-link: al tocar una notificación de chat, abre la conversación. */
 export function useChatNotificationTap(): () => void {
-  const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-    const data = response.notification.request.content.data as { type?: string; conversationId?: string } | undefined;
-    if (data?.type === "chat" && data.conversationId) {
-      router.push(`/chat/${data.conversationId}` as never);
-    }
-  });
-  return () => sub.remove();
+  try {
+    if (!Notifications) return () => {};
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as { type?: string; conversationId?: string } | undefined;
+      if (data?.type === "chat" && data.conversationId) {
+        router.push(`/chat/${data.conversationId}` as never);
+      }
+    });
+    return () => sub.remove();
+  } catch {
+    return () => {};
+  }
 }
