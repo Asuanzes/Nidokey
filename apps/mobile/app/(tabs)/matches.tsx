@@ -79,7 +79,7 @@ export default function MatchesScreen() {
       await refetch();
       notifyDuplicatesChanged(); // sincroniza el badge del layout
     } catch (e) {
-      setNotice(e instanceof Error ? e.message : "No se pudo completar la acción");
+      setNotice(e instanceof Error ? e.message : t("matches.action_error"));
     } finally {
       setBusyKey(null);
     }

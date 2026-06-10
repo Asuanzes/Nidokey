@@ -24,6 +24,7 @@ import { BrandLoading } from "@/components/BrandLoading";
 import { BootProvider, useBoot } from "@/lib/boot-context";
 import { CategoryPrefsProvider } from "@/lib/records/category-prefs-context";
 import "@/lib/i18n"; // inicializa i18next (debe importarse antes de usar t())
+import { useTranslation } from "react-i18next";
 import { LanguageProvider } from "@/lib/i18n/language-context";
 
 // Mantener el splash nativo hasta que la sesión esté resuelta: evita el
@@ -116,6 +117,7 @@ export default function RootLayout() {
 function AuthGate() {
   const { state } = useAuth();
   const { th } = useTheme();
+  const { t } = useTranslation();
   const segments = useSegments();
   const router = useRouter();
   // Estado del navegador raíz: su `.key` solo existe cuando el Stack está
@@ -133,8 +135,9 @@ function AuthGate() {
 
   const [minElapsed, setMinElapsed] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setMinElapsed(true), 1000);
-    return () => clearTimeout(t);
+    // `id`, no `t`: evita sombrear la función de traducción del componente.
+    const id = setTimeout(() => setMinElapsed(true), 1000);
+    return () => clearTimeout(id);
   }, []);
 
   // Red de seguridad: nunca dejar el loader colgado más de 8 s si los registros
@@ -232,7 +235,7 @@ function AuthGate() {
             name="property/[id]"
             options={{
               headerShown: true,
-              headerBackTitle: "Atrás",
+              headerBackTitle: t("common.back"),
               headerTintColor: th.primary,
               headerStyle: { backgroundColor: th.surface },
               headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
@@ -243,33 +246,33 @@ function AuthGate() {
             name="job/[id]"
             options={{
               headerShown: true,
-              headerBackTitle: "Atrás",
+              headerBackTitle: t("common.back"),
               headerTintColor: th.primary,
               headerStyle: { backgroundColor: th.surface },
               headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
-              title: "Empleo",
+              title: t("types.job.singular"),
             }}
           />
           <Stack.Screen
             name="book/[id]"
             options={{
               headerShown: true,
-              headerBackTitle: "Atrás",
+              headerBackTitle: t("common.back"),
               headerTintColor: th.primary,
               headerStyle: { backgroundColor: th.surface },
               headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
-              title: "Libro",
+              title: t("types.book.singular"),
             }}
           />
           <Stack.Screen
             name="article"
             options={{
               headerShown: true,
-              headerBackTitle: "Atrás",
+              headerBackTitle: t("common.back"),
               headerTintColor: th.primary,
               headerStyle: { backgroundColor: th.surface },
               headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
-              title: "Noticia",
+              title: t("news.article_title"),
             }}
           />
           <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
@@ -277,7 +280,7 @@ function AuthGate() {
             name="tools/mortgage"
             options={{
               headerShown: true,
-              headerBackTitle: "Atrás",
+              headerBackTitle: t("common.back"),
               headerTintColor: th.primary,
               headerStyle: { backgroundColor: th.surface },
               headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
@@ -287,7 +290,7 @@ function AuthGate() {
             name="tools/[tool]"
             options={{
               headerShown: true,
-              headerBackTitle: "Atrás",
+              headerBackTitle: t("common.back"),
               headerTintColor: th.primary,
               headerStyle: { backgroundColor: th.surface },
               headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
@@ -297,11 +300,11 @@ function AuthGate() {
             name="category-settings"
             options={{
               headerShown: true,
-              headerBackTitle: "Atrás",
+              headerBackTitle: t("common.back"),
               headerTintColor: th.primary,
               headerStyle: { backgroundColor: th.surface },
               headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
-              title: "Categorías",
+              title: t("account.categories"),
             }}
           />
           <Stack.Screen
@@ -309,33 +312,33 @@ function AuthGate() {
             options={{
               presentation: "modal",
               headerShown: true,
-              headerBackTitle: "Atrás",
+              headerBackTitle: t("common.back"),
               headerTintColor: th.primary,
               headerStyle: { backgroundColor: th.surface },
               headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
-              title: "Escanear libro",
+              title: t("scan.title"),
             }}
           />
           <Stack.Screen
             name="viajes/nuevo"
             options={{
               headerShown: true,
-              headerBackTitle: "Atrás",
+              headerBackTitle: t("common.back"),
               headerTintColor: th.primary,
               headerStyle: { backgroundColor: th.surface },
               headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
-              title: "Nuevo viaje",
+              title: t("trip.title"),
             }}
           />
           <Stack.Screen
             name="holiday/[id]"
             options={{
               headerShown: true,
-              headerBackTitle: "Atrás",
+              headerBackTitle: t("common.back"),
               headerTintColor: th.primary,
               headerStyle: { backgroundColor: th.surface },
               headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
-              title: "Viaje",
+              title: t("types.holiday.singular"),
             }}
           />
       </Stack>

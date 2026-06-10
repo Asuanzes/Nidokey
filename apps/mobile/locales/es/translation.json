@@ -85,7 +85,8 @@
     "cross_language_title": "¿El mismo, en distinto idioma?",
     "merge_message": "Se conservará una ficha y el resto se eliminará ({{count}}). El estado y tus notas se conservan.",
     "merge_message_cross": "Parecen el mismo {{singular}} pero en idiomas distintos. ¿Fusionarlas en una sola? El resto se eliminará ({{count}}). El estado y tus notas se conservan.",
-    "merge_error": "No se pudo completar"
+    "merge_error": "No se pudo completar",
+    "action_error": "No se pudo completar la acción"
   },
   "types": {
     "property": { "label": "Inmuebles y Alquiler", "singular": "Inmueble", "placeholder": "Pega el enlace del anuncio" },
@@ -115,7 +116,10 @@
     "updated_now": "Actualizado ahora",
     "updated_min": "Actualizado hace {{n}} min",
     "updated_h": "Actualizado hace {{n}} h",
-    "updated_d": "Actualizado hace {{n}} d"
+    "updated_d": "Actualizado hace {{n}} d",
+    "rooms_count": "{{count}} hab",
+    "baths_one": "{{count}} baño",
+    "baths_other": "{{count}} baños"
   },
   "detail": {
     "not_found": "No encontrado",
@@ -223,7 +227,12 @@
     "ago_now": "ahora",
     "ago_min": "hace {{n}} min",
     "ago_h": "hace {{n}} h",
-    "ago_d": "hace {{n}} d"
+    "ago_d": "hace {{n}} d",
+    "loading_summary": "Cargando resumen…",
+    "load_error_title": "No se pudo cargar el artículo",
+    "load_error_desc": "Comprueba tu conexión e inténtalo de nuevo.",
+    "open_full": "Abrir artículo completo",
+    "article_title": "Noticia"
   },
   "asset": {
     "load_error": "No se pudo cargar",
@@ -316,6 +325,7 @@
     "load_error": "No se pudo cargar el hotel"
   },
   "scan": {
+    "title": "Escanear libro",
     "permission_title": "Permite la cámara para escanear",
     "permission_body": "Nidokey usa la cámara solo para leer el código de barras del libro.",
     "permission_btn": "Permitir cámara",

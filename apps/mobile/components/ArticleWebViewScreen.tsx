@@ -5,6 +5,7 @@ import { WebView } from "react-native-webview";
 import { Ionicons } from "@expo/vector-icons";
 import { captureRef } from "react-native-view-shot";
 import RNShare from "react-native-share";
+import { useTranslation } from "react-i18next";
 
 import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
@@ -66,6 +67,7 @@ function isAdHost(url: string): boolean {
 
 export function ArticleWebViewScreen({ article }: { article: Article }) {
   const { th } = useTheme();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const ref = useRef<WebView>(null);
   const [status, setStatus] = useState<Status>("loading");
@@ -147,7 +149,7 @@ export function ArticleWebViewScreen({ article }: { article: Article }) {
             {summary}
           </Text>
         ) : status === "loading" ? (
-          <Text style={[styles.summary, { color: th.textSubtle }]}>Cargando resumen…</Text>
+          <Text style={[styles.summary, { color: th.textSubtle }]}>{t("news.loading_summary")}</Text>
         ) : null}
         {capturing ? (
           <Text style={[styles.brandFooter, { color: th.textSubtle }]}>NIDOKEY</Text>
@@ -189,13 +191,13 @@ export function ArticleWebViewScreen({ article }: { article: Article }) {
         {status === "error" ? (
           <View style={[styles.overlay, { backgroundColor: th.bg }]}>
             <Text style={[styles.errTitle, { color: th.text }]}>
-              No se pudo cargar el artículo
+              {t("news.load_error_title")}
             </Text>
             <Text style={[styles.errDesc, { color: th.textMuted }]}>
-              Comprueba tu conexión e inténtalo de nuevo.
+              {t("news.load_error_desc")}
             </Text>
             <Button
-              label="Reintentar"
+              label={t("common.retry")}
               icon="refresh"
               variant="secondary"
               fullWidth={false}
@@ -212,7 +214,7 @@ export function ArticleWebViewScreen({ article }: { article: Article }) {
           onPress={onShare}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel="Compartir"
+          accessibilityLabel={t("common.share")}
           style={({ pressed }) => [
             styles.fab,
             { backgroundColor: th.surface, borderColor: th.border, opacity: pressed ? 0.8 : 1 },
@@ -224,7 +226,7 @@ export function ArticleWebViewScreen({ article }: { article: Article }) {
           onPress={openExternal}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel="Abrir artículo completo"
+          accessibilityLabel={t("news.open_full")}
           style={({ pressed }) => [
             styles.fab,
             { backgroundColor: th.surface, borderColor: th.border, opacity: pressed ? 0.85 : 1 },

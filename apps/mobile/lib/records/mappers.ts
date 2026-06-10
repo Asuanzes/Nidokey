@@ -1,4 +1,5 @@
 import { formatPrice, type BaseRecord } from "@nidokey/shared";
+import i18n from "@/lib/i18n";
 
 /**
  * Mappers: traducen las respuestas de los endpoints existentes
@@ -28,10 +29,13 @@ export type RawPropertyListItem = {
 
 export function propertyToRecord(p: RawPropertyListItem): BaseRecord {
   const subtitle = [p.city, p.neighborhood].filter(Boolean).join(" · ") || null;
+  // Mapper de DATOS (no-React): usa la instancia i18n directamente. El footnote
+  // queda en el idioma del momento del fetch; el refetch (60s/focus) lo refresca
+  // tras un cambio de idioma — suficiente para una nota de pie de tarjeta.
   const footnote =
     [
-      p.rooms != null ? `${p.rooms} hab` : null,
-      p.bathrooms != null ? `${p.bathrooms} baño${p.bathrooms !== 1 ? "s" : ""}` : null,
+      p.rooms != null ? i18n.t("card.rooms_count", { count: p.rooms }) : null,
+      p.bathrooms != null ? i18n.t("card.baths", { count: p.bathrooms }) : null,
       p.builtArea != null ? `${p.builtArea} m²` : null,
     ]
       .filter(Boolean)

@@ -85,7 +85,8 @@
     "cross_language_title": "Same one, different language?",
     "merge_message": "One entry is kept and the rest are removed ({{count}}). Status and your notes are preserved.",
     "merge_message_cross": "They look like the same {{singular}} in different languages. Merge into one? The rest are removed ({{count}}). Status and your notes are preserved.",
-    "merge_error": "Couldn't complete"
+    "merge_error": "Couldn't complete",
+    "action_error": "Couldn't complete the action"
   },
   "types": {
     "property": { "label": "Properties & Rentals", "singular": "Property", "placeholder": "Paste the listing link" },
@@ -115,7 +116,10 @@
     "updated_now": "Updated just now",
     "updated_min": "Updated {{n}} min ago",
     "updated_h": "Updated {{n}} h ago",
-    "updated_d": "Updated {{n}} d ago"
+    "updated_d": "Updated {{n}} d ago",
+    "rooms_count": "{{count}} bd",
+    "baths_one": "{{count}} bath",
+    "baths_other": "{{count}} baths"
   },
   "detail": {
     "not_found": "Not found",
@@ -223,7 +227,12 @@
     "ago_now": "now",
     "ago_min": "{{n}} min ago",
     "ago_h": "{{n}} h ago",
-    "ago_d": "{{n}} d ago"
+    "ago_d": "{{n}} d ago",
+    "loading_summary": "Loading summary…",
+    "load_error_title": "Couldn't load the article",
+    "load_error_desc": "Check your connection and try again.",
+    "open_full": "Open full article",
+    "article_title": "News"
   },
   "asset": {
     "load_error": "Couldn't load",
@@ -316,6 +325,7 @@
     "load_error": "Couldn't load the hotel"
   },
   "scan": {
+    "title": "Scan book",
     "permission_title": "Allow the camera to scan",
     "permission_body": "Nidokey only uses the camera to read the book's barcode.",
     "permission_btn": "Allow camera",
