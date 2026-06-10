@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
+import { useTranslation } from "react-i18next";
 
 import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
@@ -19,6 +20,7 @@ function eur(n: number): string {
 
 export default function MortgageSimulator() {
   const { th } = useTheme();
+  const { t } = useTranslation();
   const { amount } = useLocalSearchParams<{ amount?: string }>();
 
   const [price, setPrice] = useState(amount ? String(parseInt(amount, 10) || "") : "");
@@ -41,32 +43,32 @@ export default function MortgageSimulator() {
 
   return (
     <ScrollView style={{ backgroundColor: th.bg }} contentContainerStyle={styles.content}>
-      <Stack.Screen options={{ title: "Simulador de hipoteca" }} />
+      <Stack.Screen options={{ title: t("tools.mortgage.title") }} />
 
       <Card style={styles.card}>
-        <Field label="Precio de la vivienda" suffix="€" value={price} onChangeText={setPrice} />
-        <Field label="Entrada / aportación" suffix="%" value={downPct} onChangeText={setDownPct} />
-        <Field label="Plazo" suffix="años" value={years} onChangeText={setYears} />
-        <Field label="Interés anual (TIN)" suffix="%" value={rate} onChangeText={setRate} last />
+        <Field label={t("tools.mortgage.price")} suffix="€" value={price} onChangeText={setPrice} />
+        <Field label={t("tools.mortgage.down")} suffix="%" value={downPct} onChangeText={setDownPct} />
+        <Field label={t("tools.mortgage.term")} suffix={t("tools.mortgage.term_suffix")} value={years} onChangeText={setYears} />
+        <Field label={t("tools.mortgage.rate")} suffix="%" value={rate} onChangeText={setRate} last />
       </Card>
 
       <Card style={[styles.card, { borderColor: th.primary, backgroundColor: th.primarySoft }]}>
-        <Text style={[styles.resultLabel, { color: th.textMuted }]}>Cuota mensual estimada</Text>
+        <Text style={[styles.resultLabel, { color: th.textMuted }]}>{t("tools.mortgage.monthly_label")}</Text>
         <Text style={[styles.resultValue, { color: th.primary }]}>{eur(calc.monthly)}</Text>
-        <Text style={[styles.resultSub, { color: th.textSubtle }]}>{calc.n} cuotas</Text>
+        <Text style={[styles.resultSub, { color: th.textSubtle }]}>
+          {t("tools.mortgage.installments", { count: calc.n })}
+        </Text>
       </Card>
 
       <Card style={styles.card}>
-        <Row label="Importe financiado" value={eur(calc.principal)} />
-        <Row label="Entrada" value={eur(calc.down)} />
-        <Row label="Total intereses" value={eur(calc.totalInterest)} />
-        <Row label="Total a pagar" value={eur(calc.totalPaid)} strong />
+        <Row label={t("tools.mortgage.principal")} value={eur(calc.principal)} />
+        <Row label={t("tools.mortgage.down_row")} value={eur(calc.down)} />
+        <Row label={t("tools.mortgage.interest_total")} value={eur(calc.totalInterest)} />
+        <Row label={t("tools.mortgage.total")} value={eur(calc.totalPaid)} strong />
       </Card>
 
       <Text style={[styles.note, { color: th.textSubtle }]}>
-        Cálculo orientativo (sistema francés, cuota constante). No incluye gastos,
-        comisiones ni seguros. Próximamente: proceso completo de la hipoteca con un
-        partner bancario.
+        {t("tools.mortgage.note")}
       </Text>
     </ScrollView>
   );

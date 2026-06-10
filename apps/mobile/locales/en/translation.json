@@ -256,6 +256,59 @@
     "unavailable_title": "Scanner not available yet",
     "unavailable_body": "The app needs a native rebuild (expo run:android) to enable the camera. Meanwhile, add books from search or the manual form."
   },
+  "tools": {
+    "fallback_title": "Tool",
+    "not_available": "Tool not available.",
+    "catastro": {
+      "title": "Cadastre",
+      "ref_title": "Cadastral reference",
+      "ref_missing": "Not available",
+      "data_title": "Property data (OVC)",
+      "row_built_area": "Built area",
+      "row_main_use": "Main use",
+      "row_year": "Year built",
+      "row_floor": "Floor",
+      "search_btn": "Search the Cadastre",
+      "pending": "Extended integration with the Cadastre (OVC) by reference: pending."
+    },
+    "registro": {
+      "title": "Land Registry",
+      "ownership_title": "Ownership",
+      "ownership_body": "Owner(s) and ownership share.",
+      "charges_title": "Charges and encumbrances",
+      "charges_body": "Mortgages, liens, easements and attachments.",
+      "deed_title": "Nota simple",
+      "deed_body": "Description of the registered property and its history.",
+      "pending": "Land Registry lookup (nota simple): pending. It is an official service that usually has a fee.",
+      "note": "The property's registry information will appear here once the service is integrated."
+    },
+    "ine": {
+      "title": "Area statistics",
+      "zone": "Area",
+      "row_avg_price": "Average sale price",
+      "row_yoy": "Year-over-year change",
+      "row_income": "Estimated average income",
+      "row_transactions": "Transactions (last year)",
+      "row_yield": "Gross rental yield",
+      "pending": "Geolocated statistics (INE / Cadastre): integration pending."
+    },
+    "mortgage": {
+      "title": "Mortgage simulator",
+      "price": "Home price",
+      "down": "Down payment",
+      "term": "Term",
+      "term_suffix": "years",
+      "rate": "Annual interest (nominal)",
+      "monthly_label": "Estimated monthly payment",
+      "installments_one": "{{count}} installment",
+      "installments_other": "{{count}} installments",
+      "principal": "Amount financed",
+      "down_row": "Down payment",
+      "interest_total": "Total interest",
+      "total": "Total to pay",
+      "note": "Indicative calculation (French amortization, fixed installment). Excludes fees, commissions and insurance. Coming soon: full mortgage process with a banking partner."
+    }
+  },
   "catsettings": {
     "order_title": "Order and visibility",
     "order_help": "Press and hold a category and drag to reorder · tap the eye to hide or show it.",

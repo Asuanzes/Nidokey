@@ -256,6 +256,59 @@
     "unavailable_title": "Escáner no disponible aún",
     "unavailable_body": "Hay que recompilar la app (expo run:android) para activar la cámara. Mientras, añade libros desde la búsqueda o el alta manual."
   },
+  "tools": {
+    "fallback_title": "Herramienta",
+    "not_available": "Herramienta no disponible.",
+    "catastro": {
+      "title": "Catastro",
+      "ref_title": "Referencia catastral",
+      "ref_missing": "No disponible",
+      "data_title": "Datos del inmueble (OVC)",
+      "row_built_area": "Superficie construida",
+      "row_main_use": "Uso principal",
+      "row_year": "Año de construcción",
+      "row_floor": "Planta",
+      "search_btn": "Buscar en el Catastro",
+      "pending": "Integración ampliada con la Sede del Catastro (OVC) por referencia: pendiente."
+    },
+    "registro": {
+      "title": "Registro de la Propiedad",
+      "ownership_title": "Titularidad",
+      "ownership_body": "Titular(es) y porcentaje de propiedad.",
+      "charges_title": "Cargas y gravámenes",
+      "charges_body": "Hipotecas, embargos, servidumbres y afecciones.",
+      "deed_title": "Nota simple",
+      "deed_body": "Descripción de la finca registral y su historial.",
+      "pending": "Consulta al Registro de la Propiedad (nota simple): pendiente. Es un servicio oficial normalmente de pago.",
+      "note": "Aquí se mostrará la información registral del inmueble cuando se integre el servicio."
+    },
+    "ine": {
+      "title": "Estadísticas de zona",
+      "zone": "Zona",
+      "row_avg_price": "Precio medio de venta",
+      "row_yoy": "Variación interanual",
+      "row_income": "Renta media estimada",
+      "row_transactions": "Transacciones (último año)",
+      "row_yield": "Rentabilidad bruta del alquiler",
+      "pending": "Estadísticas por geolocalización (INE / Catastro): pendiente de integración."
+    },
+    "mortgage": {
+      "title": "Simulador de hipoteca",
+      "price": "Precio de la vivienda",
+      "down": "Entrada / aportación",
+      "term": "Plazo",
+      "term_suffix": "años",
+      "rate": "Interés anual (TIN)",
+      "monthly_label": "Cuota mensual estimada",
+      "installments_one": "{{count}} cuota",
+      "installments_other": "{{count}} cuotas",
+      "principal": "Importe financiado",
+      "down_row": "Entrada",
+      "interest_total": "Total intereses",
+      "total": "Total a pagar",
+      "note": "Cálculo orientativo (sistema francés, cuota constante). No incluye gastos, comisiones ni seguros. Próximamente: proceso completo de la hipoteca con un partner bancario."
+    }
+  },
   "catsettings": {
     "order_title": "Orden y visibilidad",
     "order_help": "Mantén pulsada una categoría y arrástrala para reordenar · toca el ojo para ocultarla o mostrarla.",

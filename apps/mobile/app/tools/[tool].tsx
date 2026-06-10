@@ -1,6 +1,7 @@
 import { Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
@@ -12,17 +13,19 @@ import { Button, Card } from "@/components/ui";
  * la integración real con OVC / Registro / INE queda como TODO (banners
  * "pendiente"). Los datos disponibles llegan por query params (ref, city).
  */
-const TITLES: Record<string, string> = {
-  catastro: "Catastro",
-  registro: "Registro de la Propiedad",
-  ine: "Estadísticas de zona",
-};
-
 export default function ToolScreen() {
   const { th } = useTheme();
+  const { t } = useTranslation();
   const { tool, ref, city } = useLocalSearchParams<{ tool?: string; ref?: string; city?: string }>();
   const key = tool ?? "";
-  const title = TITLES[key] ?? "Herramienta";
+  // El id llega como string libre de la ruta → Record con t() (sin template
+  // literal tipado posible aquí).
+  const TITLES: Record<string, string> = {
+    catastro: t("tools.catastro.title"),
+    registro: t("tools.registro.title"),
+    ine: t("tools.ine.title"),
+  };
+  const title = TITLES[key] ?? t("tools.fallback_title");
 
   return (
     <ScrollView style={{ backgroundColor: th.bg }} contentContainerStyle={styles.content}>
@@ -31,7 +34,7 @@ export default function ToolScreen() {
       {key === "registro" && <Registro />}
       {key === "ine" && <Ine city={city} />}
       {!TITLES[key] && (
-        <Text style={{ color: th.textMuted, padding: 8 }}>Herramienta no disponible.</Text>
+        <Text style={{ color: th.textMuted, padding: 8 }}>{t("tools.not_available")}</Text>
       )}
     </ScrollView>
   );
@@ -40,25 +43,26 @@ export default function ToolScreen() {
 // ── Catastro ───────────────────────────────────────────────────────────────
 function Catastro({ refValue }: { refValue?: string }) {
   const { th } = useTheme();
+  const { t } = useTranslation();
   const has = !!refValue;
   return (
     <>
       <Card style={styles.card}>
-        <Text style={[styles.cardTitle, { color: th.textMuted }]}>Referencia catastral</Text>
+        <Text style={[styles.cardTitle, { color: th.textMuted }]}>{t("tools.catastro.ref_title")}</Text>
         <Text style={[styles.mono, { color: has ? th.text : th.textSubtle }]}>
-          {has ? refValue : "No disponible"}
+          {has ? refValue : t("tools.catastro.ref_missing")}
         </Text>
       </Card>
       <Card style={styles.card}>
-        <Text style={[styles.cardTitle, { color: th.textMuted }]}>Datos del inmueble (OVC)</Text>
-        <InfoRow label="Superficie construida" value="—" />
-        <InfoRow label="Uso principal" value="—" />
-        <InfoRow label="Año de construcción" value="—" />
-        <InfoRow label="Planta" value="—" />
+        <Text style={[styles.cardTitle, { color: th.textMuted }]}>{t("tools.catastro.data_title")}</Text>
+        <InfoRow label={t("tools.catastro.row_built_area")} value="—" />
+        <InfoRow label={t("tools.catastro.row_main_use")} value="—" />
+        <InfoRow label={t("tools.catastro.row_year")} value="—" />
+        <InfoRow label={t("tools.catastro.row_floor")} value="—" />
       </Card>
       {has && (
         <Button
-          label="Buscar en el Catastro"
+          label={t("tools.catastro.search_btn")}
           icon="open-outline"
           variant="secondary"
           onPress={() =>
@@ -66,7 +70,7 @@ function Catastro({ refValue }: { refValue?: string }) {
           }
         />
       )}
-      <Pending text="Integración ampliada con la Sede del Catastro (OVC) por referencia: pendiente." />
+      <Pending text={t("tools.catastro.pending")} />
     </>
   );
 }
@@ -74,15 +78,15 @@ function Catastro({ refValue }: { refValue?: string }) {
 // ── Registro de la Propiedad ─────────────────────────────────────────────────
 function Registro() {
   const { th } = useTheme();
+  const { t } = useTranslation();
   return (
     <>
-      <PlaceholderCard title="Titularidad" body="Titular(es) y porcentaje de propiedad." />
-      <PlaceholderCard title="Cargas y gravámenes" body="Hipotecas, embargos, servidumbres y afecciones." />
-      <PlaceholderCard title="Nota simple" body="Descripción de la finca registral y su historial." />
-      <Pending text="Consulta al Registro de la Propiedad (nota simple): pendiente. Es un servicio oficial normalmente de pago." />
+      <PlaceholderCard title={t("tools.registro.ownership_title")} body={t("tools.registro.ownership_body")} />
+      <PlaceholderCard title={t("tools.registro.charges_title")} body={t("tools.registro.charges_body")} />
+      <PlaceholderCard title={t("tools.registro.deed_title")} body={t("tools.registro.deed_body")} />
+      <Pending text={t("tools.registro.pending")} />
       <Text style={[styles.note, { color: th.textSubtle }]}>
-        Aquí se mostrará la información registral del inmueble cuando se integre el
-        servicio.
+        {t("tools.registro.note")}
       </Text>
     </>
   );
@@ -91,19 +95,20 @@ function Registro() {
 // ── Estadísticas de zona (INE) ───────────────────────────────────────────────
 function Ine({ city }: { city?: string }) {
   const { th } = useTheme();
+  const { t } = useTranslation();
   return (
     <>
       <Card style={styles.card}>
         <Text style={[styles.cardTitle, { color: th.textMuted }]}>
-          Zona{city ? `: ${city}` : ""}
+          {t("tools.ine.zone")}{city ? `: ${city}` : ""}
         </Text>
-        <InfoRow label="Precio medio de venta" value="— €/m²" />
-        <InfoRow label="Variación interanual" value="—" />
-        <InfoRow label="Renta media estimada" value="— €/mes" />
-        <InfoRow label="Transacciones (último año)" value="—" />
-        <InfoRow label="Rentabilidad bruta del alquiler" value="—" />
+        <InfoRow label={t("tools.ine.row_avg_price")} value="— €/m²" />
+        <InfoRow label={t("tools.ine.row_yoy")} value="—" />
+        <InfoRow label={t("tools.ine.row_income")} value="— €/mes" />
+        <InfoRow label={t("tools.ine.row_transactions")} value="—" />
+        <InfoRow label={t("tools.ine.row_yield")} value="—" />
       </Card>
-      <Pending text="Estadísticas por geolocalización (INE / Catastro): pendiente de integración." />
+      <Pending text={t("tools.ine.pending")} />
     </>
   );
 }
