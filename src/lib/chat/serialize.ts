@@ -6,18 +6,24 @@ import type { ChatAttachment, ChatMessage, Conversation, ConversationParticipant
  */
 
 type ParticipantWithUser = ConversationParticipant & {
-  user: Pick<User, "id" | "name" | "email" | "image">;
+  user: Pick<User, "id" | "name" | "username" | "email" | "image">;
 };
 
-export type ChatUserDto = { id: string; name: string | null; email: string; image: string | null };
+export type ChatUserDto = {
+  id: string;
+  name: string | null;
+  username: string | null;
+  email: string;
+  image: string | null;
+};
 
-export function userDto(u: Pick<User, "id" | "name" | "email" | "image">): ChatUserDto {
-  return { id: u.id, name: u.name, email: u.email, image: u.image };
+export function userDto(u: Pick<User, "id" | "name" | "username" | "email" | "image">): ChatUserDto {
+  return { id: u.id, name: u.name, username: u.username, email: u.email, image: u.image };
 }
 
-/** Nombre a mostrar: name o la parte local del email. */
-export function displayName(u: Pick<User, "name" | "email">): string {
-  return u.name?.trim() || u.email.split("@")[0];
+/** Nombre a mostrar: name, si no @username, si no la parte local del email. */
+export function displayName(u: Pick<User, "name" | "username" | "email">): string {
+  return u.name?.trim() || (u.username ? "@" + u.username : null) || u.email.split("@")[0];
 }
 
 export function participantDto(p: ParticipantWithUser) {

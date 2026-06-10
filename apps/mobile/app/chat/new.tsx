@@ -84,7 +84,8 @@ export default function NewChatScreen() {
         keyExtractor={(u) => u.id}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => {
-          const name = item.name?.trim() || item.email.split("@")[0];
+          const name = item.name?.trim() || (item.username ? "@" + item.username : null) || item.email.split("@")[0];
+          const secondary = item.username ? "@" + item.username : item.email;
           return (
             <Pressable
               onPress={() => void startChat(item)}
@@ -101,7 +102,7 @@ export default function NewChatScreen() {
                   {name}
                 </Text>
                 <Text style={[styles.rowEmail, { color: th.textMuted }]} numberOfLines={1}>
-                  {item.email}
+                  {secondary}
                 </Text>
               </View>
               {creating === item.id ? (

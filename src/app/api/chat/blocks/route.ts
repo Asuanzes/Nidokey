@@ -9,7 +9,7 @@ export async function GET() {
   const userId = await requireUserId();
   const blocks = await prisma.userBlock.findMany({
     where: { blockerId: userId },
-    include: { blocked: { select: { id: true, name: true, email: true, image: true } } },
+    include: { blocked: { select: { id: true, name: true, username: true, email: true, image: true } } },
     orderBy: { createdAt: "desc" },
   });
   return NextResponse.json({

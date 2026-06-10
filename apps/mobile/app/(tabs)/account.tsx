@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useTheme, type ThemeMode } from "@/lib/theme";
 import { Button, Chip, Screen, Section } from "@/components/ui";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { UsernameEditor } from "@/components/chat/UsernameEditor";
 
 const THEME_MODES: {
   value: ThemeMode;
@@ -43,6 +44,10 @@ export default function AccountScreen() {
             <Text style={[styles.name, { color: th.textMuted }]}>{state.user.name}</Text>
           )}
         </View>
+      </Section>
+
+      <Section label={t("account.username_section")}>
+        <UsernameEditor />
       </Section>
 
       <Section label={t("account.appearance")}>

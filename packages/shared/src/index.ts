@@ -1,5 +1,6 @@
 export * from "./sanity";
 export * from "./text";
+export * from "./username";
 export * from "./similarity";
 export * from "./format";
 export * from "./types";

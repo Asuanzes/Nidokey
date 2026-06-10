@@ -1,31 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth-helpers";
-import { CHAT_LIMITS } from "@/lib/chat/config";
+import { normalizeUsername } from "@nidokey/shared";
 import { userDto } from "@/lib/chat/serialize";
 
 /**
- * GET /api/chat/users/search?q= — buscar usuarios para iniciar un chat.
- * Mínimo 3 caracteres (no se puede enumerar el directorio), por email o nombre,
- * excluyéndome. Devuelve una proyección mínima.
+ * GET /api/chat/users/search?q= — resuelve a UNA persona por dato EXACTO:
+ * email completo o @username completo (case-insensitive). NO hay búsqueda
+ * parcial ni por nombre → no se puede enumerar el directorio de usuarios.
+ * Devuelve { users: [] } o un único usuario.
  */
 export async function GET(req: NextRequest) {
   const userId = await requireUserId();
-  const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
-  if (q.length < 3) return NextResponse.json({ users: [] });
+  const raw = (req.nextUrl.searchParams.get("q") ?? "").trim();
+  if (raw.length < 3) return NextResponse.json({ users: [] });
 
-  const users = await prisma.user.findMany({
-    where: {
-      id: { not: userId },
-      OR: [
-        { email: { contains: q, mode: "insensitive" } },
-        { name: { contains: q, mode: "insensitive" } },
-      ],
-    },
-    select: { id: true, name: true, email: true, image: true },
-    take: CHAT_LIMITS.userSearchLimit,
-    orderBy: { createdAt: "asc" },
+  const isEmail = raw.includes("@") && raw.includes(".") && !raw.startsWith("@");
+  const where = isEmail
+    ? { email: { equals: raw, mode: "insensitive" as const } }
+    : { username: normalizeUsername(raw) };
+
+  const user = await prisma.user.findFirst({
+    where: { ...where, id: { not: userId } },
+    select: { id: true, name: true, username: true, email: true, image: true },
   });
 
-  return NextResponse.json({ users: users.map(userDto) });
+  return NextResponse.json({ users: user ? [userDto(user)] : [] });
 }

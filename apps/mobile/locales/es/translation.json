@@ -33,7 +33,16 @@
     "manage_categories": "Gestionar categorías",
     "server": "Servidor",
     "logout": "Cerrar sesión",
-    "footer": "Nidokey · v0.1.0"
+    "footer": "Nidokey · v0.1.0",
+    "username_section": "Nombre de usuario",
+    "username_label": "Tu alias público",
+    "username_placeholder": "tu_alias",
+    "username_hint": "3–20 caracteres: letras, números y guion bajo. Empieza por letra.",
+    "username_checking": "Comprobando…",
+    "username_available": "Disponible ✓",
+    "username_taken": "Ya está en uso",
+    "username_invalid": "Alias no válido",
+    "username_saved": "Guardado ✓"
   },
   "settings": {
     "language": {
@@ -595,8 +604,8 @@
     "message_deleted": "Mensaje eliminado",
     "edited": "editado ·",
     "create_error": "No se pudo crear el chat",
-    "search_placeholder": "Email o nombre (mín. 3 letras)",
-    "search_hint": "Busca a la otra persona por su email o nombre para empezar a chatear.",
+    "search_placeholder": "@usuario o email exacto",
+    "search_hint": "Escribe el @usuario o el email COMPLETO de la otra persona para chatear.",
     "no_users_title": "Sin resultados",
     "no_users_desc": "Nadie coincide con esa búsqueda. Comprueba el email."
   }

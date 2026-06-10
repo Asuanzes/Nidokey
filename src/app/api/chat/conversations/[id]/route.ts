@@ -8,7 +8,7 @@ import { conversationDto } from "@/lib/chat/serialize";
 type Ctx = { params: Promise<{ id: string }> };
 
 const PARTICIPANT_INCLUDE = {
-  participants: { include: { user: { select: { id: true, name: true, email: true, image: true } } } },
+  participants: { include: { user: { select: { id: true, name: true, username: true, email: true, image: true } } } },
 } as const;
 
 /**

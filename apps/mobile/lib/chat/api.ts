@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
  * Todo pasa por el helper api() (JWT automático).
  */
 
-export type ChatUser = { id: string; name: string | null; email: string; image: string | null };
+export type ChatUser = { id: string; name: string | null; username: string | null; email: string; image: string | null };
 
 export type ChatParticipant = {
   userId: string;

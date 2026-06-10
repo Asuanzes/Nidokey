@@ -33,7 +33,16 @@
     "manage_categories": "Manage categories",
     "server": "Server",
     "logout": "Log out",
-    "footer": "Nidokey · v0.1.0"
+    "footer": "Nidokey · v0.1.0",
+    "username_section": "Username",
+    "username_label": "Your public handle",
+    "username_placeholder": "your_handle",
+    "username_hint": "3–20 chars: letters, numbers and underscore. Must start with a letter.",
+    "username_checking": "Checking…",
+    "username_available": "Available ✓",
+    "username_taken": "Already taken",
+    "username_invalid": "Invalid handle",
+    "username_saved": "Saved ✓"
   },
   "settings": {
     "language": {
@@ -595,8 +604,8 @@
     "message_deleted": "Message deleted",
     "edited": "edited ·",
     "create_error": "Couldn't create the chat",
-    "search_placeholder": "Email or name (min. 3 letters)",
-    "search_hint": "Find the other person by email or name to start chatting.",
+    "search_placeholder": "@username or exact email",
+    "search_hint": "Type the other person's full @username or email to start chatting.",
     "no_users_title": "No results",
     "no_users_desc": "Nobody matches that search. Check the email."
   }
