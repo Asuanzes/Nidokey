@@ -109,7 +109,7 @@
         "expo-camera",
         {
           "cameraPermission": "Nidokey usa la cámara para escanear el código de barras de tus libros.",
-          "microphonePermission": false,
+          "microphonePermission": "Nidokey usa el micrófono para grabar notas de voz en el chat.",
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": true
         }
