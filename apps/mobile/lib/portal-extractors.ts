@@ -186,21 +186,64 @@ var __priceDom = function() {
   return null;
 };
 
-// Descripción/resumen desde el DOM (fallback).
+// ── Descripción del propietario: limpieza + descarte de basura ───────────────
+// Espejo JS de packages/shared/src/text.ts (cleanDescription / isLikelyJunk).
+var __decodeEnt = function(s) {
+  return String(s)
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#0*39;|&apos;/g, "'")
+    .replace(/&#x([0-9a-f]+);/gi, function(_, h) { try { return String.fromCodePoint(parseInt(h, 16)); } catch(e) { return ''; } })
+    .replace(/&#(\\d+);/g, function(_, d) { try { return String.fromCodePoint(parseInt(d, 10)); } catch(e) { return ''; } });
+};
+var __cleanText = function(s) {
+  if (!s) return '';
+  var t = __decodeEnt(String(s).replace(/<[^>]+>/g, ' ').replace(/\\r?\\n+/g, ' ')).replace(/\\s+/g, ' ').trim();
+  return t.length > 4000 ? t.slice(0, 4000) : t;
+};
+var __isJunkDesc = function(s) {
+  if (!s) return true;
+  var t = String(s).trim();
+  if (t.length < 25) return true;
+  if (/^[\\s\\d+()\\/.\\-]{6,}$/.test(t)) return true;          // solo teléfono/números
+  var l = t.toLowerCase();
+  if (/cookies|consentimiento|pol[ií]tica de privacidad|aceptar y continuar/.test(l)) return true;
+  if (/(anuncios?|inmuebles?|viviendas?|propiedades?)\\s+(similares|relacionad[oa]s)|tambi[eé]n te puede interesar|otras viviendas/.test(l)) return true;
+  if (t.length < 120 && /contacta|ll[aá]ma|solicita (m[aá]s )?informaci[oó]n|ver tel[eé]fono|pide cita|reserva (ya|ahora)|env[ií]a/.test(l)) return true;
+  return false;
+};
+// Resumen del portal (último recurso para no dejar la descripción vacía).
+var __metaDesc = function() {
+  var og = document.querySelector('meta[property="og:description"]');
+  if (og && og.content) return __cleanText(og.content);
+  var md = document.querySelector('meta[name="description"]');
+  if (md && md.content) return __cleanText(md.content);
+  return '';
+};
+// Prioriza candidatos de JSON (de confianza): limpio, >=20 y no basura.
+var __pickJson = function(cands) {
+  for (var i = 0; i < (cands || []).length; i++) {
+    var c = __cleanText(cands[i]);
+    if (c && c.length >= 20 && !__isJunkDesc(c)) return c;
+  }
+  return null;
+};
+// Descripción desde el DOM (fallback): selectores específicos + genéricos, el
+// más largo NO-basura (>=60); si nada, el resumen meta del portal.
 var __descDom = function() {
-  // CTAs/etiquetas que NO son descripción (pisos.com colaba "ver la casa en 3D").
-  var __descBad = /(ver|visita|recorrido|tour)[^.]{0,24}(3d|360|virtual)|tour virtual|v[ií]deo del inmueble/i;
-  var sels = ['[itemprop="description"]','[class*="description" i]','[class*="comment" i]','[class*="detail-text" i]','[class*="adText" i]','[class*="texto" i]'];
+  var sels = ['[itemprop="description"]','.adCommentsLanguage','.comment .adCommentsLanguage',
+    '[class*="Description" i]','[class*="description" i]','[class*="comment" i]',
+    '[class*="detail-text" i]','[class*="adText" i]','[class*="texto" i]'];
   var best = '';
   for (var s = 0; s < sels.length; s++) {
     var els; try { els = document.querySelectorAll(sels[s]); } catch(e) { continue; }
     for (var i = 0; i < els.length; i++) {
-      var t = (els[i].innerText || els[i].textContent || '').replace(/\\s+/g,' ').trim();
-      if (t.length < 80 && __descBad.test(t)) continue; // descarta CTAs cortos de 3D/tour/vídeo
-      if (t.length > best.length) best = t;
+      var t = __cleanText(els[i].innerText || els[i].textContent || '');
+      if (t.length >= 60 && !__isJunkDesc(t) && t.length > best.length) best = t;
     }
   }
-  return best ? best.slice(0, 2000) : null;
+  if (best) return best;
+  var m = __metaDesc();
+  return m && !__isJunkDesc(m) ? m : null;
 };
 
 var __features = function() {
@@ -265,7 +308,7 @@ if (ad) {
     builtArea: ad.constructedArea || ad.surface || null,
     usableArea: ad.usableArea || null,
     floor: ad.floor || null,
-    description: ((ad.description || '').slice(0, 2000)) || __descDom(),
+    description: __pickJson([ad.description, ad.comment]) || __descDom(),
     address: (ad.ubication && ad.ubication.address) || null,
     city: (ad.ubication && (ad.ubication.municipality || ad.ubication.city)) || null,
     province: (ad.ubication && ad.ubication.province) || null,
@@ -285,7 +328,7 @@ if (ld) {
     title: ld.name || document.title,
     price: __price(ld.offers && ld.offers.price) || __priceDom(),
     rooms: ld.numberOfRooms || null,
-    description: ((ld.description || '').slice(0, 2000)) || __descDom(),
+    description: __pickJson([ld.description]) || __descDom(),
     images: imgs, features: __features()
   }});
   return;
@@ -312,7 +355,7 @@ if (pr) {
     usableArea: pr.usableArea || null,
     city: pr.city || (pr.location && pr.location.city) || null,
     province: pr.province || (pr.location && pr.location.province) || null,
-    description: ((pr.description || '').slice(0, 2000)) || __descDom(),
+    description: __pickJson([pr.description, pr.comment, pr.adText]) || __descDom(),
     images: imgs, features: __features()
   }});
   return;
@@ -325,7 +368,7 @@ if (ld) {
     url: ${JSON.stringify(url)}, portal: 'PISOS_COM',
     title: ld.name || document.title,
     price: __price(ld.offers && ld.offers.price) || __priceDom(),
-    description: ((ld.description || '').slice(0, 2000)) || __descDom(),
+    description: __pickJson([ld.description]) || __descDom(),
     images: imgs, features: __features()
   }});
   return;
@@ -351,7 +394,7 @@ if (ad) {
     usableArea: ad.usableArea || null,
     city: (ad.ubication && (ad.ubication.municipality || ad.ubication.city)) || null,
     province: (ad.ubication && ad.ubication.province) || null,
-    description: ((ad.description || '').slice(0, 2000)) || __descDom(),
+    description: __pickJson([ad.description, ad.comment]) || __descDom(),
     images: imgs, features: __features()
   }});
   return;
@@ -377,7 +420,7 @@ var __extract = function() {
       url: ${JSON.stringify(url)}, portal: 'IDEALISTA',
       title: ld.name || document.title,
       price: __price(ld.offers && ld.offers.price) || __priceDom(),
-      description: ((ld.description || '').slice(0, 2000)) || __descDom(),
+      description: __pickJson([ld.description]) || __descDom(),
       rooms: ld.numberOfRooms || null,
       builtArea: (ld.floorSize && ld.floorSize.value) ? Math.round(ld.floorSize.value) : null,
       address: (ld.address && ld.address.streetAddress) || null,
@@ -434,7 +477,7 @@ if (ld) {
     url: ${JSON.stringify(url)}, portal: 'MILANUNCIOS',
     title: ld.name || document.title,
     price: __price(ld.offers && ld.offers.price) || __priceDom(),
-    description: ((ld.description || '').slice(0, 2000)) || __descDom(),
+    description: __pickJson([ld.description]) || __descDom(),
     images: imgs, features: __features()
   }});
   return;
@@ -466,7 +509,7 @@ if (pr) {
     bathrooms: pr.bathrooms || null,
     builtArea: pr.area || pr.constructedArea || null,
     city: pr.city || (pr.location && pr.location.city) || null,
-    description: ((pr.description || '').slice(0, 2000)) || __descDom(),
+    description: __pickJson([pr.description, pr.comment, pr.adText]) || __descDom(),
     images: imgs, features: __features()
   }});
   return;
@@ -479,7 +522,7 @@ if (ld) {
     url: ${JSON.stringify(url)}, portal: 'YAENCONTRE',
     title: ld.name || document.title,
     price: __price(ld.offers && ld.offers.price) || __priceDom(),
-    description: ((ld.description || '').slice(0, 2000)) || __descDom(),
+    description: __pickJson([ld.description]) || __descDom(),
     images: imgs, features: __features()
   }});
   return;
@@ -499,7 +542,7 @@ if (ld) {
     rooms: ld.numberOfRooms || null,
     builtArea: (ld.floorSize && ld.floorSize.value) ? Math.round(ld.floorSize.value) : null,
     city: (ld.address && ld.address.addressLocality) || null,
-    description: ((ld.description || '').slice(0, 2000)) || __descDom(),
+    description: __pickJson([ld.description]) || __descDom(),
     images: imgs, features: __features()
   }});
   return;

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { cleanDescription } from "@nidokey/shared";
 
 export const PropertyTypeEnum = z.enum([
   "HOUSE", "PISO", "ATICO", "CHALET", "DUPLEX", "ESTUDIO", "LOFT", "LOCAL", "TERRENO", "OTRO",
@@ -11,7 +12,17 @@ export const FurnishedStateEnum = z.enum(["UNFURNISHED", "SEMI", "FURNISHED"]);
 
 export const PropertyInput = z.object({
   title: z.string().min(3),
-  description: z.string().optional().nullable(),
+  // Limpia HTML/entidades del texto del propietario (sin rechazo de junk: lo que
+  // escribe a mano es intencional). null/empty se preservan como null.
+  description: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((v) => {
+      if (v == null) return v;
+      const c = cleanDescription(v);
+      return c || null;
+    }),
   type: PropertyTypeEnum,
   status: PropertyStatusEnum.default("FOR_SALE"),
   operationType: OperationTypeEnum.default("SALE"),

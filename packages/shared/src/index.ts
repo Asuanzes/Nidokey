@@ -1,4 +1,5 @@
 export * from "./sanity";
+export * from "./text";
 export * from "./similarity";
 export * from "./format";
 export * from "./types";

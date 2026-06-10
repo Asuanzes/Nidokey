@@ -17,6 +17,8 @@ import {
   isValidPlotArea,
   isValidYear,
   isReasonablePriceChange,
+  cleanDescription,
+  isLikelyJunkDescription,
 } from "@nidokey/shared";
 
 /**
@@ -320,6 +322,14 @@ export function sanitizePayload(p: ImportListingPayload): ImportListingPayload {
   // 3. Filtrar imágenes basura (logos/iconos/marcas/mapas), deduplicar y limitar.
   out.images = filterImages(out.images);
 
+  // 4. Descripción: limpiar (tags/entidades/espacios) y descartar basura
+  //    (cookies, "anuncios similares", solo teléfono, CTA corto). Mejor vacía
+  //    que con texto incorrecto — nunca entra basura a BBDD.
+  if (out.description) {
+    const c = cleanDescription(out.description);
+    out.description = !c || isLikelyJunkDescription(c) ? null : c;
+  }
+
   return out;
 }
 
@@ -423,7 +433,6 @@ export async function importListing(
 
     // Refrescar campos escalares que estuvieran vacíos (no pisamos lo editado a mano)
     const propPatch = fillIfEmpty(existing.property as unknown as Record<string, unknown>, {
-      description: payload.description ?? undefined,
       address: payload.address ?? undefined,
       city: payload.city ?? undefined,
       province: payload.province ?? undefined,
@@ -456,6 +465,15 @@ export async function importListing(
       contractType: payload.contractType ?? undefined,
     });
 
+    // Descripción: sustituir la guardada SOLO si está vacía o es basura (cura
+    // legado en re-imports); nunca pisar una buena (respeta ediciones del dueño).
+    // `payload.description` ya viene limpia y no-basura desde sanitizePayload.
+    const prevDesc = existing.property.description;
+    const descPatch =
+      payload.description && (!prevDesc || isLikelyJunkDescription(prevDesc))
+        ? { description: payload.description }
+        : {};
+
     // El precio nuevo va a su columna según la operación del anuncio: alquiler →
     // monthlyRent, venta → currentPrice. Así una ficha mixta conserva ambos.
     const priceColumn =
@@ -468,6 +486,7 @@ export async function importListing(
       where: { id: existing.propertyId },
       data: {
         ...propPatch,
+        ...descPatch,
         ...priceColumn,
       },
     });
