@@ -29,6 +29,8 @@ export type ExtractedPayload = {
   url: string;
   portal?: string;
   title: string;
+  // Operación detectada del anuncio (ruta /alquiler- vs /venta-, etc.).
+  operationType?: "SALE" | "RENT" | "RENT_TO_OWN";
   price?: number | null;
   description?: string | null;
   rooms?: number | null;

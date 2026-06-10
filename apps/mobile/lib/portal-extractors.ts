@@ -33,7 +33,30 @@ function detectPortal(url: string): string {
 }
 
 const SHARED_HELPERS = `
-var __post = function(obj) { window.ReactNativeWebView.postMessage(JSON.stringify(obj)); };
+// Operación del anuncio: venta vs alquiler. Idealista/Fotocasa/etc. lo llevan en
+// la ruta (/alquiler-…, /comprar-…); fallback a __NEXT_DATA__ y, por último, a
+// señales de texto (€/mes). Devuelve 'SALE' | 'RENT'.
+var __operation = function() {
+  var path = (location.pathname + ' ' + location.search).toLowerCase();
+  if (/alquil|lloguer|arrenda|\\brent\\b|\\brental\\b/.test(path)) return 'RENT';
+  if (/venta|comprar|vender|obra-?nueva|\\bsale\\b|\\bbuy\\b/.test(path)) return 'SALE';
+  try {
+    var nd = window.__NEXT_DATA__; var s = nd ? JSON.stringify(nd).toLowerCase() : '';
+    if (/"transactiontypeid":\\s*3|"operation":"?rent|"isrental":true|"transactiontype":"?rent|"transaction":"?rent/.test(s)) return 'RENT';
+    if (/"transactiontypeid":\\s*1|"operation":"?(sale|buy)|"transactiontype":"?(sale|buy)/.test(s)) return 'SALE';
+  } catch(e) {}
+  var t = (document.body ? document.body.innerText.slice(0, 4000) : '').toLowerCase();
+  if (/€\\s*\\/\\s*mes|\\/mes\\b|al mes\\b|mensuales\\b/.test(t) && !/en venta|precio de venta/.test(t)) return 'RENT';
+  return 'SALE';
+};
+
+var __post = function(obj) {
+  // Inyecta la operación en toda extracción (evita repetirlo en cada portal).
+  if (obj && obj.type === 'extracted' && obj.data && obj.data.operationType == null) {
+    try { obj.data.operationType = __operation(); } catch(e) { obj.data.operationType = 'SALE'; }
+  }
+  window.ReactNativeWebView.postMessage(JSON.stringify(obj));
+};
 
 var __jsonLd = function(type) {
   var scripts = document.querySelectorAll('script[type="application/ld+json"]');
@@ -143,17 +166,21 @@ var __cleanImgs = function(arr, max) {
   return out;
 };
 
-// Precio desde el DOM (fallback). Ignora €/m² y €/mes.
+// Precio desde el DOM (fallback). Siempre ignora €/m². En VENTA ignora también
+// €/mes; en ALQUILER el €/mes es justamente el precio bueno (y el mínimo baja a
+// 100 €, una renta puede ser de pocos cientos).
 var __priceDom = function() {
+  var op = __operation();
   var sels = ['[itemprop="price"]','[class*="price" i]','[class*="Price"]','[data-testid*="price" i]'];
   for (var s = 0; s < sels.length; s++) {
     var els; try { els = document.querySelectorAll(sels[s]); } catch(e) { continue; }
     for (var i = 0; i < els.length; i++) {
       var txt = (els[i].innerText || els[i].textContent || '');
       if (txt.indexOf('€') === -1 && !/eur/i.test(txt)) continue;
-      if (/\\/\\s*m|\\/mes|mensual/i.test(txt)) continue;
+      if (/€\\s*\\/\\s*m²|€\\/m2|\\/\\s*m²|\\/m2\\b/i.test(txt)) continue; // €/m² nunca
+      if (op !== 'RENT' && /\\/\\s*mes|\\/mes|mensual|al mes/i.test(txt)) continue; // €/mes solo en alquiler
       var p = __price(txt);
-      if (p && p >= 1000) return p;
+      if (p && p >= (op === 'RENT' ? 100 : 1000)) return p;
     }
   }
   return null;
