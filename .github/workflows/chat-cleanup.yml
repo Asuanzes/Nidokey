@@ -1,0 +1,28 @@
+name: chat-cleanup
+
+# Limpieza semanal del ciclo de vida del chat (F6): purga física de mensajes
+# soft-deleted (si CHAT_RETENTION_DAYS está configurada en Vercel), huérfanos de
+# R2 (subidas sin mensaje, avatares sustituidos) y VerificationToken caducados.
+# Mismo patrón que refresh.yml: el secreto del repo `CRON_SECRET` DEBE coincidir
+# con el env `CRON_SECRET` de Vercel (Production).
+
+on:
+  schedule:
+    - cron: "17 4 * * 1" # lunes 04:17 UTC (hora valle, minuto no redondo)
+  workflow_dispatch: {} # botón de ejecución manual (pestaña Actions)
+
+concurrency:
+  group: chat-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping cron chat-cleanup
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS --max-time 290 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://nidokey.es/api/cron/chat-cleanup"

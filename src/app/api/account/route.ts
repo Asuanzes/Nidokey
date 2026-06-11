@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth-helpers";
 import { avatarUrl } from "@/lib/chat/serialize";
+import { deleteObject } from "@/lib/chat/r2";
 import { normalizeUsername, usernameError } from "@nidokey/shared";
 
 /** En BBDD `image` es una key de R2; hacia el cliente siempre va como URL. */
@@ -61,12 +62,25 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
+  // Si se cambia/quita la foto, el avatar ANTERIOR se borra de R2 tras
+  // responder (after, fire-and-forget) — si no, cada cambio dejaba un objeto
+  // huérfano para siempre (el cron de limpieza es solo la red de seguridad).
+  let oldImage: string | null = null;
+  if (data.image !== undefined) {
+    const current = await prisma.user.findUnique({ where: { id: userId }, select: { image: true } });
+    oldImage = current?.image ?? null;
+  }
+
   try {
     const user = await prisma.user.update({
       where: { id: userId },
       data,
       select: { id: true, email: true, name: true, username: true, image: true },
     });
+    if (oldImage && oldImage.startsWith(`avatars/${userId}/`) && oldImage !== user.image) {
+      const stale = oldImage;
+      after(() => deleteObject(stale));
+    }
     return NextResponse.json(profileDto(user));
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {

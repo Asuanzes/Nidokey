@@ -1,4 +1,10 @@
-import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 /**
@@ -81,6 +87,36 @@ async function presignGetCached(key: string): Promise<string> {
   if (signCache.size >= SIGN_CACHE_MAX) signCache.clear();
   signCache.set(key, { url, expiresAt: Date.now() + SIGN_CACHE_TTL_MS });
   return url;
+}
+
+/** Borra un objeto (best-effort): cron de limpieza y cambio de avatar. */
+export async function deleteObject(key: string): Promise<boolean> {
+  if (!r2Enabled()) return false;
+  try {
+    const { client, bucket } = getClient();
+    await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Lista todas las keys bajo un prefijo con su fecha (paginación completa). */
+export async function listObjects(prefix: string): Promise<{ key: string; lastModified: Date | null }[]> {
+  if (!r2Enabled()) return [];
+  const { client, bucket } = getClient();
+  const out: { key: string; lastModified: Date | null }[] = [];
+  let token: string | undefined;
+  do {
+    const res = await client.send(
+      new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: token })
+    );
+    for (const o of res.Contents ?? []) {
+      if (o.Key) out.push({ key: o.Key, lastModified: o.LastModified ?? null });
+    }
+    token = res.IsTruncated ? res.NextContinuationToken : undefined;
+  } while (token);
+  return out;
 }
 
 /**
