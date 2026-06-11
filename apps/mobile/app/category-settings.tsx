@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { useTheme } from "@/lib/theme";
-import { useCategoryPrefs } from "@/lib/records/category-prefs-context";
+import { DEFAULT_CATEGORY, useCategoryPrefs } from "@/lib/records/category-prefs-context";
 import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { useTypeI18n } from "@/lib/records/type-i18n";
@@ -38,7 +38,7 @@ export default function CategorySettingsScreen() {
   const startOptions = orderedVisible.filter((tp) => RECORD_TYPE_CONFIG[tp].enabled);
   const effectiveStart =
     (startCategory && startOptions.includes(startCategory) && startCategory) ||
-    (startOptions.includes("property") ? "property" : startOptions[0]);
+    (startOptions.includes(DEFAULT_CATEGORY) ? DEFAULT_CATEGORY : startOptions[0]);
 
   function doReset() {
     setResetOpen(false);

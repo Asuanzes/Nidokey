@@ -34,7 +34,8 @@ import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
  */
 // Chat = categoría principal al abrir la app (decisión 2026-06-11). El usuario
 // puede elegir otra en Cuenta → Gestionar categorías → Categoría de inicio.
-const DEFAULT_CATEGORY: RecordType = "chat";
+// Exportada para que la pantalla de ajustes marque el default real.
+export const DEFAULT_CATEGORY: RecordType = "chat";
 
 type Managed = { type: RecordType; hidden: boolean };
 
