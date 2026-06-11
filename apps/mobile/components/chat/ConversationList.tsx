@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { memo, useEffect } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { router } from "expo-router";
@@ -10,6 +10,7 @@ import { fonts } from "@/lib/fonts";
 import { useQuery } from "@/lib/hooks/useQuery";
 import { listConversations, type ConversationDto } from "@/lib/chat/api";
 import { chatSocket } from "@/lib/chat/socket";
+import { useSocketOpen } from "@/lib/chat/use-socket-open";
 import { categoryColor } from "@/lib/records/config";
 import type { RecordType } from "@nidokey/shared";
 import { EmptyState } from "@/components/ui";
@@ -21,13 +22,30 @@ import { EmptyState } from "@/components/ui";
 export function ConversationList() {
   const { th, dark } = useTheme();
   const { t } = useTranslation();
+  // Polling adaptativo: con socket conectado los eventos refrescan la lista y
+  // el polling pasa a fallback lento; con socket caído vuelve a 20 s.
+  const socketOpen = useSocketOpen();
   const { data, error, loading, refreshing, refetch } = useQuery(listConversations, [], {
-    refreshInterval: 20_000,
+    refreshInterval: socketOpen ? 60_000 : 20_000,
   });
 
-  // Tiempo real (F3): cualquier mensaje nuevo refresca la lista al instante
-  // (no leídos + último mensaje). El polling de 20 s sigue como fallback.
-  useEffect(() => chatSocket.onMessageEvent(() => void refetch()), [refetch]);
+  // Tiempo real (F3): un mensaje nuevo refresca la lista. Coalescing trailing
+  // de 500 ms: una ráfaga (grupo activo) = UN refetch, y medio segundo de
+  // retraso en la LISTA es imperceptible (la conversación abierta va aparte).
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const off = chatSocket.onMessageEvent(() => {
+      if (timer) return;
+      timer = setTimeout(() => {
+        timer = null;
+        void refetch();
+      }, 500);
+    });
+    return () => {
+      off();
+      if (timer) clearTimeout(timer);
+    };
+  }, [refetch]);
 
   if (loading && !data) {
     return (
@@ -94,7 +112,28 @@ export function ConversationList() {
   );
 }
 
-function Row({ c, dark }: { c: ConversationDto; dark: boolean }) {
+/**
+ * Fila MEMOIZADA por los campos que pinta: cada poll crea instancias nuevas de
+ * ConversationDto con datos idénticos; sin memo, todas las filas se repintaban
+ * en cada refresco (20-60 s + uno por mensaje entrante).
+ */
+const Row = memo(RowInner, (prev, next) => {
+  const a = prev.c;
+  const b = next.c;
+  return (
+    a.id === b.id &&
+    a.title === b.title &&
+    a.imageUrl === b.imageUrl &&
+    a.lastMessageAt === b.lastMessageAt &&
+    a.lastMessagePreview === b.lastMessagePreview &&
+    a.unreadCount === b.unreadCount &&
+    a.contextType === b.contextType &&
+    (a.context?.title ?? null) === (b.context?.title ?? null) &&
+    prev.dark === next.dark
+  );
+});
+
+function RowInner({ c, dark }: { c: ConversationDto; dark: boolean }) {
   const { th } = useTheme();
   const { t, i18n } = useTranslation();
   const accent = c.contextType ? categoryColor(c.contextType as RecordType, dark) : null;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -58,6 +58,7 @@ import { WallpaperSheet } from "@/components/chat/WallpaperSheet";
 import { getWallpaper, setWallpaper, wallpaperSource, type WallpaperId } from "@/lib/chat/wallpapers";
 import { setActiveConversation } from "@/lib/chat/push";
 import { chatSocket } from "@/lib/chat/socket";
+import { useSocketOpen } from "@/lib/chat/use-socket-open";
 import { ResultModal } from "@/components/ui";
 
 // Componentes que importan expo-audio (nativo) ESTÁTICAMENTE: se cargan en
@@ -84,9 +85,13 @@ export default function ChatScreen() {
   const { state } = useAuth();
   const myId = state.kind === "authed" ? state.user.id : null;
 
+  // POLLING ADAPTATIVO: con el socket conectado, los eventos del gateway
+  // adelantan el refresco y el polling pasa a fallback lento; con el socket
+  // caído, vuelven los intervalos rápidos de F1.
+  const socketOpen = useSocketOpen();
   const { data: conversation, refetch: refetchConversation } = useQuery(() => getConversation(id!), [id], {
     enabled: !!id,
-    refreshInterval: 10_000,
+    refreshInterval: socketOpen ? 60_000 : 10_000,
   });
   // Flags del servidor (adjuntos/voz dependen de que R2 esté configurado).
   const { data: boot } = useQuery(chatBootstrap, [], { revalidateOnFocus: false });
@@ -94,7 +99,7 @@ export default function ChatScreen() {
     data: latest,
     loading,
     refetch,
-  } = useQuery(() => listMessages(id!), [id], { enabled: !!id, refreshInterval: 4_000 });
+  } = useQuery(() => listMessages(id!), [id], { enabled: !!id, refreshInterval: socketOpen ? 30_000 : 4_000 });
 
   // Páginas antiguas (cursor hacia atrás) + envíos optimistas.
   const [older, setOlder] = useState<MessageDto[]>([]);
@@ -155,9 +160,9 @@ export default function ChatScreen() {
   // El socket solo ADELANTA el refresco; el polling de arriba sigue como
   // fallback si el socket no está conectado.
   const typingEnabled = boot?.flags.typing ?? true;
-  const [othersTyping, setOthersTyping] = useState(false);
-  const typingOffTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Estado de "yo escribiendo" (saliente) con apagado por inactividad.
+  // Estado de "yo escribiendo" (saliente) con apagado por inactividad. El
+  // "escribiendo…" ENTRANTE vive en <HeaderSubtitle/> (aislado: su parpadeo no
+  // re-renderiza la pantalla).
   const iAmTypingRef = useRef(false);
   const myTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -168,35 +173,47 @@ export default function ChatScreen() {
     return () => chatSocket.unsubscribe(id);
   }, [id]);
 
-  // Aviso de mensaje nuevo → refetch inmediato (mensajes + recibos).
+  // Aviso de mensaje nuevo → refetch con coalescing leading+trailing: el
+  // primero dispara al instante (la gracia del tiempo real) y una ráfaga se
+  // colapsa en UN refetch extra a los 400 ms (antes: 2 peticiones por mensaje).
+  const lastEventRefetchRef = useRef(0);
+  const eventRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!id) return;
-    return chatSocket.onMessageEvent((e) => {
-      if (e.conversationId !== id) return;
+    const doRefetch = () => {
+      lastEventRefetchRef.current = Date.now();
       void refetch();
       void refetchConversation();
-    });
-  }, [id, refetch, refetchConversation]);
-
-  // "Escribiendo…" entrante: se auto-apaga a los 5 s si no llega el "off".
-  useEffect(() => {
-    if (!id) return;
-    const off = chatSocket.onTypingEvent((e) => {
+    };
+    const off = chatSocket.onMessageEvent((e) => {
       if (e.conversationId !== id) return;
-      if (typingOffTimerRef.current) clearTimeout(typingOffTimerRef.current);
-      if (e.on) {
-        setOthersTyping(true);
-        typingOffTimerRef.current = setTimeout(() => setOthersTyping(false), 5000);
-      } else {
-        setOthersTyping(false);
+      if (Date.now() - lastEventRefetchRef.current > 400) {
+        doRefetch();
+      } else if (!eventRefetchTimerRef.current) {
+        eventRefetchTimerRef.current = setTimeout(() => {
+          eventRefetchTimerRef.current = null;
+          doRefetch();
+        }, 400);
       }
     });
     return () => {
       off();
-      if (typingOffTimerRef.current) clearTimeout(typingOffTimerRef.current);
-      setOthersTyping(false);
+      if (eventRefetchTimerRef.current) {
+        clearTimeout(eventRefetchTimerRef.current);
+        eventRefetchTimerRef.current = null;
+      }
     };
-  }, [id]);
+  }, [id, refetch, refetchConversation]);
+
+  // Al (re)conectar el socket: refetch para cubrir el hueco sin eventos.
+  const prevSocketOpenRef = useRef(socketOpen);
+  useEffect(() => {
+    if (socketOpen && !prevSocketOpenRef.current && id) {
+      void refetch();
+      void refetchConversation();
+    }
+    prevSocketOpenRef.current = socketOpen;
+  }, [socketOpen, id, refetch, refetchConversation]);
 
   const stopTyping = useCallback(() => {
     if (myTypingTimerRef.current) {
@@ -227,15 +244,34 @@ export default function ChatScreen() {
   // Apagar el typing al salir de la pantalla.
   useEffect(() => () => stopTyping(), [stopTyping]);
 
-  // Marcar como leído cuando llegan mensajes nuevos de otros.
+  // Marcar como leído cuando llegan mensajes nuevos de otros — con DEBOUNCE
+  // (antes: un POST por mensaje; una ráfaga = un POST por cada uno). Una
+  // ventana de 1,5 s agrupa la ráfaga en un único POST (el endpoint marca
+  // lastReadAt=now, así que uno al final cubre todos). Al salir de la pantalla
+  // se descarga el pendiente para no perder el recibo.
   const lastReadIdRef = useRef<string | null>(null);
+  const markReadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const last = messages[messages.length - 1];
     if (!last || last.senderId === myId) return;
     if (lastReadIdRef.current === last.id) return;
     lastReadIdRef.current = last.id;
-    void markRead(id!).catch(() => {});
+    if (markReadTimerRef.current) clearTimeout(markReadTimerRef.current);
+    markReadTimerRef.current = setTimeout(() => {
+      markReadTimerRef.current = null;
+      void markRead(id!).catch(() => {});
+    }, 1500);
   }, [messages, myId, id]);
+  useEffect(
+    () => () => {
+      if (markReadTimerRef.current) {
+        clearTimeout(markReadTimerRef.current);
+        markReadTimerRef.current = null;
+        if (id) void markRead(id).catch(() => {});
+      }
+    },
+    [id]
+  );
 
   const loadOlder = useCallback(async () => {
     const cursor = latest?.nextCursor;
@@ -532,15 +568,16 @@ export default function ChatScreen() {
             </Text>
             {muted && <Ionicons name="notifications-off-outline" size={14} color={th.textSubtle} />}
           </View>
-          {othersTyping ? (
-            <Text style={[styles.headerSub, { color: th.primary }]} numberOfLines={1}>
-              {t("chat.typing")}
-            </Text>
-          ) : conversation?.kind === "GROUP" ? (
-            <Text style={[styles.headerSub, { color: th.textMuted }]} numberOfLines={1}>
-              {t("chat.members", { count: conversation.participants.length })}
-            </Text>
-          ) : null}
+          {id && (
+            <HeaderSubtitle
+              conversationId={id}
+              membersLabel={
+                conversation?.kind === "GROUP"
+                  ? t("chat.members", { count: conversation.participants.length })
+                  : null
+              }
+            />
+          )}
         </View>
         {conversation && (
           <Pressable
@@ -630,6 +667,13 @@ export default function ChatScreen() {
           keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
           onEndReached={loadOlder}
           onEndReachedThreshold={0.3}
+          // Virtualización acotada: menos items vivos al cargar páginas viejas.
+          // removeClippedSubviews solo Android (en iOS + inverted da burbujas
+          // en blanco con alturas variables).
+          windowSize={10}
+          maxToRenderPerBatch={8}
+          initialNumToRender={15}
+          removeClippedSubviews={Platform.OS === "android"}
           ListFooterComponent={loadingOlder ? <ActivityIndicator color={th.primary} style={{ marginVertical: 8 }} /> : null}
         />
       )}
@@ -766,6 +810,59 @@ export default function ChatScreen() {
   );
 }
 
+/**
+ * Subtítulo del header: "escribiendo…" (entrante, vía socket) o nº de miembros.
+ * AISLADO y memoizado: el parpadeo del typing solo re-renderiza este texto, no
+ * la pantalla entera (con la FlatList de burbujas dentro).
+ */
+const HeaderSubtitle = memo(function HeaderSubtitle({
+  conversationId,
+  membersLabel,
+}: {
+  conversationId: string;
+  membersLabel: string | null;
+}) {
+  const { th } = useTheme();
+  const { t } = useTranslation();
+  const [othersTyping, setOthersTyping] = useState(false);
+  const offTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // "Escribiendo…" entrante: se auto-apaga a los 5 s si no llega el "off".
+  useEffect(() => {
+    const off = chatSocket.onTypingEvent((e) => {
+      if (e.conversationId !== conversationId) return;
+      if (offTimerRef.current) clearTimeout(offTimerRef.current);
+      if (e.on) {
+        setOthersTyping(true);
+        offTimerRef.current = setTimeout(() => setOthersTyping(false), 5000);
+      } else {
+        setOthersTyping(false);
+      }
+    });
+    return () => {
+      off();
+      if (offTimerRef.current) clearTimeout(offTimerRef.current);
+      setOthersTyping(false);
+    };
+  }, [conversationId]);
+
+  if (othersTyping) {
+    return (
+      <Text style={[styles.headerSub, { color: th.primary }]} numberOfLines={1}>
+        {t("chat.typing")}
+      </Text>
+    );
+  }
+  if (membersLabel) {
+    return (
+      <Text style={[styles.headerSub, { color: th.textMuted }]} numberOfLines={1}>
+        {membersLabel}
+      </Text>
+    );
+  }
+  return null;
+});
+
 /** Un adjunto dentro de la burbuja: imagen (tap = visor), audio o fila de archivo. */
 function AttachmentView({ a, onOpenImage }: { a: AttachmentDto; onOpenImage: (url: string) => void }) {
   const { th } = useTheme();
@@ -877,7 +974,37 @@ function MessageActionsSheet({
   );
 }
 
-function Bubble({
+function reactionsEq(a: MessageDto["reactions"], b: MessageDto["reactions"]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].emoji !== b[i].emoji || a[i].count !== b[i].count || a[i].mine !== b[i].mine) return false;
+  }
+  return true;
+}
+
+/**
+ * Burbuja MEMOIZADA por CONTENIDO: cada poll parsea JSON nuevo (identidades
+ * distintas con datos iguales) y cada tecla del composer re-renderiza la
+ * pantalla — sin memo, todas las burbujas visibles se repintaban. El
+ * comparador IGNORA los callbacks a propósito (capturan un item de contenido
+ * idéntico) y compara adjuntos por id (sus URLs firmadas cambian en cada
+ * respuesta, pero el render usa stableAttachmentUrl).
+ */
+const Bubble = memo(BubbleInner, (prev, next) => {
+  const a = prev.m;
+  const b = next.m;
+  if (a.id !== b.id || a.body !== b.body || a.editedAt !== b.editedAt || a.deleted !== b.deleted) return false;
+  if (prev.mine !== next.mine || prev.dark !== next.dark) return false;
+  if (prev.otherReadAt !== next.otherReadAt || prev.otherDeliveredAt !== next.otherDeliveredAt) return false;
+  if (!reactionsEq(a.reactions, b.reactions)) return false;
+  if (a.attachments.length !== b.attachments.length) return false;
+  for (let i = 0; i < a.attachments.length; i++) {
+    if (a.attachments[i].id !== b.attachments[i].id) return false;
+  }
+  return true;
+});
+
+function BubbleInner({
   m,
   mine,
   dark,

@@ -114,11 +114,27 @@ export function useQuery<T>(
     return () => sub.remove();
   }, [revalidateOnFocus, enabled, run]);
 
-  // Revalidación por intervalo.
+  // Revalidación por intervalo. Se PAUSA en background (batería/red: los
+  // timers de RN pueden seguir disparando un rato en Android); al volver a
+  // primer plano la revalidación on-focus de arriba ya refresca y aquí se
+  // rearma el intervalo.
   useEffect(() => {
     if (!refreshInterval || !enabled) return;
-    const id = setInterval(() => void run(), refreshInterval);
-    return () => clearInterval(id);
+    let timer: ReturnType<typeof setInterval> | null = setInterval(() => void run(), refreshInterval);
+    const sub = AppState.addEventListener("change", (s) => {
+      if (s === "active") {
+        if (!timer) timer = setInterval(() => void run(), refreshInterval);
+      } else if (s === "background") {
+        if (timer) {
+          clearInterval(timer);
+          timer = null;
+        }
+      }
+    });
+    return () => {
+      if (timer) clearInterval(timer);
+      sub.remove();
+    };
   }, [refreshInterval, enabled, run]);
 
   return { data, error, loading, refreshing, refetch: run };

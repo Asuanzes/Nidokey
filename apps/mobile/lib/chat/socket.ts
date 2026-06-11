@@ -36,6 +36,8 @@ class ChatSocket {
   private readonly subscriptions = new Set<string>();
   private readonly messageListeners = new Set<MessageListener>();
   private readonly typingListeners = new Set<TypingListener>();
+  private readonly stateListeners = new Set<(open: boolean) => void>();
+  private lastOpenNotified = false;
 
   /** Arranca el cliente (idempotente). Llamar al autenticar. */
   connect(): void {
@@ -75,6 +77,29 @@ class ChatSocket {
     return !!this.ws && this.ws.readyState === WebSocket.OPEN;
   }
 
+  /** Estado vivo de la conexión (para que el polling de fallback se adapte). */
+  isConnected(): boolean {
+    return this.isOpen();
+  }
+
+  /** Notifica cambios de conexión (true=abierto). Devuelve el de-suscriptor. */
+  onConnectionStateChange(cb: (open: boolean) => void): () => void {
+    this.stateListeners.add(cb);
+    return () => this.stateListeners.delete(cb);
+  }
+
+  private notifyState(open: boolean): void {
+    if (open === this.lastOpenNotified) return;
+    this.lastOpenNotified = open;
+    this.stateListeners.forEach((cb) => {
+      try {
+        cb(open);
+      } catch {
+        /* ignore */
+      }
+    });
+  }
+
   private async open(): Promise<void> {
     if (!this.enabled || this.connecting || this.isOpen()) return;
     this.connecting = true;
@@ -92,11 +117,13 @@ class ChatSocket {
         this.connecting = false;
         this.attempts = 0;
         this.sendSubscribe();
+        this.notifyState(true);
       };
       ws.onmessage = (ev) => this.onMessage(ev);
       ws.onclose = () => {
         this.connecting = false;
         if (this.ws === ws) this.ws = null;
+        this.notifyState(false);
         this.scheduleReconnect();
       };
       ws.onerror = () => {
@@ -159,6 +186,7 @@ class ChatSocket {
       } catch {
         /* ignore */
       }
+      this.notifyState(false);
     }
   }
 
