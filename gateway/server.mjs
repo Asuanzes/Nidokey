@@ -1,0 +1,257 @@
+import { createServer } from "node:http";
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { WebSocketServer } from "ws";
+import * as jose from "jose";
+
+/**
+ * Gateway de tiempo real del chat de Nidokey. Proceso ÚNICO, SIN base de datos
+ * (cero datos en reposo). Vive en el VPS del usuario detrás de Caddy (TLS).
+ *
+ * Hace dos cosas en el mismo puerto:
+ *   1. HTTP  POST /notify  — webhook firmado (HMAC) desde Vercel. Reenvía un
+ *      aviso opaco {type:"message", conversationId} a los sockets de cada
+ *      participante (el contenido NO viaja por aquí: el móvil hace refetch a
+ *      Neon → E2E-ready).
+ *   2. WSS   /ws?ticket=…  — el móvil se conecta con un ticket corto (JWT 60 s
+ *      firmado por Vercel con CHAT_WS_SECRET). Relaya "escribiendo…" entre los
+ *      sockets suscritos a una conversación (peer-to-peer, sin tocar Neon).
+ *
+ * Secretos (en /etc/nidokey-gateway.env, NUNCA AUTH_SECRET ni DATABASE_URL):
+ *   PORT                 puerto local (def 8787; Caddy hace de reverse proxy)
+ *   CHAT_WS_SECRET       valida los tickets WS (mismo valor que en Vercel)
+ *   CHAT_GATEWAY_SECRET  valida el HMAC del webhook (mismo valor que en Vercel)
+ *   ALLOWED_ORIGIN       opcional; el ticket es la auth real
+ */
+
+const PORT = Number(process.env.PORT) || 8787;
+const WS_SECRET = process.env.CHAT_WS_SECRET
+  ? new TextEncoder().encode(process.env.CHAT_WS_SECRET)
+  : null;
+const GATEWAY_SECRET = process.env.CHAT_GATEWAY_SECRET || "";
+const WS_ISSUER = "nidokey-chat-ws";
+
+if (!WS_SECRET) console.warn("[gateway] CHAT_WS_SECRET sin definir: rechazará todas las conexiones WS");
+if (!GATEWAY_SECRET) console.warn("[gateway] CHAT_GATEWAY_SECRET sin definir: rechazará todos los webhooks");
+
+/** userId -> Set<ws>. Un usuario puede tener varios dispositivos/pestañas. */
+const userSockets = new Map();
+/** ws -> { userId, conversationIds:Set<string>, alive:boolean } */
+const meta = new WeakMap();
+
+function addSocket(userId, ws) {
+  let set = userSockets.get(userId);
+  if (!set) userSockets.set(userId, (set = new Set()));
+  set.add(ws);
+}
+function removeSocket(userId, ws) {
+  const set = userSockets.get(userId);
+  if (!set) return;
+  set.delete(ws);
+  if (set.size === 0) userSockets.delete(userId);
+}
+
+/** Envía un objeto JSON a todos los sockets de un usuario (si los hay). */
+function sendToUser(userId, payload) {
+  const set = userSockets.get(userId);
+  if (!set || set.size === 0) return;
+  const data = JSON.stringify(payload);
+  for (const ws of set) {
+    if (ws.readyState === ws.OPEN) {
+      try {
+        ws.send(data);
+      } catch {
+        /* socket muerto: lo limpia el heartbeat */
+      }
+    }
+  }
+}
+
+// ── HTTP: healthz + webhook /notify ──────────────────────────────────────────
+const server = createServer((req, res) => {
+  if (req.method === "GET" && req.url === "/healthz") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/notify") {
+    const chunks = [];
+    let size = 0;
+    req.on("data", (c) => {
+      size += c.length;
+      if (size > 256 * 1024) req.destroy(); // anti-abuso
+      else chunks.push(c);
+    });
+    req.on("end", () => {
+      const raw = Buffer.concat(chunks);
+      if (!verifyHmac(req.headers["x-nidokey-signature"], raw)) {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "bad signature" }));
+        return;
+      }
+      let body;
+      try {
+        body = JSON.parse(raw.toString("utf8"));
+      } catch {
+        res.writeHead(400);
+        res.end();
+        return;
+      }
+      handleNotify(body);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+    });
+    return;
+  }
+
+  res.writeHead(404);
+  res.end();
+});
+
+/** Compara la firma `sha256=<hex>` del header con el HMAC del body (timing-safe). */
+function verifyHmac(header, raw) {
+  if (!GATEWAY_SECRET || typeof header !== "string") return false;
+  const expected = "sha256=" + createHmac("sha256", GATEWAY_SECRET).update(raw).digest("hex");
+  const a = Buffer.from(header);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** Body del webhook: {event:"message", conversationId, participantIds[], senderId}. */
+function handleNotify(body) {
+  if (!body || body.event !== "message") return;
+  const { conversationId, participantIds, senderId } = body;
+  if (!conversationId || !Array.isArray(participantIds)) return;
+  const payload = { type: "message", conversationId };
+  for (const uid of participantIds) {
+    if (uid && uid !== senderId) sendToUser(uid, payload);
+  }
+}
+
+// ── WSS: /ws?ticket=… ────────────────────────────────────────────────────────
+const wss = new WebSocketServer({ noServer: true });
+
+server.on("upgrade", async (req, socket, head) => {
+  const url = new URL(req.url, "http://localhost");
+  if (url.pathname !== "/ws") {
+    socket.destroy();
+    return;
+  }
+  const allowedOrigin = process.env.ALLOWED_ORIGIN;
+  if (allowedOrigin && req.headers.origin && req.headers.origin !== allowedOrigin) {
+    socket.destroy();
+    return;
+  }
+  const ticket = url.searchParams.get("ticket");
+  const userId = await verifyTicket(ticket);
+  if (!userId) {
+    socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+    socket.destroy();
+    return;
+  }
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    meta.set(ws, { userId, conversationIds: new Set(), alive: true });
+    addSocket(userId, ws);
+    ws.on("message", (data) => onClientMessage(ws, data));
+    ws.on("pong", () => {
+      const m = meta.get(ws);
+      if (m) m.alive = true;
+    });
+    ws.on("close", () => removeSocket(userId, ws));
+    ws.on("error", () => removeSocket(userId, ws));
+    try {
+      ws.send(JSON.stringify({ type: "ready" }));
+    } catch {
+      /* ignore */
+    }
+  });
+});
+
+/** Verifica el ticket (JWT corto). Devuelve userId o null. */
+async function verifyTicket(ticket) {
+  if (!ticket || !WS_SECRET) return null;
+  try {
+    const { payload } = await jose.jwtVerify(ticket, WS_SECRET, { issuer: WS_ISSUER });
+    return payload.sub ? String(payload.sub) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Mensajes cliente→gateway: subscribe (para typing), typing, pong. */
+function onClientMessage(ws, data) {
+  const m = meta.get(ws);
+  if (!m) return;
+  let msg;
+  try {
+    msg = JSON.parse(data.toString());
+  } catch {
+    return;
+  }
+  if (msg.type === "subscribe" && Array.isArray(msg.conversationIds)) {
+    // Lista declarada por el cliente (baja confianza): solo se usa para enrutar
+    // "escribiendo…", nunca para entregar contenido (eso va por /notify).
+    m.conversationIds = new Set(msg.conversationIds.filter((x) => typeof x === "string").slice(0, 500));
+    return;
+  }
+  if (msg.type === "typing" && typeof msg.conversationId === "string") {
+    relayTyping(m.userId, msg.conversationId, !!msg.on);
+    return;
+  }
+  // msg.type === "pong" → no-op (lo gestiona el heartbeat de ping/pong nativo).
+}
+
+/** Reenvía "escribiendo…" a los OTROS sockets suscritos a esa conversación. */
+function relayTyping(fromUserId, conversationId, on) {
+  const payload = JSON.stringify({ type: "typing", conversationId, userId: fromUserId, on });
+  for (const set of userSockets.values()) {
+    for (const ws of set) {
+      const m = meta.get(ws);
+      if (!m || m.userId === fromUserId) continue;
+      if (!m.conversationIds.has(conversationId)) continue;
+      if (ws.readyState === ws.OPEN) {
+        try {
+          ws.send(payload);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
+}
+
+// ── Heartbeat: ping cada 30 s, termina sockets sin pong ──────────────────────
+const HEARTBEAT_MS = 30_000;
+const heartbeat = setInterval(() => {
+  for (const set of userSockets.values()) {
+    for (const ws of set) {
+      const m = meta.get(ws);
+      if (!m) continue;
+      if (!m.alive) {
+        ws.terminate();
+        continue;
+      }
+      m.alive = false;
+      try {
+        ws.ping();
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+}, HEARTBEAT_MS);
+heartbeat.unref?.();
+
+server.listen(PORT, () => {
+  console.log(`[gateway] escuchando en :${PORT} (HTTP /notify + WSS /ws)`);
+});
+
+function shutdown() {
+  console.log("[gateway] apagando…");
+  clearInterval(heartbeat);
+  wss.close();
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 3000).unref?.();
+}
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);

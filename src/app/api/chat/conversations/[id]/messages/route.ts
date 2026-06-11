@@ -8,6 +8,7 @@ import { messagePreview, sanitizeMessageBody } from "@/lib/chat/util";
 import { messageDto } from "@/lib/chat/serialize";
 import { signMessageAttachments } from "@/lib/chat/r2";
 import { sendChatPush } from "@/lib/chat/push";
+import { notifyMessage } from "@/lib/chat/gateway";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -183,13 +184,11 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     }),
   ]);
 
-  // Push a los demás participantes (best-effort, no bloquea la respuesta más de
-  // una llamada HTTP rápida). F3: webhook al gateway WS cuando exista.
-  try {
-    await sendChatPush(message);
-  } catch {
-    // nunca rompe el envío
-  }
+  // Aviso a los demás participantes (best-effort, no bloquea la respuesta más de
+  // una llamada HTTP rápida): push (Expo) + tiempo real (gateway WS del VPS). El
+  // gateway manda un aviso opaco y el móvil hace refetch; el push respeta mute,
+  // el gateway no (la pantalla abierta se actualiza igual).
+  await Promise.allSettled([sendChatPush(message), notifyMessage(message)]);
 
   return NextResponse.json(await signMessageAttachments(messageDto(message, userId)), { status: 201 });
 }

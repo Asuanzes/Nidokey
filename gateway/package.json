@@ -1,0 +1,17 @@
+{
+  "name": "nidokey-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Gateway WebSocket de tiempo real del chat de Nidokey (sin BBDD).",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "jose": "^5.9.6",
+    "ws": "^8.18.0"
+  }
+}

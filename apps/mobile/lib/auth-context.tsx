@@ -10,6 +10,7 @@ import {
 import { authRequestOtp, authVerifyOtp, TOKEN_KEY } from "./api";
 import { getItem, setItem, deleteItem } from "./secure-store";
 import { registerForPush, unregisterPush } from "./chat/push";
+import { chatSocket } from "./chat/socket";
 
 type User = { id: string; email: string; name: string | null };
 
@@ -83,13 +84,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     // Baja del push ANTES de borrar el token (la llamada necesita el JWT).
     await unregisterPush();
+    chatSocket.disconnect();
     await Promise.all([deleteItem(TOKEN_KEY), deleteItem(USER_KEY)]);
     setState({ kind: "unauthed" });
   }, []);
 
-  // Registrar el token de push cuando hay sesión (idempotente: upsert backend).
+  // Con sesión: registrar push (idempotente) y abrir el socket de tiempo real.
   useEffect(() => {
-    if (state.kind === "authed") void registerForPush();
+    if (state.kind === "authed") {
+      void registerForPush();
+      chatSocket.connect();
+    }
   }, [state.kind]);
 
   const value = useMemo<AuthContextValue>(

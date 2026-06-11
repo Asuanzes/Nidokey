@@ -1,0 +1,7 @@
+# Caddy v2 — TLS automático (Let's Encrypt) + reverse proxy al gateway.
+# Caddy reenvía de forma transparente el upgrade WebSocket (/ws) y el POST /notify.
+# Coloca este bloque en /etc/caddy/Caddyfile y recarga: `sudo systemctl reload caddy`.
+
+ws.nidokey.es {
+	reverse_proxy localhost:8787
+}

@@ -57,6 +57,7 @@ import { ActionsSheet, type SheetOption } from "@/components/chat/ActionsSheet";
 import { WallpaperSheet } from "@/components/chat/WallpaperSheet";
 import { getWallpaper, setWallpaper, wallpaperSource, type WallpaperId } from "@/lib/chat/wallpapers";
 import { setActiveConversation } from "@/lib/chat/push";
+import { chatSocket } from "@/lib/chat/socket";
 import { ResultModal } from "@/components/ui";
 
 // Componentes que importan expo-audio (nativo) ESTÁTICAMENTE: se cargan en
@@ -150,6 +151,82 @@ export default function ChatScreen() {
     return () => setActiveConversation(null);
   }, [id]);
 
+  // ── Tiempo real (gateway WS, F3) ──────────────────────────────────────────
+  // El socket solo ADELANTA el refresco; el polling de arriba sigue como
+  // fallback si el socket no está conectado.
+  const typingEnabled = boot?.flags.typing ?? true;
+  const [othersTyping, setOthersTyping] = useState(false);
+  const typingOffTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Estado de "yo escribiendo" (saliente) con apagado por inactividad.
+  const iAmTypingRef = useRef(false);
+  const myTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Suscripción a la conversación (enruta "escribiendo…" de sus miembros).
+  useEffect(() => {
+    if (!id) return;
+    chatSocket.subscribe(id);
+    return () => chatSocket.unsubscribe(id);
+  }, [id]);
+
+  // Aviso de mensaje nuevo → refetch inmediato (mensajes + recibos).
+  useEffect(() => {
+    if (!id) return;
+    return chatSocket.onMessageEvent((e) => {
+      if (e.conversationId !== id) return;
+      void refetch();
+      void refetchConversation();
+    });
+  }, [id, refetch, refetchConversation]);
+
+  // "Escribiendo…" entrante: se auto-apaga a los 5 s si no llega el "off".
+  useEffect(() => {
+    if (!id) return;
+    const off = chatSocket.onTypingEvent((e) => {
+      if (e.conversationId !== id) return;
+      if (typingOffTimerRef.current) clearTimeout(typingOffTimerRef.current);
+      if (e.on) {
+        setOthersTyping(true);
+        typingOffTimerRef.current = setTimeout(() => setOthersTyping(false), 5000);
+      } else {
+        setOthersTyping(false);
+      }
+    });
+    return () => {
+      off();
+      if (typingOffTimerRef.current) clearTimeout(typingOffTimerRef.current);
+      setOthersTyping(false);
+    };
+  }, [id]);
+
+  const stopTyping = useCallback(() => {
+    if (myTypingTimerRef.current) {
+      clearTimeout(myTypingTimerRef.current);
+      myTypingTimerRef.current = null;
+    }
+    if (iAmTypingRef.current && id) {
+      iAmTypingRef.current = false;
+      chatSocket.sendTyping(id, false);
+    }
+  }, [id]);
+
+  // Al teclear: anuncia "escribiendo…" (debounce 3 s para el "off").
+  const onChangeText = useCallback(
+    (v: string) => {
+      setText(v);
+      if (!typingEnabled || !id) return;
+      if (!iAmTypingRef.current) {
+        iAmTypingRef.current = true;
+        chatSocket.sendTyping(id, true);
+      }
+      if (myTypingTimerRef.current) clearTimeout(myTypingTimerRef.current);
+      myTypingTimerRef.current = setTimeout(stopTyping, 3000);
+    },
+    [typingEnabled, id, stopTyping]
+  );
+
+  // Apagar el typing al salir de la pantalla.
+  useEffect(() => () => stopTyping(), [stopTyping]);
+
   // Marcar como leído cuando llegan mensajes nuevos de otros.
   const lastReadIdRef = useRef<string | null>(null);
   useEffect(() => {
@@ -195,6 +272,7 @@ export default function ChatScreen() {
       attachments: [],
     };
     setText("");
+    stopTyping();
     setPending((p) => [...p, optimistic]);
     try {
       await sendMessage(id!, { clientId, body });
@@ -445,11 +523,15 @@ export default function ChatScreen() {
             </Text>
             {muted && <Ionicons name="notifications-off-outline" size={14} color={th.textSubtle} />}
           </View>
-          {conversation?.kind === "GROUP" && (
+          {othersTyping ? (
+            <Text style={[styles.headerSub, { color: th.primary }]} numberOfLines={1}>
+              {t("chat.typing")}
+            </Text>
+          ) : conversation?.kind === "GROUP" ? (
             <Text style={[styles.headerSub, { color: th.textMuted }]} numberOfLines={1}>
               {t("chat.members", { count: conversation.participants.length })}
             </Text>
-          )}
+          ) : null}
         </View>
         {conversation && (
           <Pressable
@@ -571,7 +653,7 @@ export default function ChatScreen() {
           )}
           <TextInput
             value={text}
-            onChangeText={setText}
+            onChangeText={onChangeText}
             placeholder={t("chat.composer_placeholder")}
             placeholderTextColor={th.textSubtle}
             multiline

@@ -78,6 +78,12 @@ export type ChatBootstrap = {
 
 export const chatBootstrap = () => api<ChatBootstrap>("/api/chat/bootstrap");
 
+/**
+ * Ticket para conectar al gateway WS de tiempo real (F3). { ticket: null } si el
+ * servidor no tiene el gateway configurado → el cliente sigue con polling.
+ */
+export const getWsTicket = () => api<{ ticket: string | null; url: string | null }>("/api/chat/ws-ticket");
+
 export const listConversations = () =>
   api<{ conversations: ConversationDto[] }>("/api/chat/conversations").then((d) => d.conversations);
 

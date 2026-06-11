@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { router } from "expo-router";
@@ -8,6 +9,7 @@ import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
 import { useQuery } from "@/lib/hooks/useQuery";
 import { listConversations, type ConversationDto } from "@/lib/chat/api";
+import { chatSocket } from "@/lib/chat/socket";
 import { categoryColor } from "@/lib/records/config";
 import type { RecordType } from "@nidokey/shared";
 import { EmptyState } from "@/components/ui";
@@ -22,6 +24,10 @@ export function ConversationList() {
   const { data, error, loading, refreshing, refetch } = useQuery(listConversations, [], {
     refreshInterval: 20_000,
   });
+
+  // Tiempo real (F3): cualquier mensaje nuevo refresca la lista al instante
+  // (no leídos + último mensaje). El polling de 20 s sigue como fallback.
+  useEffect(() => chatSocket.onMessageEvent(() => void refetch()), [refetch]);
 
   if (loading && !data) {
     return (

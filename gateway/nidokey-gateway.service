@@ -1,0 +1,27 @@
+# systemd unit del gateway. Instalar en /etc/systemd/system/nidokey-gateway.service
+# Ajusta WorkingDirectory y User a tu despliegue. Luego:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now nidokey-gateway
+#   sudo systemctl status nidokey-gateway
+
+[Unit]
+Description=Nidokey chat realtime gateway (WebSocket)
+After=network.target
+
+[Service]
+Type=simple
+# Usuario sin privilegios (créalo: sudo useradd --system --no-create-home nidokey)
+User=nidokey
+WorkingDirectory=/opt/nidokey-gateway
+EnvironmentFile=/etc/nidokey-gateway.env
+ExecStart=/usr/bin/node server.mjs
+Restart=always
+RestartSec=2
+# Endurecimiento básico
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
