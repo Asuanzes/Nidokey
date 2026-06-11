@@ -127,6 +127,8 @@ const Row = memo(RowInner, (prev, next) => {
     a.lastMessageAt === b.lastMessageAt &&
     a.lastMessagePreview === b.lastMessagePreview &&
     a.unreadCount === b.unreadCount &&
+    a.pinnedAt === b.pinnedAt &&
+    a.muteUntil === b.muteUntil &&
     a.contextType === b.contextType &&
     (a.context?.title ?? null) === (b.context?.title ?? null) &&
     prev.dark === next.dark

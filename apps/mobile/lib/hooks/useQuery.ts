@@ -124,7 +124,9 @@ export function useQuery<T>(
     const sub = AppState.addEventListener("change", (s) => {
       if (s === "active") {
         if (!timer) timer = setInterval(() => void run(), refreshInterval);
-      } else if (s === "background") {
+      } else {
+        // "background" y también "inactive" (iOS: app switcher, hojas del
+        // sistema…): cualquier estado no-activo pausa el polling.
         if (timer) {
           clearInterval(timer);
           timer = null;

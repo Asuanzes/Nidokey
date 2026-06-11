@@ -79,7 +79,10 @@ export async function PATCH(req: NextRequest) {
     });
     if (oldImage && oldImage.startsWith(`avatars/${userId}/`) && oldImage !== user.image) {
       const stale = oldImage;
-      after(() => deleteObject(stale));
+      after(async () => {
+        const ok = await deleteObject(stale);
+        if (!ok) console.error(`[account] no se pudo borrar el avatar anterior de R2: ${stale}`);
+      });
     }
     return NextResponse.json(profileDto(user));
   } catch (e) {

@@ -260,6 +260,16 @@ server.on("upgrade", async (req, socket, head) => {
       } catch {
         /* ignore */
       }
+      // Este socket NO se registra (sin heartbeat que lo vigile): si el cliente
+      // no completa el handshake de cierre, quedaría en CLOSING para siempre.
+      const killer = setTimeout(() => {
+        try {
+          ws.terminate();
+        } catch {
+          /* ignore */
+        }
+      }, 3000);
+      killer.unref?.();
       return;
     }
     meta.set(ws, { userId, conversationIds: new Set(), alive: true });
