@@ -1,4 +1,4 @@
-import { memo, useEffect } from "react";
+import { memo, useEffect, type ReactNode } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { router } from "expo-router";
@@ -11,6 +11,10 @@ import { useQuery } from "@/lib/hooks/useQuery";
 import { listConversations, type ConversationDto } from "@/lib/chat/api";
 import { chatSocket } from "@/lib/chat/socket";
 import { useSocketOpen } from "@/lib/chat/use-socket-open";
+
+// Fondo fijo de la landing del chat (optimizado a 1080px/75KB con sharp).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const CHATS_HOME_BG = require("../../assets/images/chat-bg/chats-home.jpg");
 import { categoryColor } from "@/lib/records/config";
 import type { RecordType } from "@nidokey/shared";
 import { EmptyState } from "@/components/ui";
@@ -47,15 +51,15 @@ export function ConversationList() {
     };
   }, [refetch]);
 
+  let content: ReactNode;
   if (loading && !data) {
-    return (
+    content = (
       <View style={styles.center}>
         <ActivityIndicator color={th.primary} />
       </View>
     );
-  }
-  if (error) {
-    return (
+  } else if (error) {
+    content = (
       <EmptyState
         icon="cloud-offline-outline"
         title={t("chat.load_error")}
@@ -64,9 +68,8 @@ export function ConversationList() {
         onAction={refetch}
       />
     );
-  }
-  if (data && data.length === 0) {
-    return (
+  } else if (data && data.length === 0) {
+    content = (
       <EmptyState
         icon="chatbubbles-outline"
         title={t("chat.empty_title")}
@@ -75,39 +78,55 @@ export function ConversationList() {
         onAction={() => router.push("/chat/new" as never)}
       />
     );
+  } else {
+    content = (
+      <>
+        <FlatList
+          data={data ?? []}
+          keyExtractor={(c) => c.id}
+          renderItem={({ item }) => <Row c={item} dark={dark} />}
+          contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={th.primary} />}
+        />
+        <View style={styles.fabWrap} pointerEvents="box-none">
+          <Pressable
+            onPress={() => router.push("/chat/contacts" as never)}
+            accessibilityRole="button"
+            accessibilityLabel={t("chat.contacts_title")}
+            style={({ pressed }) => [
+              styles.contactsBtn,
+              { backgroundColor: th.surface, borderColor: th.border },
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <Ionicons name="people-outline" size={20} color={th.primary} />
+          </Pressable>
+          <Pressable
+            onPress={() => router.push("/chat/new" as never)}
+            accessibilityRole="button"
+            accessibilityLabel={t("chat.new_chat")}
+            style={({ pressed }) => [styles.newChatBtn, { backgroundColor: th.primary }, pressed && { opacity: 0.8 }]}
+          >
+            <Ionicons name="create-outline" size={22} color="#fff" />
+          </Pressable>
+        </View>
+      </>
+    );
   }
 
+  // Fondo fijo de la landing del chat + velo de legibilidad por tema (mismo
+  // patrón que el wallpaper de la conversación). Las cards de surface y los
+  // FABs quedan por encima, legibles en claro y oscuro.
   return (
     <View style={styles.fill}>
-      <FlatList
-        data={data ?? []}
-        keyExtractor={(c) => c.id}
-        renderItem={({ item }) => <Row c={item} dark={dark} />}
-        contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={th.primary} />}
+      <Image source={CHATS_HOME_BG} style={StyleSheet.absoluteFill} contentFit="cover" />
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: dark ? "rgba(20,20,19,0.45)" : "rgba(250,250,247,0.30)" },
+        ]}
       />
-      <View style={styles.fabWrap} pointerEvents="box-none">
-        <Pressable
-          onPress={() => router.push("/chat/contacts" as never)}
-          accessibilityRole="button"
-          accessibilityLabel={t("chat.contacts_title")}
-          style={({ pressed }) => [
-            styles.contactsBtn,
-            { backgroundColor: th.surface, borderColor: th.border },
-            pressed && { opacity: 0.7 },
-          ]}
-        >
-          <Ionicons name="people-outline" size={20} color={th.primary} />
-        </Pressable>
-        <Pressable
-          onPress={() => router.push("/chat/new" as never)}
-          accessibilityRole="button"
-          accessibilityLabel={t("chat.new_chat")}
-          style={({ pressed }) => [styles.newChatBtn, { backgroundColor: th.primary }, pressed && { opacity: 0.8 }]}
-        >
-          <Ionicons name="create-outline" size={22} color="#fff" />
-        </Pressable>
-      </View>
+      {content}
     </View>
   );
 }
