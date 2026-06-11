@@ -143,12 +143,27 @@ export default function ChatScreen() {
       out.push(m);
     }
     for (const p of pending) {
-      if (p.clientId && seen.has("c:" + p.clientId)) continue;
+      // Saltar también por id: `pending` puede contener el mensaje REAL (la
+      // respuesta del POST) y duplicaría la key cuando `latest` lo traiga.
+      if (seen.has(p.id) || (p.clientId && seen.has("c:" + p.clientId))) continue;
       out.push(p);
     }
     out.sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
     return out;
   }, [older, latest, pending]);
+
+  // Poda de `pending`: cuando el mensaje ya viene en `latest` (poll/refetch),
+  // su copia en pending sobra. Devuelve la MISMA referencia si no hay cambios
+  // para no re-renderizar en cada poll.
+  useEffect(() => {
+    if (!latest || pending.length === 0) return;
+    const ids = new Set(latest.messages.map((m) => m.id));
+    const clientIds = new Set(latest.messages.map((m) => m.clientId).filter(Boolean));
+    setPending((p) => {
+      const next = p.filter((m) => !ids.has(m.id) && !(m.clientId && clientIds.has(m.clientId)));
+      return next.length === p.length ? p : next;
+    });
+  }, [latest, pending.length]);
 
   // Mientras esta conversación está abierta, no mostrar su propia notificación.
   useEffect(() => {
@@ -311,23 +326,19 @@ export default function ChatScreen() {
     stopTyping();
     setPending((p) => [...p, optimistic]);
     try {
-      await sendMessage(id!, { clientId, body });
+      // El POST ya devuelve el MessageDto REAL: sustituir el optimista por él
+      // solidifica la burbuja en cuanto el servidor confirma, SIN esperar un
+      // refetch completo (que antes añadía ~1 s extra de latencia percibida).
+      const real = await sendMessage(id!, { clientId, body });
+      setPending((p) => p.map((m) => (m.clientId === clientId ? real : m)));
+      // Refetch en segundo plano (recibos/orden); la poda limpia `pending`
+      // cuando el mensaje entra en `latest`.
+      void refetch();
     } catch (e) {
       setPending((p) => p.filter((m) => m.clientId !== clientId));
       setText(body); // devolver el texto al composer para reintentar
       setSendError(e instanceof Error ? e.message : t("chat.send_error"));
-      return;
     }
-    // Enviado OK. Traemos el mensaje real ANTES de quitar el optimista: el dedup
-    // por clientId ya lo oculta en cuanto entra en `latest`, así que quitarlo
-    // después es invisible (sin el parpadeo de medio segundo). Si el refetch falla
-    // tras un envío correcto, no mostramos error: el polling lo reconcilia.
-    try {
-      await refetch();
-    } catch {
-      // ignore: el mensaje ya está enviado; el siguiente poll lo trae
-    }
-    setPending((p) => p.filter((m) => m.clientId !== clientId));
   }
 
   async function onDelete() {
@@ -374,9 +385,12 @@ export default function ChatScreen() {
       const uploaded = [];
       for (const f of files) uploaded.push(await uploadAttachment(kind, f));
       const clientId = `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-      await sendMediaMessage(id!, { clientId, kind, attachments: uploaded });
+      // La respuesta ya es el mensaje real con las URLs firmadas: pintarlo al
+      // instante vía pending (la poda lo limpia cuando llegue en latest).
+      const real = await sendMediaMessage(id!, { clientId, kind, attachments: uploaded });
       setRecording(false);
-      await refetch();
+      setPending((p) => [...p, real]);
+      void refetch();
     } catch (e) {
       setActionError(e instanceof Error ? e.message : t("chat.upload_error"));
     } finally {

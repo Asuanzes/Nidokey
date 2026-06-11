@@ -74,9 +74,10 @@ const SendInput = z.object({
 export async function POST(req: NextRequest, { params }: Ctx) {
   const { id } = await params;
   const userId = await requireUserId();
-  const me = await getParticipantOrNull(id, userId);
-  if (!me) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // Validaciones SIN BBDD primero (body), y luego las 4 lecturas de guard EN
+  // PARALELO (antes eran secuenciales: 4 round-trips a Neon en fila). El orden
+  // de prioridad de las respuestas de error se evalúa igual tras resolver.
   const parsed = SendInput.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
@@ -108,29 +109,36 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     }
   }
 
-  // Idempotencia: el mismo clientId no crea duplicado.
-  if (input.clientId) {
-    const existing = await prisma.chatMessage.findUnique({
-      where: {
-        conversationId_senderId_clientId: {
-          conversationId: id,
-          senderId: userId,
-          clientId: input.clientId,
-        },
-      },
-      include: { attachments: true, reactions: { select: { emoji: true, userId: true } } },
-    });
-    if (existing) {
-      return NextResponse.json(await signMessageAttachments(messageDto(existing, userId)), { status: 200 });
-    }
+  const [me, existing, conversation, rateOk] = await Promise.all([
+    getParticipantOrNull(id, userId),
+    // Idempotencia: el mismo clientId no crea duplicado.
+    input.clientId
+      ? prisma.chatMessage.findUnique({
+          where: {
+            conversationId_senderId_clientId: {
+              conversationId: id,
+              senderId: userId,
+              clientId: input.clientId,
+            },
+          },
+          include: { attachments: true, reactions: { select: { emoji: true, userId: true } } },
+        })
+      : Promise.resolve(null),
+    prisma.conversation.findUnique({
+      where: { id },
+      select: { kind: true, participants: { where: { leftAt: null }, select: { userId: true } } },
+    }),
+    // Rate limit (count en BBDD: serverless-safe).
+    withinMessageRate(userId, CHAT_LIMITS.rateMsgsPerMin),
+  ]);
+
+  if (!me) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (existing) {
+    return NextResponse.json(await signMessageAttachments(messageDto(existing, userId)), { status: 200 });
   }
+  if (!conversation) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // Bloqueos en DIRECT: si cualquiera bloqueó al otro, no se envía.
-  const conversation = await prisma.conversation.findUnique({
-    where: { id },
-    select: { kind: true, participants: { where: { leftAt: null }, select: { userId: true } } },
-  });
-  if (!conversation) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (conversation.kind === "DIRECT") {
     const other = conversation.participants.find((p) => p.userId !== userId);
     if (other && (await anyBlockBetween(userId, other.userId))) {
@@ -138,8 +146,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     }
   }
 
-  // Rate limit (count en BBDD: serverless-safe).
-  if (!(await withinMessageRate(userId, CHAT_LIMITS.rateMsgsPerMin))) {
+  if (!rateOk) {
     return NextResponse.json(
       { error: "Demasiados mensajes, espera un momento" },
       { status: 429, headers: { "Retry-After": "30" } }

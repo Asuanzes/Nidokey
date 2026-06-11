@@ -223,7 +223,8 @@ export function chatTime(iso: string, lang: string): string {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  fabWrap: { position: "absolute", right: 14, bottom: 14, flexDirection: "row", alignItems: "center", gap: 10 },
+  // Columna: contactos ENCIMA del FAB de nuevo chat, centrados en vertical.
+  fabWrap: { position: "absolute", right: 14, bottom: 14, alignItems: "center", gap: 10 },
   contactsBtn: {
     width: 44,
     height: 44,
