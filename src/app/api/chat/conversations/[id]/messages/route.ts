@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth-helpers";
@@ -184,11 +184,12 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     }),
   ]);
 
-  // Aviso a los demás participantes (best-effort, no bloquea la respuesta más de
-  // una llamada HTTP rápida): push (Expo) + tiempo real (gateway WS del VPS). El
-  // gateway manda un aviso opaco y el móvil hace refetch; el push respeta mute,
-  // el gateway no (la pantalla abierta se actualiza igual).
-  await Promise.allSettled([sendChatPush(message), notifyMessage(message)]);
+  // Aviso a los demás participantes DESPUÉS de responder (after() garantiza la
+  // ejecución en Vercel sin retrasar el 201 → el emisor confirma antes): push
+  // (Expo, respeta mute) + tiempo real (gateway WS del VPS, no respeta mute → la
+  // pantalla abierta se actualiza igual). El receptor sigue recibiendo al instante
+  // porque after() corre nada más enviar la respuesta.
+  after(() => Promise.allSettled([sendChatPush(message), notifyMessage(message)]));
 
   return NextResponse.json(await signMessageAttachments(messageDto(message, userId)), { status: 201 });
 }

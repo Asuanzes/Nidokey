@@ -60,10 +60,46 @@ Vercel ──HTTPS POST /notify (HMAC)──────► gateway :8787   (tra
    sudo systemctl status nidokey-gateway
    ```
 
-5. **Caddy:** añade el bloque de `Caddyfile` a `/etc/caddy/Caddyfile` y recarga:
+5. **TLS + reverse proxy.** Dos vías; usa la que encaje con tu caja:
+
+   **5a. nginx + certbot (RECOMENDADA si el VPS YA tiene nginx en el 80).**
+   Es la vía usada en producción (`ws.nidokey.es`). nginx ocupa el 80, así que
+   Caddy no podría bindearlo; reutilizamos nginx:
    ```bash
-   sudo systemctl reload caddy
+   # Mapa de upgrade WebSocket
+   sudo tee /etc/nginx/conf.d/ws_upgrade.conf >/dev/null <<'EOF'
+   map $http_upgrade $connection_upgrade { default upgrade; '' close; }
+   EOF
+   # Server block: proxy al gateway con upgrade WS y timeouts largos
+   sudo tee /etc/nginx/conf.d/ws.nidokey.es.conf >/dev/null <<'EOF'
+   server {
+       listen 80;
+       listen [::]:80;
+       server_name ws.nidokey.es;
+       location / {
+           proxy_pass http://127.0.0.1:8787;
+           proxy_http_version 1.1;
+           proxy_set_header Upgrade $http_upgrade;
+           proxy_set_header Connection $connection_upgrade;
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+           proxy_set_header X-Forwarded-Proto $scheme;
+           proxy_read_timeout 3600s;
+           proxy_send_timeout 3600s;
+       }
+   }
+   EOF
+   sudo nginx -t && sudo systemctl reload nginx
+   # Certificado Let's Encrypt + bloque 443 automático
+   sudo apt-get install -y certbot python3-certbot-nginx
+   sudo certbot --nginx -d ws.nidokey.es --agree-tos -m TU_EMAIL --redirect
    ```
+   (Si `nginx -t` se queja de `map ... already defined`, borra `ws_upgrade.conf`:
+   ya existía el map en tu config.)
+
+   **5b. Caddy (caja limpia, sin nginx).** Añade el bloque de `Caddyfile` a
+   `/etc/caddy/Caddyfile` y recarga: `sudo systemctl reload caddy`.
 
 6. **Firewall (UFW):** solo SSH + web:
    ```bash

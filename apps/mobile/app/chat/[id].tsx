@@ -276,13 +276,22 @@ export default function ChatScreen() {
     setPending((p) => [...p, optimistic]);
     try {
       await sendMessage(id!, { clientId, body });
-      setPending((p) => p.filter((m) => m.clientId !== clientId));
-      await refetch();
     } catch (e) {
       setPending((p) => p.filter((m) => m.clientId !== clientId));
       setText(body); // devolver el texto al composer para reintentar
       setSendError(e instanceof Error ? e.message : t("chat.send_error"));
+      return;
     }
+    // Enviado OK. Traemos el mensaje real ANTES de quitar el optimista: el dedup
+    // por clientId ya lo oculta en cuanto entra en `latest`, así que quitarlo
+    // después es invisible (sin el parpadeo de medio segundo). Si el refetch falla
+    // tras un envío correcto, no mostramos error: el polling lo reconcilia.
+    try {
+      await refetch();
+    } catch {
+      // ignore: el mensaje ya está enviado; el siguiente poll lo trae
+    }
+    setPending((p) => p.filter((m) => m.clientId !== clientId));
   }
 
   async function onDelete() {
