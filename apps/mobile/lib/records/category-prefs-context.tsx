@@ -32,7 +32,9 @@ import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
  * puede dejar el menú sin categorías (≥1 visible), y la categoría activa cae a la
  * primera visible si se oculta.
  */
-const DEFAULT_CATEGORY: RecordType = "property";
+// Chat = categoría principal al abrir la app (decisión 2026-06-11). El usuario
+// puede elegir otra en Cuenta → Gestionar categorías → Categoría de inicio.
+const DEFAULT_CATEGORY: RecordType = "chat";
 
 type Managed = { type: RecordType; hidden: boolean };
 
