@@ -76,6 +76,15 @@ Vercel ──HTTPS POST /notify (HMAC)──────► gateway :8787   (tra
        listen 80;
        listen [::]:80;
        server_name ws.nidokey.es;
+       # Webhook interno desde Vercel: sin access_log (si no, una línea de log
+       # por CADA mensaje de todo el sistema → crecimiento inútil del disco).
+       location = /notify {
+           access_log off;
+           proxy_pass http://127.0.0.1:8787;
+           proxy_http_version 1.1;
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+       }
        location / {
            proxy_pass http://127.0.0.1:8787;
            proxy_http_version 1.1;

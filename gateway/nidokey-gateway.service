@@ -16,7 +16,11 @@ WorkingDirectory=/opt/nidokey-gateway
 EnvironmentFile=/etc/nidokey-gateway.env
 ExecStart=/usr/bin/node server.mjs
 Restart=always
-RestartSec=2
+RestartSec=5
+# Límites de escala: el default de fds (1024) topa en ~1k conexiones WS.
+LimitNOFILE=65536
+# Tope de RAM: si el proceso se descontrola, systemd lo mata y Restart lo relanza.
+MemoryMax=4G
 # Endurecimiento básico
 NoNewPrivileges=true
 ProtectSystem=strict

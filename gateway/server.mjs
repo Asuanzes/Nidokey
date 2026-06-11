@@ -5,7 +5,7 @@ import * as jose from "jose";
 
 /**
  * Gateway de tiempo real del chat de Nidokey. Proceso ÚNICO, SIN base de datos
- * (cero datos en reposo). Vive en el VPS del usuario detrás de Caddy (TLS).
+ * (cero datos en reposo). Vive en el VPS del usuario detrás de nginx/Caddy (TLS).
  *
  * Hace dos cosas en el mismo puerto:
  *   1. HTTP  POST /notify  — webhook firmado (HMAC) desde Vercel. Reenvía un
@@ -16,8 +16,12 @@ import * as jose from "jose";
  *      firmado por Vercel con CHAT_WS_SECRET). Relaya "escribiendo…" entre los
  *      sockets suscritos a una conversación (peer-to-peer, sin tocar Neon).
  *
+ * Protecciones de escala: límite de sockets por usuario, backpressure (clientes
+ * lentos se terminan en vez de acumular RAM), índice conversación→sockets para
+ * el typing (O(suscriptores), no O(todos)), y /healthz con métricas.
+ *
  * Secretos (en /etc/nidokey-gateway.env, NUNCA AUTH_SECRET ni DATABASE_URL):
- *   PORT                 puerto local (def 8787; Caddy hace de reverse proxy)
+ *   PORT                 puerto local (def 8787; nginx/Caddy hacen el TLS)
  *   CHAT_WS_SECRET       valida los tickets WS (mismo valor que en Vercel)
  *   CHAT_GATEWAY_SECRET  valida el HMAC del webhook (mismo valor que en Vercel)
  *   ALLOWED_ORIGIN       opcional; el ticket es la auth real
@@ -30,11 +34,33 @@ const WS_SECRET = process.env.CHAT_WS_SECRET
 const GATEWAY_SECRET = process.env.CHAT_GATEWAY_SECRET || "";
 const WS_ISSUER = "nidokey-chat-ws";
 
+// Límites anti-abuso / anti-OOM. Un cliente legítimo tiene 1-2 sockets (móvil
+// + reconexión solapada); 8 deja margen de sobra y corta el acaparamiento.
+const MAX_SOCKETS_PER_USER = 8;
+// Backpressure: si el buffer TCP de un cliente lento acumula más de esto, se
+// termina el socket (el cliente reconecta o cae a polling) en vez de crecer en RAM.
+const MAX_BUFFERED_BYTES = 64 * 1024;
+
 if (!WS_SECRET) console.warn("[gateway] CHAT_WS_SECRET sin definir: rechazará todas las conexiones WS");
 if (!GATEWAY_SECRET) console.warn("[gateway] CHAT_GATEWAY_SECRET sin definir: rechazará todos los webhooks");
 
-/** userId -> Set<ws>. Un usuario puede tener varios dispositivos/pestañas. */
+// Contadores para /healthz (observabilidad sin dependencias).
+const stats = {
+  startedAt: Date.now(),
+  notifyRecv: 0,
+  notifyErr: 0,
+  relayedMessage: 0,
+  relayedTyping: 0,
+  ticketRejected: 0,
+  hmacRejected: 0,
+  overLimitClosed: 0,
+  backpressureKilled: 0,
+};
+
+/** userId -> Set<ws>. Un usuario puede tener varios dispositivos. */
 const userSockets = new Map();
+/** conversationId -> Set<ws> suscritos (índice para el typing: O(suscriptores)). */
+const conversationSockets = new Map();
 /** ws -> { userId, conversationIds:Set<string>, alive:boolean } */
 const meta = new WeakMap();
 
@@ -43,11 +69,66 @@ function addSocket(userId, ws) {
   if (!set) userSockets.set(userId, (set = new Set()));
   set.add(ws);
 }
+
 function removeSocket(userId, ws) {
   const set = userSockets.get(userId);
-  if (!set) return;
-  set.delete(ws);
-  if (set.size === 0) userSockets.delete(userId);
+  if (set) {
+    set.delete(ws);
+    if (set.size === 0) userSockets.delete(userId);
+  }
+  // Sacarlo también del índice de conversaciones (siempre en sincronía).
+  const m = meta.get(ws);
+  if (m) {
+    for (const convId of m.conversationIds) {
+      const cs = conversationSockets.get(convId);
+      if (cs) {
+        cs.delete(ws);
+        if (cs.size === 0) conversationSockets.delete(convId);
+      }
+    }
+    m.conversationIds.clear();
+  }
+}
+
+/** Reemplaza las suscripciones de un socket manteniendo el índice inverso. */
+function setSubscriptions(ws, newIds) {
+  const m = meta.get(ws);
+  if (!m) return;
+  for (const convId of m.conversationIds) {
+    if (!newIds.has(convId)) {
+      const cs = conversationSockets.get(convId);
+      if (cs) {
+        cs.delete(ws);
+        if (cs.size === 0) conversationSockets.delete(convId);
+      }
+    }
+  }
+  for (const convId of newIds) {
+    let cs = conversationSockets.get(convId);
+    if (!cs) conversationSockets.set(convId, (cs = new Set()));
+    cs.add(ws);
+  }
+  m.conversationIds = newIds;
+}
+
+/** Envío con backpressure: clientes atascados se terminan, no acumulan RAM. */
+function safeSend(ws, data) {
+  if (ws.readyState !== ws.OPEN) return false;
+  if (ws.bufferedAmount > MAX_BUFFERED_BYTES) {
+    stats.backpressureKilled++;
+    try {
+      ws.terminate();
+    } catch {
+      /* ignore */
+    }
+    return false;
+  }
+  try {
+    ws.send(data);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Envía un objeto JSON a todos los sockets de un usuario (si los hay). */
@@ -56,21 +137,34 @@ function sendToUser(userId, payload) {
   if (!set || set.size === 0) return;
   const data = JSON.stringify(payload);
   for (const ws of set) {
-    if (ws.readyState === ws.OPEN) {
-      try {
-        ws.send(data);
-      } catch {
-        /* socket muerto: lo limpia el heartbeat */
-      }
-    }
+    if (safeSend(ws, data)) stats.relayedMessage++;
   }
+}
+
+function totalSockets() {
+  let n = 0;
+  for (const set of userSockets.values()) n += set.size;
+  return n;
 }
 
 // ── HTTP: healthz + webhook /notify ──────────────────────────────────────────
 const server = createServer((req, res) => {
   if (req.method === "GET" && req.url === "/healthz") {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true }));
+    res.end(
+      JSON.stringify({
+        ok: true,
+        uptimeS: Math.round((Date.now() - stats.startedAt) / 1000),
+        rssMb: Math.round(process.memoryUsage().rss / 1024 / 1024),
+        sockets: totalSockets(),
+        users: userSockets.size,
+        conversations: conversationSockets.size,
+        relayed: { message: stats.relayedMessage, typing: stats.relayedTyping },
+        notify: { recv: stats.notifyRecv, err: stats.notifyErr },
+        rejected: { ticket: stats.ticketRejected, hmac: stats.hmacRejected },
+        closed: { overLimit: stats.overLimitClosed, backpressure: stats.backpressureKilled },
+      })
+    );
     return;
   }
 
@@ -85,6 +179,8 @@ const server = createServer((req, res) => {
     req.on("end", () => {
       const raw = Buffer.concat(chunks);
       if (!verifyHmac(req.headers["x-nidokey-signature"], raw)) {
+        stats.hmacRejected++;
+        console.warn("[gateway] notify con firma HMAC inválida");
         res.writeHead(401, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "bad signature" }));
         return;
@@ -93,10 +189,12 @@ const server = createServer((req, res) => {
       try {
         body = JSON.parse(raw.toString("utf8"));
       } catch {
+        stats.notifyErr++;
         res.writeHead(400);
         res.end();
         return;
       }
+      stats.notifyRecv++;
       handleNotify(body);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true }));
@@ -145,11 +243,25 @@ server.on("upgrade", async (req, socket, head) => {
   const ticket = url.searchParams.get("ticket");
   const userId = await verifyTicket(ticket);
   if (!userId) {
+    stats.ticketRejected++;
     socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
     socket.destroy();
     return;
   }
   wss.handleUpgrade(req, socket, head, (ws) => {
+    // Límite por usuario: corta el acaparamiento de fds/RAM. 1008 = policy
+    // violation; el cliente cae a polling o reconecta cuando suelte sockets.
+    const existing = userSockets.get(userId);
+    if (existing && existing.size >= MAX_SOCKETS_PER_USER) {
+      stats.overLimitClosed++;
+      console.warn(`[gateway] límite de sockets por usuario alcanzado (${userId.slice(0, 8)}…)`);
+      try {
+        ws.close(1008, "too many connections");
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
     meta.set(ws, { userId, conversationIds: new Set(), alive: true });
     addSocket(userId, ws);
     ws.on("message", (data) => onClientMessage(ws, data));
@@ -191,7 +303,10 @@ function onClientMessage(ws, data) {
   if (msg.type === "subscribe" && Array.isArray(msg.conversationIds)) {
     // Lista declarada por el cliente (baja confianza): solo se usa para enrutar
     // "escribiendo…", nunca para entregar contenido (eso va por /notify).
-    m.conversationIds = new Set(msg.conversationIds.filter((x) => typeof x === "string").slice(0, 500));
+    const ids = new Set(
+      msg.conversationIds.filter((x) => typeof x === "string" && x.length <= 64).slice(0, 500)
+    );
+    setSubscriptions(ws, ids);
     return;
   }
   if (msg.type === "typing" && typeof msg.conversationId === "string") {
@@ -201,22 +316,18 @@ function onClientMessage(ws, data) {
   // msg.type === "pong" → no-op (lo gestiona el heartbeat de ping/pong nativo).
 }
 
-/** Reenvía "escribiendo…" a los OTROS sockets suscritos a esa conversación. */
+/**
+ * Reenvía "escribiendo…" a los OTROS sockets suscritos a esa conversación.
+ * Usa el índice conversación→sockets: O(suscriptores), no O(todos los sockets).
+ */
 function relayTyping(fromUserId, conversationId, on) {
+  const subscribers = conversationSockets.get(conversationId);
+  if (!subscribers || subscribers.size === 0) return;
   const payload = JSON.stringify({ type: "typing", conversationId, userId: fromUserId, on });
-  for (const set of userSockets.values()) {
-    for (const ws of set) {
-      const m = meta.get(ws);
-      if (!m || m.userId === fromUserId) continue;
-      if (!m.conversationIds.has(conversationId)) continue;
-      if (ws.readyState === ws.OPEN) {
-        try {
-          ws.send(payload);
-        } catch {
-          /* ignore */
-        }
-      }
-    }
+  for (const ws of subscribers) {
+    const m = meta.get(ws);
+    if (!m || m.userId === fromUserId) continue;
+    if (safeSend(ws, payload)) stats.relayedTyping++;
   }
 }
 
@@ -243,7 +354,7 @@ const heartbeat = setInterval(() => {
 heartbeat.unref?.();
 
 server.listen(PORT, () => {
-  console.log(`[gateway] escuchando en :${PORT} (HTTP /notify + WSS /ws)`);
+  console.log(`[gateway] escuchando en :${PORT} (HTTP /notify + /healthz + WSS /ws)`);
 });
 
 function shutdown() {
