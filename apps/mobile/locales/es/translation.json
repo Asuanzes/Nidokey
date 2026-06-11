@@ -625,6 +625,8 @@
     "mute_forever": "Siempre",
     "mute_off": "Reactivar notificaciones",
     "contacts_title": "Tus contactos",
+    "contacts_empty_title": "Sin contactos guardados",
+    "contacts_empty_desc": "Busca a alguien en Nuevo chat y guárdalo con el icono de añadir contacto.",
     "contact_alias_edit": "Editar alias",
     "contact_alias_title": "Alias del contacto",
     "contact_alias_hint": "Solo tú ves este nombre. Déjalo vacío para usar su nombre real.",

@@ -63,6 +63,18 @@ export function ConversationList() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={th.primary} />}
       />
       <View style={styles.fabWrap} pointerEvents="box-none">
+        <Pressable
+          onPress={() => router.push("/chat/contacts" as never)}
+          accessibilityRole="button"
+          accessibilityLabel={t("chat.contacts_title")}
+          style={({ pressed }) => [
+            styles.contactsBtn,
+            { backgroundColor: th.surface, borderColor: th.border },
+            pressed && { opacity: 0.7 },
+          ]}
+        >
+          <Ionicons name="people-outline" size={20} color={th.primary} />
+        </Pressable>
         <Button label={t("chat.new_chat")} icon="create-outline" onPress={() => router.push("/chat/new" as never)} />
       </View>
     </View>
@@ -157,7 +169,15 @@ export function chatTime(iso: string, lang: string): string {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  fabWrap: { position: "absolute", right: 14, bottom: 14 },
+  fabWrap: { position: "absolute", right: 14, bottom: 14, flexDirection: "row", alignItems: "center", gap: 10 },
+  contactsBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
   list: { padding: 12, paddingBottom: 90 },
   row: {

@@ -1,14 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Stack, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -17,24 +8,21 @@ import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
 import { useQuery } from "@/lib/hooks/useQuery";
 import {
-  contactDisplayName,
   createConversation,
-  deleteContact,
   listContacts,
   saveContact,
   searchChatUsers,
   type ChatUser,
-  type ContactDto,
 } from "@/lib/chat/api";
 import { Avatar } from "@/components/chat/ConversationList";
-import { ActionsSheet, type SheetOption } from "@/components/chat/ActionsSheet";
+import { ContactsList } from "@/components/chat/ContactsList";
 import { EmptyState, ResultModal } from "@/components/ui";
 
 /**
  * Nuevo chat: tus contactos guardados arriba (sin buscar) y búsqueda EXACTA por
  * @usuario/email para encontrar a alguien nuevo (debounce 300 ms). Desde un
- * resultado se puede guardar como contacto; long-press en un contacto permite
- * editar su alias o eliminarlo.
+ * resultado se puede guardar como contacto; la lista de contactos (con alias /
+ * eliminar en long-press) es el componente compartido ContactsList.
  */
 export default function NewChatScreen() {
   const { th } = useTheme();
@@ -46,10 +34,6 @@ export default function NewChatScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const { data: contacts, refetch: refetchContacts } = useQuery(listContacts, []);
-  const [contactMenu, setContactMenu] = useState<ContactDto | null>(null);
-  const [aliasEditing, setAliasEditing] = useState<ContactDto | null>(null);
-  const [aliasText, setAliasText] = useState("");
-  const [savingAlias, setSavingAlias] = useState(false);
 
   useEffect(() => {
     const query = q.trim();
@@ -88,40 +72,6 @@ export default function NewChatScreen() {
       await refetchContacts();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("chat.action_error"));
-    }
-  }
-
-  async function onContactMenuSelect(option: SheetOption) {
-    const c = contactMenu;
-    setContactMenu(null);
-    if (!c) return;
-    if (option.id === "alias") {
-      setAliasText(c.alias ?? "");
-      setAliasEditing(c);
-      return;
-    }
-    if (option.id === "remove") {
-      try {
-        await deleteContact(c.userId);
-        await refetchContacts();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : t("chat.action_error"));
-      }
-    }
-  }
-
-  async function onSaveAlias() {
-    const c = aliasEditing;
-    if (!c || savingAlias) return;
-    setSavingAlias(true);
-    try {
-      await saveContact(c.userId, aliasText.trim() || null);
-      await refetchContacts();
-      setAliasEditing(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("chat.action_error"));
-    } finally {
-      setSavingAlias(false);
     }
   }
 
@@ -206,92 +156,15 @@ export default function NewChatScreen() {
 
       {/* Contactos guardados (cuando no hay búsqueda activa) */}
       {showContacts && (
-        <FlatList
-          data={contacts ?? []}
-          keyExtractor={(c) => c.userId}
-          contentContainerStyle={styles.list}
-          keyboardShouldPersistTaps="handled"
-          ListHeaderComponent={
-            <Text style={[styles.sectionLabel, { color: th.textSubtle }]}>{t("chat.contacts_title")}</Text>
-          }
-          renderItem={({ item }) => {
-            const name = contactDisplayName(item);
-            const secondary = item.user.username ? "@" + item.user.username : item.user.email;
-            return (
-              <Pressable
-                onPress={() => void startChat(item.userId)}
-                onLongPress={() => setContactMenu(item)}
-                delayLongPress={350}
-                disabled={!!creating}
-                style={({ pressed }) => [
-                  styles.row,
-                  { backgroundColor: th.surface, borderColor: th.border },
-                  pressed && { opacity: 0.7 },
-                ]}
-              >
-                <Avatar title={name} imageUrl={item.user.image} size={40} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.rowName, { color: th.text }]} numberOfLines={1}>
-                    {name}
-                  </Text>
-                  <Text style={[styles.rowEmail, { color: th.textMuted }]} numberOfLines={1}>
-                    {secondary}
-                  </Text>
-                </View>
-                {creating === item.userId ? (
-                  <ActivityIndicator size="small" color={th.primary} />
-                ) : (
-                  <Ionicons name="chatbubble-outline" size={18} color={th.primary} />
-                )}
-              </Pressable>
-            );
-          }}
+        <ContactsList
+          contacts={contacts ?? []}
+          creating={creating}
+          onStartChat={(userId) => void startChat(userId)}
+          onChanged={refetchContacts}
+          onError={setError}
+          label={t("chat.contacts_title")}
         />
       )}
-
-      {/* Menú del contacto (long-press): alias / eliminar */}
-      <ActionsSheet
-        visible={!!contactMenu}
-        title={contactMenu ? contactDisplayName(contactMenu) : ""}
-        options={[
-          { id: "alias", icon: "pencil-outline", label: t("chat.contact_alias_edit") },
-          { id: "remove", icon: "person-remove-outline", label: t("chat.menu_contact_remove"), danger: true },
-        ]}
-        onSelect={(o) => void onContactMenuSelect(o)}
-        onClose={() => setContactMenu(null)}
-      />
-
-      {/* Editor de alias */}
-      <Modal visible={!!aliasEditing} transparent animationType="fade" onRequestClose={() => setAliasEditing(null)}>
-        <Pressable style={styles.backdrop} onPress={() => setAliasEditing(null)} />
-        <View style={styles.aliasWrap} pointerEvents="box-none">
-          <View style={[styles.aliasCard, { backgroundColor: th.surface, borderColor: th.border }]}>
-            <Text style={[styles.aliasTitle, { color: th.text }]}>{t("chat.contact_alias_title")}</Text>
-            <TextInput
-              value={aliasText}
-              onChangeText={setAliasText}
-              placeholder={aliasEditing ? contactDisplayName({ ...aliasEditing, alias: null }) : ""}
-              placeholderTextColor={th.textSubtle}
-              maxLength={60}
-              autoFocus
-              style={[styles.aliasInput, { color: th.text, backgroundColor: th.bg, borderColor: th.border }]}
-            />
-            <Text style={[styles.aliasHint, { color: th.textSubtle }]}>{t("chat.contact_alias_hint")}</Text>
-            <View style={styles.aliasActions}>
-              <Pressable onPress={() => setAliasEditing(null)} style={styles.aliasBtn}>
-                <Text style={{ color: th.textMuted, fontFamily: fonts.bodyMedium }}>{t("common.cancel")}</Text>
-              </Pressable>
-              <Pressable onPress={() => void onSaveAlias()} disabled={savingAlias} style={styles.aliasBtn}>
-                {savingAlias ? (
-                  <ActivityIndicator size="small" color={th.primary} />
-                ) : (
-                  <Text style={{ color: th.primary, fontFamily: fonts.bodySemibold }}>{t("common.save")}</Text>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       <ResultModal
         visible={!!error}
@@ -320,7 +193,6 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 14, padding: 0 },
   hint: { fontSize: 12, textAlign: "center", marginTop: 8, paddingHorizontal: 24 },
   list: { paddingHorizontal: 12, paddingBottom: 24 },
-  sectionLabel: { fontSize: 12, fontFamily: fonts.bodyMedium, marginBottom: 8, marginLeft: 2, textTransform: "uppercase" },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -333,12 +205,4 @@ const styles = StyleSheet.create({
   rowName: { fontSize: 14, fontFamily: fonts.bodySemibold },
   rowEmail: { fontSize: 12 },
   rowAction: { padding: 4 },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.4)" },
-  aliasWrap: { flex: 1, justifyContent: "center", padding: 24 },
-  aliasCard: { borderRadius: 14, borderWidth: 1, padding: 16, gap: 10 },
-  aliasTitle: { fontSize: 15, fontFamily: fonts.bodySemibold },
-  aliasInput: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, fontSize: 14 },
-  aliasHint: { fontSize: 11 },
-  aliasActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8 },
-  aliasBtn: { paddingHorizontal: 12, paddingVertical: 8 },
 });

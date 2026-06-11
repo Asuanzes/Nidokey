@@ -625,6 +625,8 @@
     "mute_forever": "Always",
     "mute_off": "Unmute notifications",
     "contacts_title": "Your contacts",
+    "contacts_empty_title": "No saved contacts",
+    "contacts_empty_desc": "Search for someone in New chat and save them with the add-contact icon.",
     "contact_alias_edit": "Edit alias",
     "contact_alias_title": "Contact alias",
     "contact_alias_hint": "Only you can see this name. Leave it empty to use their real name.",
