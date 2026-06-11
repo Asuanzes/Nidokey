@@ -10,7 +10,7 @@ import { useQuery } from "@/lib/hooks/useQuery";
 import { listConversations, type ConversationDto } from "@/lib/chat/api";
 import { categoryColor } from "@/lib/records/config";
 import type { RecordType } from "@nidokey/shared";
-import { Button, EmptyState } from "@/components/ui";
+import { EmptyState } from "@/components/ui";
 
 /**
  * Lista de conversaciones (categoría Chat del rail). Polling suave de 20 s +
@@ -75,7 +75,14 @@ export function ConversationList() {
         >
           <Ionicons name="people-outline" size={20} color={th.primary} />
         </Pressable>
-        <Button label={t("chat.new_chat")} icon="create-outline" onPress={() => router.push("/chat/new" as never)} />
+        <Pressable
+          onPress={() => router.push("/chat/new" as never)}
+          accessibilityRole="button"
+          accessibilityLabel={t("chat.new_chat")}
+          style={({ pressed }) => [styles.newChatBtn, { backgroundColor: th.primary }, pressed && { opacity: 0.8 }]}
+        >
+          <Ionicons name="create-outline" size={22} color="#fff" />
+        </Pressable>
       </View>
     </View>
   );
@@ -175,6 +182,13 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  newChatBtn: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     alignItems: "center",
     justifyContent: "center",
   },
