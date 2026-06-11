@@ -66,6 +66,23 @@ export async function presignGet(key: string): Promise<string> {
   });
 }
 
+// Caché de URLs firmadas por KEY a nivel de módulo: la firma dura 7 días, así
+// que reutilizarla 6 días es seguro y evita recomputar SigV4 en cada poll de
+// mensajes (el cliente además fija la primera URL que ve por attachment.id).
+// Sobrevive entre invocaciones warm de la lambda; en cold start se rehace.
+const SIGN_CACHE_TTL_MS = 6 * 24 * 3600 * 1000;
+const SIGN_CACHE_MAX = 2000;
+const signCache = new Map<string, { url: string; expiresAt: number }>();
+
+async function presignGetCached(key: string): Promise<string> {
+  const hit = signCache.get(key);
+  if (hit && hit.expiresAt > Date.now()) return hit.url;
+  const url = await presignGet(key);
+  if (signCache.size >= SIGN_CACHE_MAX) signCache.clear();
+  signCache.set(key, { url, expiresAt: Date.now() + SIGN_CACHE_TTL_MS });
+  return url;
+}
+
 /**
  * Convierte lo guardado en ChatAttachment.url a URL servible: las keys de R2
  * se firman; URLs http(s) completas (legacy/externas) pasan tal cual. Si R2 no
@@ -75,7 +92,7 @@ export async function signAttachmentUrl(stored: string): Promise<string> {
   if (/^https?:\/\//i.test(stored)) return stored;
   if (!r2Enabled()) return stored;
   try {
-    return await presignGet(stored);
+    return await presignGetCached(stored);
   } catch {
     return stored;
   }

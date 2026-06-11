@@ -26,6 +26,7 @@ function gatewayEnabled(): boolean {
 
 export async function notifyMessage(message: ChatMessage): Promise<void> {
   if (!gatewayEnabled() || !message.senderId) return;
+  const start = Date.now();
   try {
     const participants = await prisma.conversationParticipant.findMany({
       where: { conversationId: message.conversationId, leftAt: null, userId: { not: message.senderId } },
@@ -41,13 +42,20 @@ export async function notifyMessage(message: ChatMessage): Promise<void> {
     });
     const signature = "sha256=" + createHmac("sha256", secret()).update(body).digest("hex");
 
-    await fetch(`${url()}/notify`, {
+    const res = await fetch(`${url()}/notify`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-nidokey-signature": signature },
       body,
       signal: AbortSignal.timeout(2000),
     });
-  } catch {
-    // Tiempo real best-effort: nunca rompe el envío del mensaje.
+    if (!res.ok) {
+      console.error(`[chat-gw] notify ${res.status} en ${Date.now() - start}ms (conv ${message.conversationId})`);
+    }
+  } catch (e) {
+    // Tiempo real best-effort: nunca rompe el envío del mensaje, pero queda
+    // rastro en los logs de Vercel (gateway caído / timeout / DNS).
+    console.error(
+      `[chat-gw] notify error en ${Date.now() - start}ms: ${e instanceof Error ? e.message : String(e)}`
+    );
   }
 }

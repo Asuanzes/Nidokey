@@ -79,6 +79,7 @@ export async function sendChatPush(message: ChatMessage): Promise<void> {
 /** Envía en lotes de 100 y limpia tokens muertos (DeviceNotRegistered). */
 async function deliver(messages: ExpoMessage[]): Promise<void> {
   const dead: string[] = [];
+  let errors = 0;
   for (let i = 0; i < messages.length; i += 100) {
     const chunk = messages.slice(i, i + 100);
     try {
@@ -94,13 +95,19 @@ async function deliver(messages: ExpoMessage[]): Promise<void> {
       const json = (await res.json().catch(() => null)) as { data?: { status: string; details?: { error?: string } }[] } | null;
       const tickets = json?.data ?? [];
       tickets.forEach((t, idx) => {
-        if (t.status === "error" && t.details?.error === "DeviceNotRegistered") {
-          dead.push(chunk[idx].to);
+        if (t.status === "error") {
+          if (t.details?.error === "DeviceNotRegistered") dead.push(chunk[idx].to);
+          else errors++;
         }
       });
-    } catch {
-      // Push best-effort: nunca rompe el envío del mensaje.
+    } catch (e) {
+      // Push best-effort: nunca rompe el envío del mensaje, pero deja rastro.
+      errors += chunk.length;
+      console.error(`[chat-push] lote falló: ${e instanceof Error ? e.message : String(e)}`);
     }
+  }
+  if (errors || dead.length) {
+    console.log(`[chat-push] enviados=${messages.length - errors - dead.length} errores=${errors} muertos=${dead.length}`);
   }
   if (dead.length) {
     await prisma.device.deleteMany({ where: { expoPushToken: { in: dead } } }).catch(() => {});

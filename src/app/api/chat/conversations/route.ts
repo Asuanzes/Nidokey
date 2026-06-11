@@ -6,6 +6,7 @@ import { CHAT_FLAGS, CHAT_LIMITS } from "@/lib/chat/config";
 import { anyBlockBetween } from "@/lib/chat/guard";
 import { directKey } from "@/lib/chat/util";
 import { conversationDto } from "@/lib/chat/serialize";
+import { unreadByConversation } from "@/lib/chat/unread";
 
 const PARTICIPANT_INCLUDE = {
   participants: { include: { user: { select: { id: true, name: true, username: true, email: true, image: true } } } },
@@ -26,20 +27,13 @@ export async function GET() {
     take: 100,
   });
 
-  const dtos = await Promise.all(
-    conversations.map(async (c) => {
-      const me = c.participants.find((p) => p.userId === userId);
-      const unreadCount = await prisma.chatMessage.count({
-        where: {
-          conversationId: c.id,
-          deletedAt: null,
-          senderId: { not: userId },
-          ...(me?.lastReadAt ? { createdAt: { gt: me.lastReadAt } } : {}),
-        },
-      });
-      return conversationDto(c, userId, { unreadCount });
-    })
+  // No-leídos en UNA query agregada (antes: un count por conversación = N+1
+  // contra Neon en cada poll de la lista).
+  const unread = await unreadByConversation(
+    userId,
+    conversations.map((c) => c.id)
   );
+  const dtos = conversations.map((c) => conversationDto(c, userId, { unreadCount: unread.get(c.id) ?? 0 }));
 
   // Ancladas primero (orden estable dentro de cada grupo).
   dtos.sort((a, b) => {

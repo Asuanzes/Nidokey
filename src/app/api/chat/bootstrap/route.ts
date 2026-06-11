@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth-helpers";
 import { CHAT_FLAGS, CHAT_LIMITS } from "@/lib/chat/config";
+import { unreadByConversation } from "@/lib/chat/unread";
 
 /**
  * GET /api/chat/bootstrap — flags + límites + total de no-leídos (badge).
@@ -10,27 +11,19 @@ import { CHAT_FLAGS, CHAT_LIMITS } from "@/lib/chat/config";
 export async function GET() {
   const userId = await requireUserId();
 
-  // Total de no-leídos: mensajes posteriores a mi lastReadAt en mis
-  // conversaciones activas, excluyendo los míos.
+  // Total de no-leídos: una query de membresías + una agregada (antes: un
+  // count por conversación = N+1).
   const memberships = await prisma.conversationParticipant.findMany({
     where: { userId, leftAt: null },
-    select: { conversationId: true, lastReadAt: true },
+    select: { conversationId: true },
   });
   let unreadTotal = 0;
   if (memberships.length) {
-    const counts = await Promise.all(
-      memberships.map((m) =>
-        prisma.chatMessage.count({
-          where: {
-            conversationId: m.conversationId,
-            deletedAt: null,
-            senderId: { not: userId },
-            ...(m.lastReadAt ? { createdAt: { gt: m.lastReadAt } } : {}),
-          },
-        })
-      )
+    const unread = await unreadByConversation(
+      userId,
+      memberships.map((m) => m.conversationId)
     );
-    unreadTotal = counts.reduce((a, b) => a + b, 0);
+    for (const n of unread.values()) unreadTotal += n;
   }
 
   return NextResponse.json({

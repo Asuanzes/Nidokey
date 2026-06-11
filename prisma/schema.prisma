@@ -727,6 +727,8 @@ model ChatMessage {
   @@unique([conversationId, senderId, clientId])
   @@index([conversationId, createdAt])
   @@index([conversationId, id])
+  // Rate-limit de envío (count por senderId en ventana de 60 s, ver guard.ts).
+  @@index([senderId, createdAt])
 }
 
 // Reacción a un mensaje (long-press → emoji). Modelo WhatsApp: UNA reacción
