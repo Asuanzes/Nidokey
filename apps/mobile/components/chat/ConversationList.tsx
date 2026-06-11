@@ -11,10 +11,7 @@ import { useQuery } from "@/lib/hooks/useQuery";
 import { listConversations, type ConversationDto } from "@/lib/chat/api";
 import { chatSocket } from "@/lib/chat/socket";
 import { useSocketOpen } from "@/lib/chat/use-socket-open";
-
-// Fondo fijo de la landing del chat (optimizado a 1080px/75KB con sharp).
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const CHATS_HOME_BG = require("../../assets/images/chat-bg/chats-home.jpg");
+import { homeBackground } from "@/lib/chat/home-bg";
 import { categoryColor } from "@/lib/records/config";
 import type { RecordType } from "@nidokey/shared";
 import { EmptyState } from "@/components/ui";
@@ -119,7 +116,7 @@ export function ConversationList() {
   // FABs quedan por encima, legibles en claro y oscuro.
   return (
     <View style={styles.fill}>
-      <Image source={CHATS_HOME_BG} style={StyleSheet.absoluteFill} contentFit="cover" />
+      <Image source={homeBackground(dark)} style={StyleSheet.absoluteFill} contentFit="cover" />
       <View
         style={[
           StyleSheet.absoluteFill,
