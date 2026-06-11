@@ -9,6 +9,7 @@ import { useTheme, type ThemeMode } from "@/lib/theme";
 import { Button, Chip, Screen, Section } from "@/components/ui";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { UsernameEditor } from "@/components/chat/UsernameEditor";
+import { AccountAvatar } from "@/components/chat/AccountAvatar";
 
 const THEME_MODES: {
   value: ThemeMode;
@@ -33,17 +34,7 @@ export default function AccountScreen() {
         showsVerticalScrollIndicator={false}
       >
       <Section>
-        <View style={styles.profile}>
-          <View style={[styles.avatar, { backgroundColor: th.primarySoft }]}>
-            <Text style={[styles.avatarText, { color: th.primary }]}>
-              {state.user.email.slice(0, 2).toUpperCase()}
-            </Text>
-          </View>
-          <Text style={[styles.email, { color: th.text }]}>{state.user.email}</Text>
-          {state.user.name && (
-            <Text style={[styles.name, { color: th.textMuted }]}>{state.user.name}</Text>
-          )}
-        </View>
+        <AccountAvatar email={state.user.email} name={state.user.name} />
       </Section>
 
       <Section label={t("account.username_section")}>
@@ -103,17 +94,6 @@ export default function AccountScreen() {
 
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 12, flexGrow: 1 },
-  profile: { alignItems: "center", gap: 8 },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: { fontSize: 18, fontFamily: fonts.bodySemibold },
-  email: { fontSize: 15, fontFamily: fonts.bodyMedium },
-  name: { fontSize: 13 },
   toggleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   toggleLabel: { flex: 1, fontSize: 15 },
   modeRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },

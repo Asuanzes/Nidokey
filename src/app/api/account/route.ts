@@ -3,7 +3,13 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth-helpers";
+import { avatarUrl } from "@/lib/chat/serialize";
 import { normalizeUsername, usernameError } from "@nidokey/shared";
+
+/** En BBDD `image` es una key de R2; hacia el cliente siempre va como URL. */
+function profileDto(user: { id: string; email: string; name: string | null; username: string | null; image: string | null }) {
+  return { ...user, image: avatarUrl(user) };
+}
 
 /** GET /api/account — mi perfil (incluye username y email). */
 export async function GET() {
@@ -13,12 +19,14 @@ export async function GET() {
     select: { id: true, email: true, name: true, username: true, image: true },
   });
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(user);
+  return NextResponse.json(profileDto(user));
 }
 
 const PatchInput = z.object({
   name: z.string().trim().min(1).max(60).optional().nullable(),
   username: z.string().optional().nullable(),
+  /** Key de R2 devuelta por POST /api/account/avatar; null = quitar foto. */
+  image: z.string().max(300).optional().nullable(),
 });
 
 /**
@@ -30,8 +38,18 @@ export async function PATCH(req: NextRequest) {
   const parsed = PatchInput.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const data: { name?: string | null; username?: string | null } = {};
+  const data: { name?: string | null; username?: string | null; image?: string | null } = {};
   if (parsed.data.name !== undefined) data.name = parsed.data.name;
+
+  if (parsed.data.image !== undefined) {
+    if (parsed.data.image === null || parsed.data.image === "") {
+      data.image = null; // quitar foto (vuelve a iniciales)
+    } else if (parsed.data.image.startsWith(`avatars/${userId}/`)) {
+      data.image = parsed.data.image; // solo keys PROPIAS (presignadas por /avatar)
+    } else {
+      return NextResponse.json({ error: "Imagen no válida" }, { status: 400 });
+    }
+  }
 
   if (parsed.data.username !== undefined) {
     if (parsed.data.username === null || parsed.data.username === "") {
@@ -49,7 +67,7 @@ export async function PATCH(req: NextRequest) {
       data,
       select: { id: true, email: true, name: true, username: true, image: true },
     });
-    return NextResponse.json(user);
+    return NextResponse.json(profileDto(user));
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
       return NextResponse.json({ error: "username_taken" }, { status: 409 });

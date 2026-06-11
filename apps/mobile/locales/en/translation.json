@@ -44,7 +44,10 @@
     "username_invalid": "Invalid handle",
     "username_saved": "Saved ✓",
     "privacy": "Privacy",
-    "blocked_users": "Blocked users"
+    "blocked_users": "Blocked users",
+    "avatar_title": "Profile photo",
+    "avatar_remove": "Remove photo",
+    "avatar_error": "The photo could not be updated"
   },
   "settings": {
     "language": {

@@ -21,6 +21,7 @@ const PUBLIC_PATHS = [
   /^\/api\/listings\/import$/,        // validada por token Bearer
   /^\/api\/records\/import$/,         // ingesta unificada; validada por requireUserId() en el handler
   /^\/api\/cron(\/.*)?$/,             // validada por CRON_SECRET en el handler
+  /^\/api\/avatar\/[^/]+$/,           // foto de perfil: 302 a URL firmada (expo-image no manda Bearer)
   /^\/_next(\/.*)?$/,
   /^\/favicon\./,
   /^\/icon\./,

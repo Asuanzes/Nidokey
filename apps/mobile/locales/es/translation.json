@@ -44,7 +44,10 @@
     "username_invalid": "Alias no válido",
     "username_saved": "Guardado ✓",
     "privacy": "Privacidad",
-    "blocked_users": "Usuarios bloqueados"
+    "blocked_users": "Usuarios bloqueados",
+    "avatar_title": "Foto de perfil",
+    "avatar_remove": "Quitar foto",
+    "avatar_error": "No se pudo actualizar la foto"
   },
   "settings": {
     "language": {

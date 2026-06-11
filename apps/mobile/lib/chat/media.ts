@@ -86,6 +86,31 @@ export async function takePhoto(): Promise<PickedAttachment | null> {
   };
 }
 
+/** Galería con recorte CUADRADO (foto de perfil). null si cancela. */
+export async function pickAvatarImage(): Promise<PickedAttachment | null> {
+  if (!ImagePicker) return null;
+  const res = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ["images"],
+    allowsEditing: true,
+    aspect: [1, 1],
+    quality: 0.8,
+  });
+  if (res.canceled || !res.assets[0]) return null;
+  const a = res.assets[0];
+  return { uri: a.uri, mime: a.mimeType ?? "image/jpeg", fileName: a.fileName ?? null };
+}
+
+/** Cámara con recorte CUADRADO (foto de perfil). null si cancela o sin permiso. */
+export async function takeAvatarPhoto(): Promise<PickedAttachment | null> {
+  if (!ImagePicker) return null;
+  const perm = await ImagePicker.requestCameraPermissionsAsync();
+  if (!perm.granted) return null;
+  const res = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8 });
+  if (res.canceled || !res.assets[0]) return null;
+  const a = res.assets[0];
+  return { uri: a.uri, mime: a.mimeType ?? "image/jpeg", fileName: a.fileName ?? null };
+}
+
 /** Selector de documentos. null si cancela. */
 export async function pickDocument(): Promise<PickedAttachment | null> {
   if (!DocumentPicker) return null;

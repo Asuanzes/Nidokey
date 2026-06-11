@@ -17,8 +17,22 @@ export type ChatUserDto = {
   image: string | null;
 };
 
+/**
+ * `User.image` guarda una KEY de R2 (`avatars/<userId>/…`) o, legado, una URL
+ * http(s). Hacia el cliente siempre sale una URL: las keys se sirven vía el
+ * endpoint público cacheable GET /api/avatar/[userId] (302 a URL firmada);
+ * `?v=` = nombre del fichero (cambia al actualizar → rompe caché de expo-image).
+ */
+export function avatarUrl(u: Pick<User, "id" | "image">): string | null {
+  if (!u.image) return null;
+  if (/^https?:\/\//i.test(u.image)) return u.image;
+  const base = (process.env.NEXTAUTH_URL ?? "").replace(/\/+$/, "");
+  const v = u.image.split("/").pop() ?? "";
+  return `${base}/api/avatar/${u.id}?v=${encodeURIComponent(v)}`;
+}
+
 export function userDto(u: Pick<User, "id" | "name" | "username" | "email" | "image">): ChatUserDto {
-  return { id: u.id, name: u.name, username: u.username, email: u.email, image: u.image };
+  return { id: u.id, name: u.name, username: u.username, email: u.email, image: avatarUrl(u) };
 }
 
 /** Nombre a mostrar: name, si no @username, si no la parte local del email. */
@@ -45,7 +59,7 @@ export function conversationDto(
   const others = c.participants.filter((p) => p.userId !== meId && !p.leftAt);
   // DIRECT: el título es el otro participante.
   const title = c.kind === "DIRECT" ? (others[0] ? displayName(others[0].user) : "—") : c.title ?? "—";
-  const imageUrl = c.kind === "DIRECT" ? others[0]?.user.image ?? null : c.imageUrl;
+  const imageUrl = c.kind === "DIRECT" ? (others[0] ? avatarUrl(others[0].user) : null) : c.imageUrl;
   return {
     id: c.id,
     kind: c.kind,
