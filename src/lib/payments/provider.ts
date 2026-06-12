@@ -26,6 +26,18 @@ export function signPaymentWebhook(raw: string): string {
   return "sha256=" + createHmac("sha256", secret()).update(raw).digest("hex");
 }
 
+export function signFakePaymentToken(intentId: string): string {
+  return createHmac("sha256", secret()).update(`fake-payment:${intentId}`).digest("hex");
+}
+
+export function verifyFakePaymentToken(intentId: string, token: string): boolean {
+  if (!secret() || !intentId || !token) return false;
+  const expected = signFakePaymentToken(intentId);
+  const a = Buffer.from(token);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 function verifySignature(header: string | null, raw: string): boolean {
   if (!secret() || !header) return false;
   const expected = signPaymentWebhook(raw);
@@ -49,6 +61,7 @@ export const fakePaymentProvider: PaymentProvider = {
       amount: String(amountCents),
       currency,
       returnUrl,
+      t: signFakePaymentToken(intentId),
     });
     return {
       intentId,

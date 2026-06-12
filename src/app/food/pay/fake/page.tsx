@@ -8,7 +8,7 @@ export default async function FakePayPage({
   const orderId = String(sp.orderId ?? "");
   const amount = Number(sp.amount ?? 0);
   const currency = String(sp.currency ?? "EUR");
-  const returnUrl = String(sp.returnUrl ?? "");
+  const token = String(sp.t ?? "");
 
   return (
     <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#FAFAF7", color: "#262320", fontFamily: "system-ui, sans-serif", padding: 24 }}>
@@ -19,8 +19,7 @@ export default async function FakePayPage({
         </p>
         <form method="post" action={`/api/payments/fake/${encodeURIComponent(intentId)}`} style={{ display: "grid", gap: 12 }}>
           <input type="hidden" name="orderId" value={orderId} />
-          <input type="hidden" name="amountCents" value={amount} />
-          <input type="hidden" name="returnUrl" value={returnUrl} />
+          <input type="hidden" name="t" value={token} />
           <button name="result" value="ok" style={{ height: 48, border: 0, borderRadius: 10, background: "#3A5F8A", color: "#fff", fontWeight: 700 }}>
             Simular pago OK
           </button>

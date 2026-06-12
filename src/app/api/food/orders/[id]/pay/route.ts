@@ -4,9 +4,8 @@ import { requireUserId } from "@/lib/auth-helpers";
 import { createFoodOrderEvent } from "@/lib/food/state";
 import { paymentProvider } from "@/lib/payments/provider";
 
-function appUrl(req: Request): string {
-  const origin = req.headers.get("origin");
-  return (origin || process.env.NEXTAUTH_URL || "https://nidokey.es").replace(/\/+$/, "");
+function appUrl(): string {
+  return (process.env.NEXTAUTH_URL || "https://nidokey.es").replace(/\/+$/, "");
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -25,7 +24,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
   const provider = paymentProvider("fake");
   if (!provider) return NextResponse.json({ error: "Proveedor no disponible" }, { status: 500 });
-  const returnUrl = `${appUrl(req)}/food/pay/return?orderId=${encodeURIComponent(order.id)}`;
+  const returnUrl = `${appUrl()}/food/pay/return?orderId=${encodeURIComponent(order.id)}`;
   const intent = await provider.createIntent({
     amountCents: order.totalCents,
     currency: order.currency,
