@@ -28,12 +28,48 @@ type Restaurant = {
   deliveryFeeCents: number;
   minOrderCents: number;
   distanceM: number;
+  types?: string[];
 };
 
 type FoodOrder = { id: string; code: string; status: string; restaurant?: { name: string } | null };
 
 function money(cents: number) {
   return (cents / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" });
+}
+
+const FALLBACK_CHIPS = ["Pizza", "Sushi", "Burger", "Cafe"];
+const TYPE_LABELS: Record<string, string> = {
+  bakery: "Panaderia",
+  bar: "Bar",
+  breakfast_restaurant: "Desayunos",
+  brunch_restaurant: "Brunch",
+  cafe: "Cafe",
+  coffee_shop: "Cafe",
+  fast_food_restaurant: "Fast food",
+  hamburger_restaurant: "Burger",
+  ice_cream_shop: "Helados",
+  italian_restaurant: "Italiana",
+  japanese_restaurant: "Japonesa",
+  meal_delivery: "Delivery",
+  meal_takeaway: "Para llevar",
+  mexican_restaurant: "Mexicana",
+  pizza_restaurant: "Pizza",
+  seafood_restaurant: "Marisco",
+  spanish_restaurant: "Espanola",
+  steak_house: "Carne",
+  sushi_restaurant: "Sushi",
+};
+const IGNORED_TYPES = new Set(["establishment", "food", "point_of_interest", "restaurant"]);
+
+function chipFromType(type: string): string | null {
+  if (IGNORED_TYPES.has(type)) return null;
+  if (TYPE_LABELS[type]) return TYPE_LABELS[type];
+  const label = type
+    .replace(/_restaurant$/, "")
+    .replace(/_/g, " ")
+    .trim();
+  if (!label) return null;
+  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 export function FoodHome() {
@@ -71,6 +107,21 @@ export function FoodHome() {
     [],
     { refreshInterval: 60_000 }
   );
+
+  const cuisineChips = useMemo(() => {
+    const seen = new Set<string>();
+    const chips: string[] = [];
+    for (const restaurant of restaurantsQ.data?.restaurants ?? []) {
+      for (const type of restaurant.types ?? []) {
+        const chip = chipFromType(type);
+        if (!chip || seen.has(chip)) continue;
+        seen.add(chip);
+        chips.push(chip);
+        if (chips.length >= 6) return chips;
+      }
+    }
+    return chips.length ? chips : FALLBACK_CHIPS;
+  }, [restaurantsQ.data]);
 
   if (addressesQ.loading && !addressesQ.data) {
     return (
@@ -130,7 +181,7 @@ export function FoodHome() {
         />
 
         <View style={styles.chips}>
-          {["Pizza", "Sushi", "Burger", "Asturiana"].map((chip) => (
+          {cuisineChips.map((chip) => (
             <Pressable key={chip} onPress={() => setQuery(chip)} style={[styles.chip, { backgroundColor: th.accentSoft }]}>
               <Text style={[styles.chipText, { color: th.accent }]}>{chip}</Text>
             </Pressable>

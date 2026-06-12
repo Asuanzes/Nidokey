@@ -675,6 +675,8 @@ enum FoodOrderActor {
 
 model Restaurant {
   id               String   @id @default(cuid())
+  googlePlaceId    String?  @unique
+  source           String?
   name             String
   slug             String   @unique
   description      String?  @db.Text
@@ -691,6 +693,9 @@ model Restaurant {
   deliveryFeeCents Int      @default(0)
   deliveryRadiusM  Int      @default(5000)
   currency         String   @default("EUR")
+  rating           Float?
+  userRatingCount  Int?
+  menuFetchedAt    DateTime?
   active           Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
