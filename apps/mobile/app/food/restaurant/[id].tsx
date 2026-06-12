@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLocalSearchParams, router } from "expo-router";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
@@ -11,6 +12,8 @@ import { Button, Card, Screen } from "@/components/ui";
 type MenuItem = { id: string; name: string; description: string | null; imageUrl: string | null; priceCents: number; available: boolean };
 type MenuCategory = { id: string; name: string; items: MenuItem[] };
 type Restaurant = { id: string; name: string; description: string | null; imageUrl: string | null; isOpen: boolean; categories: MenuCategory[] };
+type MenuStatus = "ready" | "fetching" | "unavailable" | "empty";
+type Resp = { restaurant: Restaurant; menuStatus: MenuStatus };
 
 function money(cents: number) {
   return (cents / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" });
@@ -20,7 +23,18 @@ export default function RestaurantScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { th } = useTheme();
   const cart = useFoodCart();
-  const q = useQuery(() => api<{ restaurant: Restaurant }>(`/api/food/restaurants/${id}`), [id], { resetOnDepsChange: true });
+  const q = useQuery(() => api<Resp>(`/api/food/restaurants/${id}`), [id], { resetOnDepsChange: true });
+
+  // Mientras el menú se scrapea en el servidor (background), reconsultamos cada 3.5s
+  // hasta que el estado deje de ser "fetching". `q.data` cambia de identidad en cada
+  // refetch, así que el efecto se re-arma solo y se detiene al llegar a "ready".
+  useEffect(() => {
+    if (q.data?.menuStatus !== "fetching") return;
+    const t = setTimeout(() => {
+      void q.refetch();
+    }, 3500);
+    return () => clearTimeout(t);
+  }, [q.data, q.refetch]);
 
   if (q.loading && !q.data) {
     return (
@@ -30,7 +44,10 @@ export default function RestaurantScreen() {
     );
   }
   const restaurant = q.data?.restaurant;
+  const menuStatus = q.data?.menuStatus;
   if (!restaurant) return <Screen title="Restaurante"><Text style={{ color: th.text }}>No encontrado</Text></Screen>;
+
+  const itemCount = restaurant.categories.reduce((n, c) => n + c.items.length, 0);
 
   function add(item: MenuItem) {
     if (cart.restaurantId && cart.restaurantId !== restaurant!.id) cart.clear();
@@ -58,6 +75,18 @@ export default function RestaurantScreen() {
             ))}
           </View>
         ))}
+        {itemCount === 0 && (
+          <View style={styles.menuState}>
+            {menuStatus === "fetching" ? (
+              <>
+                <ActivityIndicator color={th.primary} />
+                <Text style={[styles.menuStateText, { color: th.textMuted }]}>Preparando carta…</Text>
+              </>
+            ) : (
+              <Text style={[styles.menuStateText, { color: th.textMuted }]}>Menú no disponible aún</Text>
+            )}
+          </View>
+        )}
       </ScrollView>
       {cart.restaurantId === restaurant.id && cart.count > 0 && (
         <View style={[styles.bar, { backgroundColor: th.surface, borderTopColor: th.border }]}>
@@ -81,5 +110,7 @@ const styles = StyleSheet.create({
   price: { fontSize: 14, fontFamily: fonts.bodyBold },
   add: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   addText: { color: "#fff", fontSize: 24, lineHeight: 26 },
+  menuState: { alignItems: "center", justifyContent: "center", paddingVertical: 40, gap: 12 },
+  menuStateText: { fontSize: 14 },
   bar: { position: "absolute", left: 0, right: 0, bottom: 0, padding: 12, borderTopWidth: StyleSheet.hairlineWidth },
 });
