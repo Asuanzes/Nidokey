@@ -47,6 +47,7 @@ export type RecordTypeConfig = {
 // eliminaron al extraer i18n.
 export const RECORD_TYPE_CONFIG: Record<RecordType, RecordTypeConfig> = {
   property: { color: "#3A5F8A", colorDark: "#6E93C0", icon: "home-outline",        enabled: true,  addMode: "url" },
+  food:     { color: "#B85C38", colorDark: "#D98260", icon: "restaurant-outline",  enabled: true,  addMode: "soon" },
   holiday:  { color: "#2C7A8A", colorDark: "#5FAEBE", icon: "airplane-outline",    enabled: true,  addMode: "wizard" },
   crypto:   { color: "#B5893B", colorDark: "#D4A95A", icon: "logo-bitcoin",        enabled: true,  addMode: "symbol" },
   market:   { color: "#2D6A4F", colorDark: "#5FA383", icon: "trending-up-outline", enabled: true,  addMode: "search" },

@@ -20,7 +20,11 @@ const PUBLIC_PATHS = [
   /^\/api\/auth(\/.*)?$/,
   /^\/api\/listings\/import$/,        // validada por token Bearer
   /^\/api\/records\/import$/,         // ingesta unificada; validada por requireUserId() en el handler
+  /^\/api\/payments\/webhook\/[^/]+$/, // webhooks de pago: la firma del proveedor es la auth real
+  /^\/api\/payments\/fake\/[^/]+$/,    // pasarela fake: firma server-side y reentra por webhook
   /^\/api\/cron(\/.*)?$/,             // validada por CRON_SECRET en el handler
+  /^\/food\/pay\/return$/,             // puente HTTPS -> deep link móvil
+  /^\/food\/pay\/fake$/,               // checkout fake hospedado
   /^\/api\/avatar\/[^/]+$/,           // foto de perfil: 302 a URL firmada (expo-image no manda Bearer)
   /^\/_next(\/.*)?$/,
   /^\/favicon\./,

@@ -481,7 +481,7 @@ export default function ImportarScreen() {
         contentContainerStyle={styles.typeRow}
       >
         {orderedVisible
-          .filter((tp) => tp !== "chat") // "Chat" no es un tipo de registro que se añada aquí.
+          .filter((tp) => tp !== "chat" && tp !== "food") // Categorías no-CRUD: no se añaden desde Importar.
           .map((tp) => {
           const active = type === tp;
           return (

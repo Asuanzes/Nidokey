@@ -23,6 +23,7 @@ import { PendingImportProvider, usePendingImport } from "@/lib/pending-import";
 import { BrandLoading } from "@/components/BrandLoading";
 import { BootProvider, useBoot } from "@/lib/boot-context";
 import { CategoryPrefsProvider } from "@/lib/records/category-prefs-context";
+import { FoodCartProvider } from "@/lib/food-cart-context";
 import { useChatNotificationTap } from "@/lib/chat/push";
 import "@/lib/i18n"; // inicializa i18next (debe importarse antes de usar t())
 import { useTranslation } from "react-i18next";
@@ -101,7 +102,9 @@ export default function RootLayout() {
             <PendingImportProvider>
               <BootProvider>
                 <CategoryPrefsProvider>
-                  <AuthGate />
+                  <FoodCartProvider>
+                    <AuthGate />
+                  </FoodCartProvider>
                 </CategoryPrefsProvider>
               </BootProvider>
               <StatusBar style="auto" />
@@ -390,6 +393,29 @@ function AuthGate() {
               title: t("types.holiday.singular"),
             }}
           />
+          {[
+            ["food/address", "Dirección"],
+            ["food/restaurant/[id]", "Restaurante"],
+            ["food/cart", "Carrito"],
+            ["food/checkout", "Checkout"],
+            ["food/order/[id]", "Pedido"],
+            ["food/orders", "Mis pedidos"],
+            ["food/restaurant-panel/index", "Restaurante"],
+            ["food/courier/index", "Repartidor"],
+          ].map(([name, title]) => (
+            <Stack.Screen
+              key={name}
+              name={name}
+              options={{
+                headerShown: true,
+                headerBackTitle: t("common.back"),
+                headerTintColor: th.primary,
+                headerStyle: { backgroundColor: th.surface },
+                headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
+                title,
+              }}
+            />
+          ))}
       </Stack>
       {showLoader ? (
         <View style={StyleSheet.absoluteFill}>

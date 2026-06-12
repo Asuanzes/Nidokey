@@ -1,0 +1,191 @@
+import { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import { router } from "expo-router";
+import { api } from "@/lib/api";
+import { useQuery } from "@/lib/hooks/useQuery";
+import { useTheme } from "@/lib/theme";
+import { fonts } from "@/lib/fonts";
+import { Button, Card, EmptyState } from "@/components/ui";
+
+type FoodAddress = {
+  id: string;
+  label: string;
+  line: string;
+  city: string;
+  latitude: number;
+  longitude: number;
+  isDefault: boolean;
+};
+
+type Restaurant = {
+  id: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+  isOpen: boolean;
+  deliveryFeeCents: number;
+  minOrderCents: number;
+  distanceM: number;
+};
+
+type FoodOrder = { id: string; code: string; status: string; restaurant?: { name: string } | null };
+
+function money(cents: number) {
+  return (cents / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" });
+}
+
+export function FoodHome() {
+  const { th } = useTheme();
+  const [query, setQuery] = useState("");
+  const [debounced, setDebounced] = useState("");
+  const addressesQ = useQuery(() => api<{ addresses: FoodAddress[] }>("/api/food/addresses"), [], { resetOnDepsChange: true });
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = useMemo(() => {
+    const addresses = addressesQ.data?.addresses ?? [];
+    return addresses.find((a) => a.id === selectedId) ?? addresses.find((a) => a.isDefault) ?? addresses[0] ?? null;
+  }, [addressesQ.data, selectedId]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(query), 250);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const restaurantsQ = useQuery(
+    () => {
+      if (!selected) return Promise.resolve({ restaurants: [] as Restaurant[] });
+      const qs = new URLSearchParams({
+        lat: String(selected.latitude),
+        lng: String(selected.longitude),
+        ...(debounced.trim() ? { q: debounced.trim() } : {}),
+      });
+      return api<{ restaurants: Restaurant[] }>(`/api/food/restaurants?${qs.toString()}`);
+    },
+    [selected?.id, debounced],
+    { enabled: !!selected, resetOnDepsChange: true }
+  );
+
+  const activeQ = useQuery(
+    () => api<{ orders: FoodOrder[] }>("/api/food/orders?role=customer&active=1"),
+    [],
+    { refreshInterval: 60_000 }
+  );
+
+  if (addressesQ.loading && !addressesQ.data) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator color={th.primary} />
+      </View>
+    );
+  }
+
+  if (!selected) {
+    return (
+      <EmptyState
+        icon="location-outline"
+        title="Añade una dirección"
+        description="La comida necesita una dirección de entrega para mostrar restaurantes cercanos."
+        actionLabel="Añadir dirección"
+        onAction={() => router.push("/food/address")}
+      />
+    );
+  }
+
+  const activeOrder = activeQ.data?.orders?.[0] ?? null;
+
+  return (
+    <View style={styles.root}>
+      <View style={[styles.header, { borderBottomColor: th.border }]}>
+        <Pressable style={styles.address} onPress={() => router.push("/food/address")}>
+          <Ionicons name="location-outline" size={18} color={th.accent} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.addressLabel, { color: th.text }]} numberOfLines={1}>
+              Entregar en: {selected.label}
+            </Text>
+            <Text style={[styles.addressLine, { color: th.textSubtle }]} numberOfLines={1}>
+              {selected.line}
+            </Text>
+          </View>
+        </Pressable>
+        <Button label="Mis pedidos" size="sm" variant="ghost" fullWidth={false} onPress={() => router.push("/food/orders")} />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {activeOrder && (
+          <Pressable onPress={() => router.push(`/food/order/${activeOrder.id}`)}>
+            <Card style={[styles.activeOrder, { borderColor: th.accent }]}>
+              <Text style={[styles.activeTitle, { color: th.text }]}>{activeOrder.restaurant?.name ?? "Pedido en curso"}</Text>
+              <Text style={[styles.activeMeta, { color: th.textMuted }]}>{activeOrder.code} · {activeOrder.status}</Text>
+            </Card>
+          </Pressable>
+        )}
+
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Buscar restaurante o cocina"
+          placeholderTextColor={th.textSubtle}
+          style={[styles.search, { color: th.text, borderColor: th.border, backgroundColor: th.surface }]}
+        />
+
+        <View style={styles.chips}>
+          {["Pizza", "Sushi", "Burger", "Asturiana"].map((chip) => (
+            <Pressable key={chip} onPress={() => setQuery(chip)} style={[styles.chip, { backgroundColor: th.accentSoft }]}>
+              <Text style={[styles.chipText, { color: th.accent }]}>{chip}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {restaurantsQ.loading && !restaurantsQ.data ? (
+          <ActivityIndicator color={th.primary} />
+        ) : restaurantsQ.data?.restaurants.length ? (
+          restaurantsQ.data.restaurants.map((restaurant) => (
+            <Pressable key={restaurant.id} onPress={() => router.push(`/food/restaurant/${restaurant.id}`)}>
+              <Card style={styles.restaurant}>
+                <Image source={restaurant.imageUrl ? { uri: restaurant.imageUrl } : undefined} style={[styles.photo, { backgroundColor: th.imagePlaceholder }]} contentFit="cover" />
+                <View style={styles.restaurantInfo}>
+                  <View style={styles.row}>
+                    <Text style={[styles.restaurantName, { color: th.text }]} numberOfLines={1}>{restaurant.name}</Text>
+                    {!restaurant.isOpen && <Text style={[styles.closed, { color: th.dangerFg }]}>Cerrado</Text>}
+                  </View>
+                  <Text style={[styles.desc, { color: th.textMuted }]} numberOfLines={2}>{restaurant.description ?? "Carta disponible"}</Text>
+                  <Text style={[styles.meta, { color: th.textSubtle }]}>
+                    {(restaurant.distanceM / 1000).toFixed(1)} km · Envío {money(restaurant.deliveryFeeCents)}
+                  </Text>
+                </View>
+              </Card>
+            </Pressable>
+          ))
+        ) : (
+          <EmptyState icon="restaurant-outline" title="Sin restaurantes cerca" description="Prueba otra búsqueda o dirección." />
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  header: { paddingHorizontal: 14, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, gap: 8 },
+  address: { flexDirection: "row", alignItems: "center", gap: 8 },
+  addressLabel: { fontSize: 15, fontFamily: fonts.bodyBold },
+  addressLine: { fontSize: 12, marginTop: 1 },
+  content: { padding: 12, gap: 10, paddingBottom: 24 },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  search: { height: 46, borderRadius: 10, borderWidth: 1, paddingHorizontal: 14, fontSize: 14 },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },
+  chipText: { fontSize: 12, fontFamily: fonts.bodySemibold },
+  activeOrder: { gap: 2 },
+  activeTitle: { fontSize: 15, fontFamily: fonts.bodyBold },
+  activeMeta: { fontSize: 12 },
+  restaurant: { flexDirection: "row", gap: 12, padding: 10 },
+  photo: { width: 74, height: 74, borderRadius: 8 },
+  restaurantInfo: { flex: 1, gap: 4 },
+  row: { flexDirection: "row", alignItems: "center", gap: 8 },
+  restaurantName: { flex: 1, fontSize: 16, fontFamily: fonts.bodyBold },
+  closed: { fontSize: 12, fontFamily: fonts.bodyBold },
+  desc: { fontSize: 13, lineHeight: 18 },
+  meta: { fontSize: 12 },
+});

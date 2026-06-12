@@ -50,6 +50,7 @@ const stats = {
   notifyRecv: 0,
   notifyErr: 0,
   relayedMessage: 0,
+  relayedOrder: 0,
   relayedTyping: 0,
   ticketRejected: 0,
   hmacRejected: 0,
@@ -159,7 +160,7 @@ const server = createServer((req, res) => {
         sockets: totalSockets(),
         users: userSockets.size,
         conversations: conversationSockets.size,
-        relayed: { message: stats.relayedMessage, typing: stats.relayedTyping },
+        relayed: { message: stats.relayedMessage, order: stats.relayedOrder, typing: stats.relayedTyping },
         notify: { recv: stats.notifyRecv, err: stats.notifyErr },
         rejected: { ticket: stats.ticketRejected, hmac: stats.hmacRejected },
         closed: { overLimit: stats.overLimitClosed, backpressure: stats.backpressureKilled },
@@ -215,14 +216,30 @@ function verifyHmac(header, raw) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-/** Body del webhook: {event:"message", conversationId, participantIds[], senderId}. */
+/** Body del webhook: {event:"message"|"order", conversationId/orderId, participantIds[], senderId/actorUserId}. */
 function handleNotify(body) {
-  if (!body || body.event !== "message") return;
-  const { conversationId, participantIds, senderId } = body;
-  if (!conversationId || !Array.isArray(participantIds)) return;
-  const payload = { type: "message", conversationId };
-  for (const uid of participantIds) {
-    if (uid && uid !== senderId) sendToUser(uid, payload);
+  if (!body) return;
+  if (body.event === "message") {
+    const { conversationId, participantIds, senderId } = body;
+    if (!conversationId || !Array.isArray(participantIds)) return;
+    const payload = { type: "message", conversationId };
+    for (const uid of participantIds) {
+      if (uid && uid !== senderId) sendToUser(uid, payload);
+    }
+    return;
+  }
+  if (body.event === "order") {
+    const { orderId, status, participantIds, actorUserId } = body;
+    if (!orderId || !Array.isArray(participantIds)) return;
+    const payload = { type: "order", orderId, status: typeof status === "string" ? status : undefined };
+    for (const uid of participantIds) {
+      if (uid && uid !== actorUserId) {
+        const before = stats.relayedMessage;
+        sendToUser(uid, payload);
+        stats.relayedOrder += stats.relayedMessage - before;
+        stats.relayedMessage = before;
+      }
+    }
   }
 }
 

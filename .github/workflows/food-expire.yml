@@ -1,0 +1,27 @@
+name: food-expire
+
+# Cancela pedidos de comida no pagados cuyo TTL (30 min) ha vencido.
+# Mismo patrón que chat-cleanup.yml / refresh.yml: el secreto del repo
+# `CRON_SECRET` DEBE coincidir con el env `CRON_SECRET` de Vercel (Production).
+# El endpoint /api/cron/food-expire valida `Authorization: Bearer $CRON_SECRET`.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *" # cada 15 min (TTL del pedido = 30 min)
+  workflow_dispatch: {} # botón de ejecución manual (pestaña Actions)
+
+concurrency:
+  group: food-expire
+  cancel-in-progress: false
+
+jobs:
+  expire:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping cron food-expire
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS --max-time 290 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://nidokey.es/api/cron/food-expire"

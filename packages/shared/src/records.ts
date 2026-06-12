@@ -16,6 +16,7 @@
  * El orden define el del menú de filtros en la app móvil. */
 export type RecordType =
   | "chat"
+  | "food"
   | "property"
   | "holiday"
   | "crypto"
@@ -26,6 +27,7 @@ export type RecordType =
 
 export const RECORD_TYPES: RecordType[] = [
   "chat",
+  "food",
   "property",
   "holiday",
   "crypto",

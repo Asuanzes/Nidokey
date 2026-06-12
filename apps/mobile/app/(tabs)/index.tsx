@@ -27,6 +27,7 @@ import { deleteRecord } from "@/lib/data/records-repository";
 import { getSavedOrder, saveOrder, applySavedOrder } from "@/lib/local-order";
 import { EmptyState, ResultModal, Screen } from "@/components/ui";
 import { NewsSheet } from "@/components/NewsSheet";
+import { FoodHome } from "@/components/food/FoodHome";
 
 /**
  * Lista unificada de registros. El filtro de tipo es un rail VERTICAL en el
@@ -46,7 +47,8 @@ export default function RecordsScreen() {
   // Chat no es una lista de records: renderiza su propia lista de conversaciones
   // (abajo) y no consulta /api/records.
   const isChat = type === "chat";
-  const { data: records, error, loading, refreshing, refetch } = useRecords({ type }, { enabled: !isChat });
+  const isFood = type === "food";
+  const { data: records, error, loading, refreshing, refetch } = useRecords({ type }, { enabled: !isChat && !isFood });
 
   // Avisa al arranque cuando la primera carga de registros termina (datos o
   // error) → el loader de bolitas se retira. Tapamos así el spinner propio de la
@@ -55,8 +57,8 @@ export default function RecordsScreen() {
   useEffect(() => {
     // Con chat activo el query de records está deshabilitado (loading se queda
     // en true): la lista de conversaciones gestiona su propia carga.
-    if (!loading || isChat) markFirstScreenReady();
-  }, [loading, isChat, markFirstScreenReady]);
+    if (!loading || isChat || isFood) markFirstScreenReady();
+  }, [loading, isChat, isFood, markFirstScreenReady]);
 
   // Modo edición (pulsación larga): muestra ✕ para borrar. Sale al cambiar de
   // tipo o si la lista queda vacía.
@@ -124,8 +126,9 @@ export default function RecordsScreen() {
         <View style={styles.main}>
           {/* Chat: lista de conversaciones propia (no es una lista de records). */}
           {isChat && <ConversationList />}
+          {isFood && <FoodHome />}
 
-          {!isChat && showOpFilter && records && records.length > 0 && (
+          {!isChat && !isFood && showOpFilter && records && records.length > 0 && (
             <View style={[styles.opFilter, { borderBottomColor: th.border }]}>
               {(["ALL", "SALE", "RENT"] as const).map((opt) => {
                 const active = opFilter === opt;
@@ -146,13 +149,13 @@ export default function RecordsScreen() {
             </View>
           )}
 
-          {!isChat && loading && !records && (
+          {!isChat && !isFood && loading && !records && (
             <View style={styles.center}>
               <ActivityIndicator color={th.primary} />
             </View>
           )}
 
-          {!isChat && error && (
+          {!isChat && !isFood && error && (
             <EmptyState
               icon="cloud-offline-outline"
               title={t("records.load_error")}
@@ -162,7 +165,7 @@ export default function RecordsScreen() {
             />
           )}
 
-          {!isChat && records && records.length === 0 && !error && (
+          {!isChat && !isFood && records && records.length === 0 && !error && (
             <EmptyState
               icon={cfg.enabled ? "file-tray-outline" : "time-outline"}
               title={cfg.enabled ? t("records.empty_title", { type: typeLabel(type).toLowerCase() }) : t("common.soon")}
@@ -185,7 +188,7 @@ export default function RecordsScreen() {
             />
           )}
 
-          {!isChat && shown && shown.length > 0 && (
+          {!isChat && !isFood && shown && shown.length > 0 && (
             <View style={styles.fill}>
               {editing && (
                 <View style={[styles.editBar, { backgroundColor: th.accentSoft, borderBottomColor: th.border }]}>

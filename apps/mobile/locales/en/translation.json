@@ -115,6 +115,11 @@
       "singular": "Property",
       "placeholder": "Paste the listing link"
     },
+    "food": {
+      "label": "Food",
+      "singular": "Order",
+      "placeholder": ""
+    },
     "holiday": {
       "label": "Trips",
       "singular": "Trip",
@@ -655,5 +660,14 @@
     "blocked_title": "Blocked users",
     "blocked_empty_title": "Nobody blocked",
     "blocked_empty_desc": "When you block someone from a chat they will show up here."
+  },
+  "food": {
+    "home": "Food",
+    "address": "Address",
+    "orders": "My orders",
+    "cart": "Cart",
+    "checkout": "Checkout",
+    "restaurant_panel": "Restaurant",
+    "courier": "Courier"
   }
 }

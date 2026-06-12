@@ -17,8 +17,10 @@ import { getWsTicket } from "./api";
 
 type MessageEvt = { conversationId: string };
 type TypingEvt = { conversationId: string; userId: string; on: boolean };
+type OrderEvt = { orderId: string; status?: string };
 type MessageListener = (e: MessageEvt) => void;
 type TypingListener = (e: TypingEvt) => void;
+type OrderListener = (e: OrderEvt) => void;
 
 function toWsUrl(httpUrl: string): string {
   if (httpUrl.startsWith("https://")) return "wss://" + httpUrl.slice("https://".length);
@@ -36,7 +38,10 @@ class ChatSocket {
   private readonly subscriptions = new Set<string>();
   private readonly messageListeners = new Set<MessageListener>();
   private readonly typingListeners = new Set<TypingListener>();
+  private readonly orderListeners = new Set<OrderListener>();
   private readonly stateListeners = new Set<(open: boolean) => void>();
+  private readonly pendingOrders = new Map<string, OrderEvt>();
+  private orderFlushTimer: ReturnType<typeof setTimeout> | null = null;
   private lastOpenNotified = false;
 
   /** Arranca el cliente (idempotente). Llamar al autenticar. */
@@ -141,7 +146,7 @@ class ChatSocket {
   }
 
   private onMessage(ev: { data: unknown }): void {
-    let msg: { type?: string; conversationId?: string; userId?: string; on?: boolean };
+    let msg: { type?: string; conversationId?: string; orderId?: string; status?: string; userId?: string; on?: boolean };
     try {
       msg = JSON.parse(String(ev.data));
     } catch {
@@ -153,8 +158,21 @@ class ChatSocket {
     } else if (msg.type === "typing" && msg.conversationId && msg.userId) {
       const e = { conversationId: msg.conversationId, userId: msg.userId, on: !!msg.on };
       this.typingListeners.forEach((cb) => cb(e));
+    } else if (msg.type === "order" && msg.orderId) {
+      this.queueOrder({ orderId: msg.orderId, status: msg.status });
     }
     // type "ready" → no-op.
+  }
+
+  private queueOrder(e: OrderEvt): void {
+    this.pendingOrders.set(e.orderId, e);
+    if (this.orderFlushTimer) return;
+    this.orderFlushTimer = setTimeout(() => {
+      this.orderFlushTimer = null;
+      const events = [...this.pendingOrders.values()];
+      this.pendingOrders.clear();
+      events.forEach((evt) => this.orderListeners.forEach((cb) => cb(evt)));
+    }, 300);
   }
 
   private scheduleReconnect(): void {
@@ -230,6 +248,12 @@ class ChatSocket {
   onTypingEvent(cb: TypingListener): () => void {
     this.typingListeners.add(cb);
     return () => this.typingListeners.delete(cb);
+  }
+
+  /** Suscribe un listener de cambios de pedido (devuelve la función para quitarlo). */
+  onOrderEvent(cb: OrderListener): () => void {
+    this.orderListeners.add(cb);
+    return () => this.orderListeners.delete(cb);
   }
 }
 

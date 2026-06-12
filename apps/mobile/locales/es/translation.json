@@ -115,6 +115,11 @@
       "singular": "Inmueble",
       "placeholder": "Pega el enlace del anuncio"
     },
+    "food": {
+      "label": "Comida",
+      "singular": "Pedido",
+      "placeholder": ""
+    },
     "holiday": {
       "label": "Viajes",
       "singular": "Viaje",
@@ -655,5 +660,14 @@
     "blocked_title": "Usuarios bloqueados",
     "blocked_empty_title": "Nadie bloqueado",
     "blocked_empty_desc": "Cuando bloquees a alguien desde un chat aparecerá aquí."
+  },
+  "food": {
+    "home": "Comida",
+    "address": "Dirección",
+    "orders": "Mis pedidos",
+    "cart": "Carrito",
+    "checkout": "Checkout",
+    "restaurant_panel": "Restaurante",
+    "courier": "Repartidor"
   }
 }
