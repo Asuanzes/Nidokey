@@ -5,6 +5,7 @@ import { useQuery } from "@/lib/hooks/useQuery";
 import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
 import { Button, Card, Screen } from "@/components/ui";
+import * as Location from "expo-location";
 
 const SPAIN_CENTER = { lat: 40.4168, lng: -3.7038 };
 
@@ -50,6 +51,7 @@ export default function FoodAddressScreen() {
   const [autocompleteLoading, setAutocompleteLoading] = useState(false);
   const [detailsLoadingId, setDetailsLoadingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sessionToken = useMemo(() => `${Date.now()}-${Math.random().toString(36).slice(2)}`, []);
   const bias = useMemo(() => {
@@ -111,6 +113,39 @@ export default function FoodAddressScreen() {
     }
   }
 
+  async function useMyLocation() {
+    setError(null);
+    setLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        setError("Permiso de ubicacion denegado");
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const { latitude, longitude } = pos.coords;
+      setSelectedCoords({ lat: latitude, lng: longitude });
+      try {
+        const [place] = await Location.reverseGeocodeAsync({ latitude, longitude });
+        if (place) {
+          const street = [place.street, place.streetNumber].filter(Boolean).join(" ").trim();
+          const composed = street || place.name || "";
+          if (composed) setLine(composed);
+          const detectedCity = place.city || place.subregion;
+          if (detectedCity) setCity(detectedCity);
+          if (place.postalCode) setPostalCode(place.postalCode);
+        }
+      } catch {
+        // reverse geocode best-effort: ya tenemos coords
+      }
+      setSuggestions([]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo obtener la ubicacion");
+    } finally {
+      setLocating(false);
+    }
+  }
+
   async function save() {
     setSaving(true);
     setError(null);
@@ -143,6 +178,9 @@ export default function FoodAddressScreen() {
     <Screen title="Direccion de entrega">
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Card style={styles.form}>
+          <Pressable onPress={useMyLocation} disabled={locating} style={[styles.locBtn, { borderColor: th.primary, opacity: locating ? 0.6 : 1 }]}>
+            {locating ? <ActivityIndicator color={th.primary} size="small" /> : <Text style={[styles.locBtnText, { color: th.primary }]}>📍 Usar mi ubicación</Text>}
+          </Pressable>
           <TextInput value={label} onChangeText={setLabel} placeholder="Etiqueta" placeholderTextColor={th.textSubtle} style={[styles.input, { color: th.text, borderColor: th.border }]} />
           <View>
             <TextInput value={line} onChangeText={onLineChange} placeholder="Calle, numero, piso" placeholderTextColor={th.textSubtle} style={[styles.input, { color: th.text, borderColor: th.border }]} />
@@ -181,6 +219,8 @@ export default function FoodAddressScreen() {
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 12 },
   form: { gap: 10 },
+  locBtn: { height: 46, borderWidth: 1, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  locBtnText: { fontSize: 14, fontFamily: fonts.bodySemibold },
   input: { height: 46, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12 },
   suggestions: { marginTop: 6, borderWidth: 1, borderRadius: 10, overflow: "hidden" },
   suggestion: { minHeight: 54, paddingHorizontal: 12, paddingVertical: 9, justifyContent: "center" },

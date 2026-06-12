@@ -127,6 +127,12 @@
           "photosPermission": "Nidokey accede a tus fotos para enviarlas en el chat.",
           "cameraPermission": "Nidokey usa la cámara para hacer fotos y enviarlas en el chat."
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Nidokey usa tu ubicación para encontrar restaurantes cerca de ti."
+        }
       ]
     ],
     "experiments": {
