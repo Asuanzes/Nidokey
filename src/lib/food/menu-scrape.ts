@@ -120,7 +120,11 @@ async function scrapeAndStoreMenu(restaurantId: string): Promise<void> {
     return;
   }
 
-  const extracted = await firecrawlScrapeJson<ExtractedMenu>(url, MENU_SCHEMA, { prompt: MENU_PROMPT, timeoutMs: 45000 });
+  const extracted = await firecrawlScrapeJson<ExtractedMenu>(url, MENU_SCHEMA, {
+    prompt: MENU_PROMPT,
+    timeoutMs: 45000,
+    maxAge: MENU_TTL_MS, // reusa la caché de Firecrawl en refrescos de la misma URL
+  });
   const categories = normalizeMenu(extracted);
   if (categories.length === 0) {
     await prisma.restaurant.update({ where: { id: r.id }, data: { menuFetchedAt: new Date(), menuSourceUrl: url } });
@@ -193,4 +197,39 @@ export function menuPlan(r: {
     }
   };
   return { status: r.hasMenu ? "ready" : "fetching", scrape };
+}
+
+/**
+ * Pre-calienta (scrapea en background) los menús de los `limit` primeros restaurantes
+ * de Google sin carta fresca, para que al abrirlos ya estén cacheados. Best-effort;
+ * dedup por TTL + inFlight (no re-scrapea los ya frescos/en vuelo). Pensado para
+ * llamarse desde `after()` en el descubrimiento.
+ */
+export async function prewarmMenus(
+  restaurants: { id: string; source: string | null; menuFetchedAt: Date | null }[],
+  limit = 4,
+): Promise<void> {
+  if (!hasFirecrawlKey()) return;
+  const targets: string[] = [];
+  for (const r of restaurants) {
+    if (targets.length >= limit) break;
+    if (r.source !== "google") continue;
+    const fresh = r.menuFetchedAt != null && Date.now() - r.menuFetchedAt.getTime() < MENU_TTL_MS;
+    if (fresh || inFlight.has(r.id)) continue;
+    inFlight.add(r.id);
+    targets.push(r.id);
+  }
+  if (targets.length === 0) return;
+  console.log(`[food-menu] prewarm: ${targets.length} restaurantes`);
+  await Promise.allSettled(
+    targets.map(async (id) => {
+      try {
+        await scrapeAndStoreMenu(id);
+      } catch (e) {
+        console.error("[food-menu] prewarm falló:", e instanceof Error ? e.message : e);
+      } finally {
+        inFlight.delete(id);
+      }
+    }),
+  );
 }

@@ -32,7 +32,7 @@ export default function RestaurantScreen() {
     if (q.data?.menuStatus !== "fetching") return;
     const t = setTimeout(() => {
       void q.refetch();
-    }, 3500);
+    }, 2500);
     return () => clearTimeout(t);
   }, [q.data, q.refetch]);
 
@@ -75,16 +75,24 @@ export default function RestaurantScreen() {
             ))}
           </View>
         ))}
-        {itemCount === 0 && (
+        {itemCount === 0 && menuStatus === "fetching" && (
+          <View style={styles.skeleton}>
+            {[0, 1, 2, 3].map((i) => (
+              <Card key={i} style={styles.item}>
+                <View style={styles.itemInfo}>
+                  <View style={[styles.skelBar, { backgroundColor: th.imagePlaceholder, width: "55%" }]} />
+                  <View style={[styles.skelBar, { backgroundColor: th.imagePlaceholder, width: "85%", height: 10 }]} />
+                  <View style={[styles.skelBar, { backgroundColor: th.imagePlaceholder, width: "28%" }]} />
+                </View>
+                <View style={[styles.add, { backgroundColor: th.imagePlaceholder }]} />
+              </Card>
+            ))}
+            <Text style={[styles.menuStateText, { color: th.textSubtle, textAlign: "center", marginTop: 4 }]}>Preparando carta…</Text>
+          </View>
+        )}
+        {itemCount === 0 && menuStatus !== "fetching" && (
           <View style={styles.menuState}>
-            {menuStatus === "fetching" ? (
-              <>
-                <ActivityIndicator color={th.primary} />
-                <Text style={[styles.menuStateText, { color: th.textMuted }]}>Preparando carta…</Text>
-              </>
-            ) : (
-              <Text style={[styles.menuStateText, { color: th.textMuted }]}>Menú no disponible aún</Text>
-            )}
+            <Text style={[styles.menuStateText, { color: th.textMuted }]}>Menú no disponible aún</Text>
           </View>
         )}
       </ScrollView>
@@ -112,5 +120,7 @@ const styles = StyleSheet.create({
   addText: { color: "#fff", fontSize: 24, lineHeight: 26 },
   menuState: { alignItems: "center", justifyContent: "center", paddingVertical: 40, gap: 12 },
   menuStateText: { fontSize: 14 },
+  skeleton: { gap: 8 },
+  skelBar: { height: 13, borderRadius: 6 },
   bar: { position: "absolute", left: 0, right: 0, bottom: 0, padding: 12, borderTopWidth: StyleSheet.hairlineWidth },
 });

@@ -82,7 +82,7 @@ export async function firecrawlSearch(query: string, limit = 8): Promise<Firecra
 export async function firecrawlScrapeJson<T = unknown>(
   url: string,
   schema: Record<string, unknown>,
-  opts: { prompt?: string; timeoutMs?: number } = {}
+  opts: { prompt?: string; timeoutMs?: number; maxAge?: number } = {}
 ): Promise<T | null> {
   const json = await firecrawlPost<{ data?: { json?: T } }>(
     "/scrape",
@@ -91,6 +91,9 @@ export async function firecrawlScrapeJson<T = unknown>(
       formats: [{ type: "json", schema, ...(opts.prompt ? { prompt: opts.prompt } : {}) }],
       only_main_content: false,
       timeout: opts.timeoutMs ?? 45000,
+      // Si Firecrawl tiene la página cacheada más nueva que maxAge (ms), la devuelve
+      // sin re-renderizar → mucho más rápido en 2ºs scrapes / refrescos de la misma URL.
+      ...(opts.maxAge ? { maxAge: opts.maxAge } : {}),
     },
     (opts.timeoutMs ?? 45000) + 10000
   );
