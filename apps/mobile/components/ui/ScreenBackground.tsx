@@ -53,12 +53,12 @@ export function ScreenBackground({ category, color }: Props) {
   const progress = useSharedValue(0);
   const accent = color ?? (category ? categoryColor(category, dark) : th.primary);
   const warmNeutral = dark ? "#3A342D" : "#E9DDCB";
-  const rampTop = mixHex(th.bgTop, accent, dark ? 0.22 : 0.1);
-  const rampMid = mixHex(th.bg, warmNeutral, dark ? 0.24 : 0.3);
-  const rampBottom = mixHex(th.bgBottom, accent, dark ? 0.18 : 0.08);
-  const duneNear = mixHex(th.bgBottom, accent, dark ? 0.34 : 0.16);
-  const duneMid = mixHex(th.bg, accent, dark ? 0.28 : 0.12);
-  const duneFar = mixHex(th.bgTop, accent, dark ? 0.24 : 0.1);
+  const rampTop = mixHex(th.bgTop, accent, dark ? 0.16 : 0.07);
+  const rampMid = mixHex(th.bg, warmNeutral, dark ? 0.18 : 0.2);
+  const rampBottom = mixHex(th.bgBottom, accent, dark ? 0.13 : 0.06);
+  const duneNear = mixHex(th.bgBottom, accent, dark ? 0.24 : 0.11);
+  const duneMid = mixHex(th.bg, accent, dark ? 0.2 : 0.08);
+  const duneFar = mixHex(th.bgTop, accent, dark ? 0.16 : 0.07);
   const contour = mixHex(accent, th.text, dark ? 0.26 : 0.36);
   const h = Math.max(height, 640);
   const w = Math.max(width, 320);
@@ -83,7 +83,7 @@ export function ScreenBackground({ category, color }: Props) {
   );
 
   const farDuneStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0, 1], [0, dark ? 0.44 : 0.72]),
+    opacity: interpolate(progress.value, [0, 1], [0, dark ? 0.28 : 0.42]),
     transform: [
       { translateY: interpolate(progress.value, [0, 1], [24, 0]) },
       { translateX: interpolate(progress.value, [0, 1], [-18, 0]) },
@@ -91,7 +91,7 @@ export function ScreenBackground({ category, color }: Props) {
   }));
 
   const midDuneStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0, 1], [0, dark ? 0.5 : 0.78]),
+    opacity: interpolate(progress.value, [0, 1], [0, dark ? 0.32 : 0.46]),
     transform: [
       { translateY: interpolate(progress.value, [0, 1], [38, 0]) },
       { translateX: interpolate(progress.value, [0, 1], [20, 0]) },
@@ -99,7 +99,7 @@ export function ScreenBackground({ category, color }: Props) {
   }));
 
   const nearDuneStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0, 1], [0, dark ? 0.56 : 0.82]),
+    opacity: interpolate(progress.value, [0, 1], [0, dark ? 0.36 : 0.5]),
     transform: [
       { translateY: interpolate(progress.value, [0, 1], [52, 0]) },
       { translateX: interpolate(progress.value, [0, 1], [-10, 0]) },
@@ -157,21 +157,21 @@ export function ScreenBackground({ category, color }: Props) {
       <Animated.View style={[StyleSheet.absoluteFill, farDuneStyle]}>
         <Svg width={w} height={h} style={StyleSheet.absoluteFill}>
           <Path d={farDune} fill={duneFar} />
-          <Path d={contourOne} fill="none" stroke={contour} strokeOpacity={dark ? 0.16 : 0.18} strokeWidth={1} />
+          <Path d={contourOne} fill="none" stroke={contour} strokeOpacity={dark ? 0.12 : 0.13} strokeWidth={1} />
         </Svg>
       </Animated.View>
 
       <Animated.View style={[StyleSheet.absoluteFill, midDuneStyle]}>
         <Svg width={w} height={h} style={StyleSheet.absoluteFill}>
           <Path d={midDune} fill={duneMid} />
-          <Path d={contourTwo} fill="none" stroke={contour} strokeOpacity={dark ? 0.18 : 0.2} strokeWidth={1} />
+          <Path d={contourTwo} fill="none" stroke={contour} strokeOpacity={dark ? 0.13 : 0.14} strokeWidth={1} />
         </Svg>
       </Animated.View>
 
       <Animated.View style={[StyleSheet.absoluteFill, nearDuneStyle]}>
         <Svg width={w} height={h} style={StyleSheet.absoluteFill}>
           <Path d={nearDune} fill={duneNear} />
-          <Path d={contourThree} fill="none" stroke={contour} strokeOpacity={dark ? 0.2 : 0.22} strokeWidth={1} />
+          <Path d={contourThree} fill="none" stroke={contour} strokeOpacity={dark ? 0.15 : 0.16} strokeWidth={1} />
         </Svg>
       </Animated.View>
     </View>

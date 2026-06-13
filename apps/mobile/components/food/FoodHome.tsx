@@ -189,6 +189,20 @@ export function FoodHome() {
             {t("food.orders")}
           </Text>
         </Pressable>
+        {/* FOOD-NAV-HIDE: en comida la barra inferior se oculta; "Cuenta" vive aquí arriba. */}
+        <Pressable
+          style={[
+            styles.ordersPanel,
+            th.elevation.sm,
+            { backgroundColor: th.surfaceRaised, borderColor: th.border },
+          ]}
+          onPress={() => router.push("/account")}
+        >
+          <Ionicons name="person-outline" size={18} color={foodAccent} />
+          <Text style={[styles.ordersLabel, { color: th.text }]} numberOfLines={1}>
+            {t("tabs.account")}
+          </Text>
+        </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -275,7 +289,7 @@ const styles = StyleSheet.create({
   addressLabel: { fontSize: 15, fontFamily: fonts.bodyBold },
   addressLine: { fontSize: 12, marginTop: 1 },
   ordersPanel: {
-    width: 104,
+    width: 82,
     minHeight: 62,
     alignItems: "center",
     justifyContent: "center",

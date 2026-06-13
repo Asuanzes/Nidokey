@@ -38,6 +38,12 @@ export default function TabsLayout() {
   const [dupCount, setDupCount] = useState(0);
   const dupChanged = useDuplicatesChanged();
   const isFoodCategory = category === "food";
+  // FOOD-NAV-HIDE: en comida la home es una mini-app de delivery → ocultamos la
+  // barra inferior completa SOLO en la home (pathname "/"). En cualquier otra ruta
+  // (p. ej. /account, que se abre desde el menú superior de comida) la barra vuelve
+  // entera, para no dejar al usuario sin salida. Cuenta vive arriba en FoodHome.
+  // Quitar esta línea (y el !hideBar de abajo) restaura la barra siempre.
+  const hideBar = isFoodCategory && pathname === "/";
 
   // Recalcula el badge al cambiar de pestaña Y tras fusionar/descartar (dupChanged).
   useEffect(() => {
@@ -62,12 +68,11 @@ export default function TabsLayout() {
     svg?: TabIconKey;
     badge?: number;
     primary?: boolean;
-    hideWhenFood?: boolean;
   }[] = [
     { href: "/",         label: t("tabs.records"),    svg: "records" },
-    { href: "/search",   label: t("tabs.search"),     svg: "search", hideWhenFood: true },
+    { href: "/search",   label: t("tabs.search"),     svg: "search" },
     { href: "/importar", label: t("tabs.import"),     icon: "add", primary: true },
-    { href: "/matches",  label: t("tabs.duplicates"), svg: "duplicates", badge: dupCount || undefined, hideWhenFood: true },
+    { href: "/matches",  label: t("tabs.duplicates"), svg: "duplicates", badge: dupCount || undefined },
     { href: "/account",  label: t("tabs.account"),    svg: "account" },
   ];
 
@@ -77,6 +82,7 @@ export default function TabsLayout() {
         <Slot />
       </View>
 
+      {!hideBar && (
       <View
         style={[
           styles.tabBar,
@@ -89,10 +95,6 @@ export default function TabsLayout() {
         ]}
       >
         {TABS.map((tab) => {
-          // Custom tab-bar equivalent of `tabBarButton: () => null` for food.
-          // Kept local to the tab config so removing the food exception is one-line.
-          if (isFoodCategory && tab.hideWhenFood) return null;
-
           const active = isActive(tab.href);
 
           // Acción principal: botón central, más grande y elevado sobre la barra.
@@ -143,6 +145,7 @@ export default function TabsLayout() {
           );
         })}
       </View>
+      )}
     </SafeAreaView>
   );
 }
