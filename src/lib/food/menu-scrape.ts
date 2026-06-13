@@ -13,7 +13,7 @@ import { placeWebsite } from "@/features/sources/providers/google-places";
 
 export type MenuStatus = "ready" | "fetching" | "unavailable" | "empty";
 
-const MENU_TTL_MS = 24 * 60 * 60 * 1000; // 24 h
+const MENU_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días: los menús cambian poco → menos re-scrapes (ahorro de créditos)
 const MAX_CATEGORIES = 40;
 const MAX_ITEMS = 80;
 // Plataformas de delivery en España, por orden de preferencia.
