@@ -89,7 +89,7 @@ export async function firecrawlScrapeJson<T = unknown>(
     {
       url,
       formats: [{ type: "json", schema, ...(opts.prompt ? { prompt: opts.prompt } : {}) }],
-      only_main_content: false,
+      onlyMainContent: false,
       timeout: opts.timeoutMs ?? 45000,
       // Si Firecrawl tiene la página cacheada más nueva que maxAge (ms), la devuelve
       // sin re-renderizar → mucho más rápido en 2ºs scrapes / refrescos de la misma URL.

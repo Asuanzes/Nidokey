@@ -417,10 +417,11 @@ export async function prewarmMenus(
   const rest = candidates.filter((r) => !isPopularDelivery(r.types));
   const targets = [...popular, ...rest].slice(0, limit).map((r) => r.id);
   if (targets.length === 0) return;
-  for (const id of targets) inFlight.add(id);
   console.log(`[food-menu] prewarm: ${targets.length} restaurantes (secuencial, populares primero)`);
   // Secuencial (no en paralelo) para no saturar el límite por minuto del LLM gratis.
   for (const id of targets) {
+    if (inFlight.has(id)) continue;
+    inFlight.add(id);
     try {
       await scrapeAndStoreMenu(id);
     } catch (e) {
