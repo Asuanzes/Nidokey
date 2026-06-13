@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import { firecrawlScrapeJson, firecrawlSearch, hasFirecrawlKey } from "@/features/sources/providers/firecrawl";
 import { placeWebsite } from "@/features/sources/providers/google-places";
+import { crawl4aiMarkdown, hasCrawl4aiConfig } from "@/features/sources/providers/crawl4ai";
+import { extractJson, hasAnthropicKey } from "@/features/sources/providers/claude-extract";
 
 /**
  * Menús reales por scraping (Firecrawl). Solo para restaurantes descubiertos por
@@ -13,11 +15,23 @@ import { placeWebsite } from "@/features/sources/providers/google-places";
 
 export type MenuStatus = "ready" | "fetching" | "unavailable" | "empty";
 
-const MENU_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días: los menús cambian poco → menos re-scrapes (ahorro de créditos)
+// Caché casi permanente: la carta se reutiliza desde nuestra BBDD y solo se vuelve a
+// scrapear on-demand (botón "Actualizar carta" → /refresh-menu invalida esto). 90 días
+// = refresco automático muy esporádico; el coste de scraping tiende a 1 vez por sitio.
+const MENU_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 const MAX_CATEGORIES = 40;
 const MAX_ITEMS = 80;
 // Plataformas de delivery en España, por orden de preferencia.
 const DELIVERY_DOMAINS = ["glovoapp.com", "just-eat.es", "justeat.es", "ubereats.com"];
+
+/**
+ * ¿Podemos scrapear menús? Con Crawl4AI+Claude (gratis, web propia del restaurante)
+ * o con Firecrawl (respaldo de pago, cubre delivery con DataDome). Si no hay ninguno,
+ * las cartas de Google quedan como "no disponible".
+ */
+function canScrapeMenus(): boolean {
+  return hasFirecrawlKey() || (hasCrawl4aiConfig() && hasAnthropicKey());
+}
 
 const MENU_SCHEMA: Record<string, unknown> = {
   type: "object",
@@ -120,23 +134,61 @@ function isSafeHttpsUrl(u: string): boolean {
  * scrapeable.
  */
 async function resolveMenuUrl(opts: { name: string; city: string; googlePlaceId: string | null }): Promise<string | null> {
-  const results = (await firecrawlSearch(`${opts.name} ${opts.city} carta menú`, 10)).filter((r) => isSafeHttpsUrl(r.url));
-  // 1. Delivery
+  // La búsqueda web solo está disponible con Firecrawl (encuentra plataformas de
+  // delivery o la página /carta del propio dominio). Sin clave, vamos directos a la
+  // web del restaurante que da Google → Crawl4AI la renderiza gratis.
+  const results = hasFirecrawlKey()
+    ? (await firecrawlSearch(`${opts.name} ${opts.city} carta menú`, 10).catch(() => [])).filter((r) => isSafeHttpsUrl(r.url))
+    : [];
+  // 1. Delivery (menús estructurados; el scrape de estos lo cubre solo Firecrawl por DataDome).
   for (const domain of DELIVERY_DOMAINS) {
     const hit = results.find((r) => hostOf(r.url)?.includes(domain));
     if (hit) return hit.url;
   }
-  // 2. Web propia del restaurante (solo https pública)
+  // 2. Web propia del restaurante (Google websiteUri) — fuente GRATIS principal (Crawl4AI).
   const website = opts.googlePlaceId ? await placeWebsite(opts.googlePlaceId).catch(() => null) : null;
   if (website && isSafeHttpsUrl(website)) {
     const siteHost = hostOf(website);
     if (siteHost) {
+      // Prefiere una página de su dominio que la búsqueda asocie a la carta (suele ser /carta).
       const onSite = results.find((r) => hostOf(r.url)?.includes(siteHost));
       if (onSite) return onSite.url;
     }
     return website;
   }
-  return null;
+  // 3. Sin web propia: el mejor resultado https de la búsqueda, si lo hay.
+  return results[0]?.url ?? null;
+}
+
+/**
+ * Extrae la carta de `url` con la cascada: (1) Crawl4AI (markdown gratis) + Claude
+ * (estructura el JSON) y (2) Firecrawl como respaldo (scrape+extract en una llamada,
+ * cubre sitios con DataDome). Devuelve categorías normalizadas (puede ser []).
+ */
+async function extractMenu(url: string): Promise<NormCat[]> {
+  // Tier 1 (gratis): Crawl4AI renderiza+limpia en el VPS, Claude estructura el menú.
+  if (hasCrawl4aiConfig() && hasAnthropicKey()) {
+    try {
+      const markdown = await crawl4aiMarkdown(url, { timeoutMs: 45000 });
+      if (markdown) {
+        const extracted = await extractJson<ExtractedMenu>(markdown, MENU_SCHEMA, MENU_PROMPT, { timeoutMs: 60000 });
+        const cats = normalizeMenu(extracted);
+        if (cats.length) return cats;
+      }
+    } catch (e) {
+      console.error("[food-menu] Crawl4AI/Claude falló, probando Firecrawl:", e instanceof Error ? e.message : e);
+    }
+  }
+  // Tier 2 (respaldo de pago): Firecrawl hace scrape + extracción con schema en una llamada.
+  if (hasFirecrawlKey()) {
+    const extracted = await firecrawlScrapeJson<ExtractedMenu>(url, MENU_SCHEMA, {
+      prompt: MENU_PROMPT,
+      timeoutMs: 45000,
+      maxAge: MENU_TTL_MS, // reusa la caché de Firecrawl en refrescos de la misma URL
+    });
+    return normalizeMenu(extracted);
+  }
+  return [];
 }
 
 async function scrapeAndStoreMenu(restaurantId: string): Promise<void> {
@@ -154,12 +206,7 @@ async function scrapeAndStoreMenu(restaurantId: string): Promise<void> {
     return;
   }
 
-  const extracted = await firecrawlScrapeJson<ExtractedMenu>(url, MENU_SCHEMA, {
-    prompt: MENU_PROMPT,
-    timeoutMs: 45000,
-    maxAge: MENU_TTL_MS, // reusa la caché de Firecrawl en refrescos de la misma URL
-  });
-  const categories = normalizeMenu(extracted);
+  const categories = await extractMenu(url);
   if (categories.length === 0) {
     await prisma.restaurant.update({ where: { id: r.id }, data: { menuFetchedAt: new Date(), menuSourceUrl: url } });
     console.log(`[food-menu] carta vacía para "${r.name}" desde ${url}`);
@@ -208,7 +255,7 @@ export function menuPlan(r: {
   hasMenu: boolean;
 }): { status: MenuStatus; scrape?: () => Promise<void> } {
   const isGoogle = r.source === "google";
-  if (!isGoogle || !hasFirecrawlKey()) {
+  if (!isGoogle || !canScrapeMenus()) {
     return { status: r.hasMenu ? "ready" : "empty" };
   }
   const fresh = r.menuFetchedAt != null && Date.now() - r.menuFetchedAt.getTime() < MENU_TTL_MS;
@@ -268,7 +315,7 @@ export async function prewarmMenus(
   restaurants: { id: string; source: string | null; menuFetchedAt: Date | null; types?: string[] }[],
   limit = 6,
 ): Promise<void> {
-  if (!hasFirecrawlKey()) return;
+  if (!canScrapeMenus()) return;
   // Candidatos que necesitan scrape (Google + sin carta fresca + no en vuelo), en orden de distancia.
   const candidates = restaurants.filter((r) => {
     if (r.source !== "google") return false;

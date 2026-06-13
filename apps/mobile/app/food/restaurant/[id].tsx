@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocalSearchParams, router } from "expo-router";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
@@ -24,6 +24,22 @@ export default function RestaurantScreen() {
   const { th } = useTheme();
   const cart = useFoodCart();
   const q = useQuery(() => api<Resp>(`/api/food/restaurants/${id}`), [id], { resetOnDepsChange: true });
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Refresco manual: invalida la caché del servidor y reconsulta; si la carta estaba
+  // vacía, el GET pasa a "fetching" y el polling de arriba la trae en cuanto exista.
+  async function refreshMenu() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await api(`/api/food/restaurants/${id}/refresh-menu`, { method: "POST" });
+      await q.refetch();
+    } catch {
+      // best-effort; el usuario puede reintentar
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   // Mientras el menú se scrapea en el servidor (background), reconsultamos cada 3.5s
   // hasta que el estado deje de ser "fetching". `q.data` cambia de identidad en cada
@@ -93,7 +109,15 @@ export default function RestaurantScreen() {
         {itemCount === 0 && menuStatus !== "fetching" && (
           <View style={styles.menuState}>
             <Text style={[styles.menuStateText, { color: th.textMuted }]}>Menú no disponible aún</Text>
+            <Button label={refreshing ? "Buscando carta…" : "Reintentar"} onPress={refreshMenu} />
           </View>
+        )}
+        {itemCount > 0 && (
+          <Pressable onPress={refreshMenu} style={styles.refreshLink} disabled={refreshing}>
+            <Text style={[styles.menuStateText, { color: th.textSubtle, textAlign: "center" }]}>
+              {refreshing ? "Actualizando carta…" : "Actualizar carta"}
+            </Text>
+          </Pressable>
         )}
       </ScrollView>
       {cart.restaurantId === restaurant.id && cart.count > 0 && (
@@ -122,5 +146,6 @@ const styles = StyleSheet.create({
   menuStateText: { fontSize: 14 },
   skeleton: { gap: 8 },
   skelBar: { height: 13, borderRadius: 6 },
+  refreshLink: { paddingVertical: 8 },
   bar: { position: "absolute", left: 0, right: 0, bottom: 0, padding: 12, borderTopWidth: StyleSheet.hairlineWidth },
 });
