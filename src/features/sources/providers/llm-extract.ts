@@ -2,12 +2,17 @@ import { ProviderUnavailableError } from "./availability";
 import { extractJson as anthropicExtractJson, hasAnthropicKey } from "./claude-extract";
 
 /**
- * Extracción de JSON estructurado con un LLM, eligiendo proveedor por env y
- * priorizando el GRATIS: Google Gemini (GEMINI_API_KEY) → Groq (GROQ_API_KEY, free
- * tier sin billing) → Anthropic Claude (ANTHROPIC_API_KEY, de pago, opcional). Para
- * la vertical comida estructura el markdown que devuelve Crawl4AI en una carta
- * (MENU_SCHEMA). Mismo patrón thin-fetch que el resto de providers: errores como
- * ProviderUnavailableError (reintentable), null = "sin extracción" legítimo.
+ * Extracción de JSON estructurado con un LLM. Modelo PRINCIPAL = Groq (free tier,
+ * sin billing, funciona en EU). Cascada de respaldo REAL (try/catch por proveedor):
+ * Groq → Claude (ANTHROPIC_API_KEY, de pago) → Gemini (GEMINI_API_KEY, el último
+ * porque su free tier NO funciona en EU/billing y bloquearía la extracción si fuera
+ * el primero). Para la vertical comida estructura el markdown de Crawl4AI en una
+ * carta (MENU_SCHEMA). Mismo patrón thin-fetch: errores como ProviderUnavailableError
+ * (reintentable), null = "sin extracción" legítimo.
+ *
+ * IMPORTANTE: antes la selección era "primer proveedor configurado y, si lanza, se
+ * propaga el error" — con GEMINI_API_KEY puesta y Gemini roto en EU, NINGÚN menú se
+ * extraía. Ahora se prueba el siguiente proveedor cuando uno falla.
  */
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
@@ -165,15 +170,36 @@ async function groqExtractJson<T>(
   throw new ProviderUnavailableError("Groq", "límite de Groq tras reintentos (413/429)");
 }
 
-/** Extrae un objeto que cumple `schema` desde `text`, guiado por `instruction`. */
+/**
+ * Extrae un objeto que cumple `schema` desde `text`, guiado por `instruction`.
+ *
+ * Prueba los proveedores configurados EN ORDEN (Groq → Claude → Gemini) y, si uno
+ * lanza (ProviderUnavailableError u otro), pasa al siguiente en vez de abortar. Solo
+ * lanza si TODOS los configurados fallan (propaga el último error, para diagnóstico).
+ * Devuelve null si ninguno está configurado o si el que respondió no extrajo nada.
+ */
 export async function extractJson<T = unknown>(
   text: string,
   schema: Record<string, unknown>,
   instruction: string,
   opts: { timeoutMs?: number } = {},
 ): Promise<T | null> {
-  if (hasGeminiKey()) return geminiExtractJson<T>(text, schema, instruction, opts);
-  if (hasGroqKey()) return groqExtractJson<T>(text, schema, instruction, opts);
-  if (hasAnthropicKey()) return anthropicExtractJson<T>(text, schema, instruction, opts);
-  return null;
+  // Groq primero (principal); Gemini al final (su free tier no va en EU).
+  const providers: { name: string; enabled: boolean; run: () => Promise<T | null> }[] = [
+    { name: "Groq", enabled: hasGroqKey(), run: () => groqExtractJson<T>(text, schema, instruction, opts) },
+    { name: "Claude", enabled: hasAnthropicKey(), run: () => anthropicExtractJson<T>(text, schema, instruction, opts) },
+    { name: "Gemini", enabled: hasGeminiKey(), run: () => geminiExtractJson<T>(text, schema, instruction, opts) },
+  ];
+  const active = providers.filter((p) => p.enabled);
+  if (active.length === 0) return null;
+  let lastErr: unknown = null;
+  for (const p of active) {
+    try {
+      return await p.run();
+    } catch (e) {
+      lastErr = e;
+      console.error(`[llm-extract] ${p.name} falló, probando siguiente:`, e instanceof Error ? e.message : e);
+    }
+  }
+  throw lastErr ?? new Error("Sin extractor LLM disponible");
 }

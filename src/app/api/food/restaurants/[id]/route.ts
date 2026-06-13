@@ -1,8 +1,11 @@
 import { after, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth-helpers";
-import { menuPlan } from "@/lib/food/menu-scrape";
+import { enqueueMenu, menuStatusFor, processMenu } from "@/lib/food/menu-scrape";
 
+// La RESPUESTA al usuario es siempre inmediata (lee BBDD + 1 UPDATE de encolado). El
+// presupuesto largo es solo para el fast-path after() que intenta scrapear ya mismo;
+// si se corta, el cron (/api/cron/food-menus) lo termina. El usuario nunca espera.
 export const maxDuration = 300;
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -22,13 +25,24 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   // Menús reales por scraping (solo restaurantes de Google; el seed conserva el suyo).
   const hasMenu = restaurant.categories.some((c) => c.items.length > 0);
-  const plan = menuPlan({
+
+  // Encola si falta carta fresca (barato: 1 UPDATE con guard, no scrapea aquí).
+  const enqueued = await enqueueMenu({
     id: restaurant.id,
     source: restaurant.source,
+    menuStatus: restaurant.menuStatus,
     menuFetchedAt: restaurant.menuFetchedAt,
     hasMenu,
   });
-  if (plan.scrape) after(plan.scrape); // fire-and-forget; no bloquea la respuesta
+  // Fast-path: intenta procesarlo YA en background (lock en BBDD evita duplicar con el
+  // cron). No bloquea la respuesta; si este lambda muere, el cron es la red de seguridad.
+  if (enqueued) after(() => processMenu(restaurant.id).catch(() => {}));
 
-  return NextResponse.json({ restaurant, menuStatus: plan.status });
+  const menuStatus = menuStatusFor({
+    source: restaurant.source,
+    menuStatus: enqueued ? "PENDING" : restaurant.menuStatus,
+    hasMenu,
+  });
+
+  return NextResponse.json({ restaurant, menuStatus });
 }

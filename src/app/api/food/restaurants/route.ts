@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireUserId } from "@/lib/auth-helpers";
 import { isProviderUnavailable } from "@/features/sources/providers/availability";
 import { dbRestaurantsNearby, discoverGoogleRestaurants, googlePlacesConfigured } from "@/lib/food/google-restaurants";
-import { prewarmMenus } from "@/lib/food/menu-scrape";
+import { enqueueMenusForList } from "@/lib/food/menu-scrape";
 
 export const maxDuration = 300;
 
@@ -28,8 +28,9 @@ export async function GET(req: NextRequest) {
   }
   try {
     const restaurants = await discoverGoogleRestaurants({ lat, lng, radiusM, query: q });
-    // Pre-calienta los menús de los más cercanos en background → carta instantánea al abrir.
-    after(() => prewarmMenus(restaurants, 3));
+    // Encola los menús de los más cercanos (1 UPDATE) → el worker (cron) los scrapea en
+    // background y estarán cacheados al abrir. NO se scrapea aquí (fuera del camino del usuario).
+    after(() => enqueueMenusForList(restaurants, 3));
     return NextResponse.json({ restaurants, source: "google" });
   } catch (e) {
     if (isProviderUnavailable(e)) {

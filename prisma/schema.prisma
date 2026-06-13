@@ -697,6 +697,12 @@ model Restaurant {
   userRatingCount  Int?
   menuFetchedAt    DateTime?
   menuSourceUrl    String?            // URL en plataforma de delivery cacheada (scraping de menú)
+  // Cola de scraping de menú (worker desacoplado, lock entre instancias).
+  // null = no-google/sin tocar · PENDING = encolado · FETCHING = worker procesando
+  // (lock) · READY = carta lista · EMPTY = sin carta · FAILED = falló tras N intentos.
+  menuStatus       String?
+  menuQueuedAt     DateTime?          // momento de encolado / inicio del lock (para orden y caducidad del lock)
+  menuAttempts     Int      @default(0) // intentos de scrape (cap para no reintentar webs no-scrapeables)
   active           Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -708,6 +714,7 @@ model Restaurant {
 
   @@index([active, city])
   @@index([latitude, longitude])
+  @@index([menuStatus, menuQueuedAt]) // cola del worker de menús
 }
 
 model RestaurantStaff {

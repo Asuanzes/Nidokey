@@ -1,0 +1,34 @@
+name: food-menus-worker
+
+# Worker de la cola de menús de la vertical comida. Vercel es serverless: el scraping
+# pesado (Crawl4AI/Firecrawl + LLM) NO debe correr en la request del usuario. Este
+# workflow llama cada pocos minutos a GET /api/cron/food-menus, que reclama los
+# restaurantes con menuStatus=PENDING (o FETCHING colgados) y los procesa. El secreto va
+# como secret del repo `CRON_SECRET` y DEBE coincidir con el env `CRON_SECRET` de Vercel.
+#
+# Notas: el mínimo real de GitHub Actions es ~5 min y puede retrasarse bajo carga; los
+# workflows programados se desactivan tras 60 días sin actividad en el repo. El fast-path
+# after() del open hace que la primera apertura sea rápida; este cron es la red de seguridad
+# y procesa lo encolado por la lista de restaurantes.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *" # cada 5 min
+  workflow_dispatch: {} # botón de ejecución manual (pestaña Actions)
+
+# Evita solapar ejecuciones si una tarda (el scrape puede ser largo).
+concurrency:
+  group: food-menus-worker
+  cancel-in-progress: false
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping worker de menús
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS --max-time 290 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://nidokey.es/api/cron/food-menus?limit=8"

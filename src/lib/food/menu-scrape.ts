@@ -186,7 +186,9 @@ async function resolveMenuUrl(opts: { name: string; city: string; googlePlaceId:
 async function extractFromMarkdown(markdown: string | null): Promise<NormCat[]> {
   if (!markdown) return [];
   const focused = condenseMenuMarkdown(markdown);
+  const t = Date.now();
   const extracted = await extractJson<ExtractedMenu>(focused, MENU_SCHEMA, MENU_PROMPT, { timeoutMs: 60000 });
+  console.log(`[food-menu]   llm=${Date.now() - t}ms chars=${focused.length}`);
   return normalizeMenu(extracted);
 }
 
@@ -255,13 +257,17 @@ async function extractMenu(url: string): Promise<{ categories: NormCat[]; usedUr
   // Tier 1 (gratis): Crawl4AI renderiza+limpia en el VPS, el LLM estructura el menú.
   if (hasCrawl4aiConfig() && hasLlmExtractor()) {
     try {
+      const tc = Date.now();
       const home = await crawl4aiCrawl(url, { timeoutMs: 30000 });
+      console.log(`[food-menu]   crawl(home)=${Date.now() - tc}ms`);
       const fromHome = await extractFromMarkdown(home.markdown);
       if (fromHome.length) return { categories: fromHome, usedUrl: url };
       // La home no trae carta → sigue el mejor enlace a la carta/pedidos (un salto).
       const menuUrl = pickMenuLink(home.links, url);
       if (menuUrl) {
+        const tm = Date.now();
         const md = await crawl4aiMarkdown(menuUrl, { timeoutMs: 30000 });
+        console.log(`[food-menu]   crawl(carta)=${Date.now() - tm}ms ${menuUrl}`);
         const fromMenu = await extractFromMarkdown(md);
         if (fromMenu.length) return { categories: fromMenu, usedUrl: menuUrl };
       }
@@ -281,26 +287,40 @@ async function extractMenu(url: string): Promise<{ categories: NormCat[]; usedUr
   return { categories: [], usedUrl: url };
 }
 
-async function scrapeAndStoreMenu(restaurantId: string): Promise<void> {
-  const r = await prisma.restaurant.findUnique({
-    where: { id: restaurantId },
-    select: { id: true, name: true, city: true, menuSourceUrl: true, source: true, googlePlaceId: true },
-  });
-  if (!r || r.source !== "google") return;
+// Un FETCHING más viejo que esto se considera un lock muerto (lambda reciclado) y se
+// puede reclamar. Cubre con holgura el peor caso de scrape (~180 s).
+const STALE_FETCH_LOCK_MS = 5 * 60 * 1000;
+// Tras N fallos consecutivos, FAILED (terminal): no re-encolar en auto (webs no-scrapeables).
+const MAX_MENU_ATTEMPTS = 3;
 
+type TerminalStatus = "READY" | "EMPTY" | "FAILED";
+
+/**
+ * Resuelve URL → extrae carta → guarda en BBDD. Devuelve READY (con items) o EMPTY
+ * (sin carta). NO toca menuStatus (eso lo hace processMenu). Emite tiempos por paso.
+ */
+async function scrapeAndStore(r: {
+  id: string;
+  name: string;
+  city: string;
+  menuSourceUrl: string | null;
+  googlePlaceId: string | null;
+}): Promise<{ status: "READY" | "EMPTY"; items: number }> {
+  const t0 = Date.now();
   const url = r.menuSourceUrl ?? (await resolveMenuUrl({ name: r.name, city: r.city, googlePlaceId: r.googlePlaceId }));
+  const tResolve = Date.now() - t0;
   if (!url) {
-    // No encontramos plataforma: marcamos intento para no re-buscar en cada apertura (TTL).
-    await prisma.restaurant.update({ where: { id: r.id }, data: { menuFetchedAt: new Date() } });
-    console.log(`[food-menu] sin URL de delivery para "${r.name}" (${r.city})`);
-    return;
+    console.log(`[food-menu] ${r.id} resolveUrl=${tResolve}ms → sin URL ("${r.name}", ${r.city})`);
+    return { status: "EMPTY", items: 0 };
   }
 
+  const te = Date.now();
   const { categories, usedUrl } = await extractMenu(url);
+  const tExtract = Date.now() - te;
   if (categories.length === 0) {
-    await prisma.restaurant.update({ where: { id: r.id }, data: { menuFetchedAt: new Date(), menuSourceUrl: url } });
-    console.log(`[food-menu] carta vacía para "${r.name}" desde ${url}`);
-    return;
+    await prisma.restaurant.update({ where: { id: r.id }, data: { menuSourceUrl: url } }).catch(() => {});
+    console.log(`[food-menu] ${r.id} resolveUrl=${tResolve}ms extract=${tExtract}ms → carta vacía ("${r.name}")`);
+    return { status: "EMPTY", items: 0 };
   }
 
   await prisma.$transaction(async (tx) => {
@@ -325,59 +345,117 @@ async function scrapeAndStoreMenu(restaurantId: string): Promise<void> {
         },
       });
     }
-    await tx.restaurant.update({ where: { id: r.id }, data: { menuFetchedAt: new Date(), menuSourceUrl: usedUrl } });
+    await tx.restaurant.update({ where: { id: r.id }, data: { menuSourceUrl: usedUrl } });
   });
-  const itemCount = categories.reduce((n, c) => n + c.items.length, 0);
-  console.log(`[food-menu] "${r.name}": ${categories.length} categorías, ${itemCount} platos desde ${usedUrl}`);
+  const items = categories.reduce((n, c) => n + c.items.length, 0);
+  console.log(
+    `[food-menu] ${r.id} resolveUrl=${tResolve}ms extract=${tExtract}ms → READY ${categories.length} cats / ${items} platos ("${r.name}")`,
+  );
+  return { status: "READY", items };
 }
 
-// Dedup best-effort de scrapes concurrentes dentro de una misma instancia.
-const inFlight = new Set<string>();
+/**
+ * Procesa UN restaurante de la cola. Claim ATÓMICO (PENDING→FETCHING, o reclama un
+ * FETCHING colgado): updateMany con guard = exclusión mutua a nivel de fila en Postgres,
+ * funciona ENTRE INSTANCIAS (a diferencia del antiguo Set en memoria). Devuelve el estado
+ * terminal, o null si no pudo hacer claim (otro worker lo tiene). Seguro de llamar desde
+ * el cron Y desde un after() fast-path: el lock evita scrapes duplicados.
+ */
+export async function processMenu(restaurantId: string): Promise<TerminalStatus | null> {
+  const staleBefore = new Date(Date.now() - STALE_FETCH_LOCK_MS);
+  const claim = await prisma.restaurant.updateMany({
+    where: {
+      id: restaurantId,
+      source: "google",
+      OR: [
+        { menuStatus: "PENDING" },
+        { menuStatus: "FETCHING", menuQueuedAt: { lt: staleBefore } }, // lock muerto → reclamable
+      ],
+    },
+    data: { menuStatus: "FETCHING", menuQueuedAt: new Date() },
+  });
+  if (claim.count === 0) return null; // otro lo tiene, o no procede
+
+  const r = await prisma.restaurant.findUnique({
+    where: { id: restaurantId },
+    select: { id: true, name: true, city: true, menuSourceUrl: true, source: true, googlePlaceId: true, menuAttempts: true },
+  });
+  if (!r || r.source !== "google") return null;
+
+  if (!canScrapeMenus()) {
+    await prisma.restaurant
+      .update({ where: { id: r.id }, data: { menuStatus: "FAILED", menuFetchedAt: new Date() } })
+      .catch(() => {});
+    return "FAILED";
+  }
+
+  try {
+    const { status } = await scrapeAndStore(r);
+    await prisma.restaurant.update({
+      where: { id: r.id },
+      data: { menuStatus: status, menuFetchedAt: new Date(), menuAttempts: r.menuAttempts + 1 },
+    });
+    return status;
+  } catch (e) {
+    console.error(`[food-menu] ${r.id} scrape falló:`, e instanceof Error ? e.message : e);
+    const attempts = r.menuAttempts + 1;
+    // Agotó intentos → FAILED (terminal). Si no, vuelve a PENDING para reintento del cron.
+    const next: "FAILED" | "PENDING" = attempts >= MAX_MENU_ATTEMPTS ? "FAILED" : "PENDING";
+    await prisma.restaurant
+      .update({ where: { id: r.id }, data: { menuStatus: next, menuFetchedAt: new Date(), menuAttempts: attempts } })
+      .catch(() => {});
+    return next === "FAILED" ? "FAILED" : null;
+  }
+}
 
 /**
- * Decide el estado del menú para la ficha y, si toca, devuelve un thunk para
- * scrapear en background (via after()). No lanza: degrada con elegancia.
+ * Estado del menú para la respuesta de la ficha (contrato del móvil), SIN efectos.
+ * El encolado lo hace `enqueueMenu` por separado. Stale-while-revalidate: si hay carta
+ * cacheada se muestra ("ready") aunque esté stale; el refresco va por detrás.
  */
-export function menuPlan(r: {
+export function menuStatusFor(r: {
+  source: string | null;
+  menuStatus: string | null;
+  hasMenu: boolean;
+}): MenuStatus {
+  if (r.source !== "google") return r.hasMenu ? "ready" : "empty";
+  if (r.hasMenu) return "ready";
+  switch (r.menuStatus) {
+    case "PENDING":
+    case "FETCHING":
+      return "fetching";
+    case "EMPTY":
+    case "FAILED":
+      return "unavailable";
+    default:
+      return "fetching"; // null / recién encolado → "preparando"
+  }
+}
+
+/**
+ * Encola (marca PENDING) el menú de un restaurante si lo necesita: google + sin carta
+ * fresca + no ya en cola/proceso. Barato (1 UPDATE con guard). Devuelve true si encoló.
+ * El scrape real lo hace el worker (cron) o el fast-path after().
+ */
+export async function enqueueMenu(r: {
   id: string;
   source: string | null;
+  menuStatus: string | null;
   menuFetchedAt: Date | null;
   hasMenu: boolean;
-}): { status: MenuStatus; scrape?: () => Promise<void> } {
-  const isGoogle = r.source === "google";
-  if (!isGoogle || !canScrapeMenus()) {
-    return { status: r.hasMenu ? "ready" : "empty" };
-  }
+}): Promise<boolean> {
+  if (r.source !== "google" || !canScrapeMenus()) return false;
+  if (r.menuStatus === "PENDING" || r.menuStatus === "FETCHING") return false; // ya en cola/proceso
   const fresh = r.menuFetchedAt != null && Date.now() - r.menuFetchedAt.getTime() < MENU_TTL_MS;
-  if (fresh) {
-    return { status: r.hasMenu ? "ready" : "unavailable" };
-  }
-  // Stale o nunca scrapeado: refrescar en background (stale-while-revalidate).
-  if (inFlight.has(r.id)) {
-    return { status: r.hasMenu ? "ready" : "fetching" };
-  }
-  inFlight.add(r.id);
-  const scrape = async () => {
-    try {
-      await scrapeAndStoreMenu(r.id);
-    } catch (e) {
-      // Marcar intento para NO quedarse en "cargando" infinito si el scrape falla.
-      console.error("[food-menu] scrape falló, marcando intento:", e instanceof Error ? e.message : e);
-      await prisma.restaurant.update({ where: { id: r.id }, data: { menuFetchedAt: new Date() } }).catch(() => {});
-    } finally {
-      inFlight.delete(r.id);
-    }
-  };
-  return { status: r.hasMenu ? "ready" : "fetching", scrape };
+  if (fresh) return false; // carta (o intento terminal) fresca → no re-scrapear todavía
+  const res = await prisma.restaurant.updateMany({
+    where: { id: r.id, source: "google", NOT: { menuStatus: { in: ["PENDING", "FETCHING"] } } },
+    data: { menuStatus: "PENDING", menuQueuedAt: new Date() },
+  });
+  return res.count > 0;
 }
 
-/**
- * Pre-calienta (scrapea en background) los menús de los `limit` primeros restaurantes
- * de Google sin carta fresca, para que al abrirlos ya estén cacheados. Best-effort;
- * dedup por TTL + inFlight (no re-scrapea los ya frescos/en vuelo). Pensado para
- * llamarse desde `after()` en el descubrimiento.
- */
-// Tipos de Google Places (cocinas) que más se piden a domicilio → se pre-calientan primero.
+// Tipos de Google Places (cocinas) que más se piden a domicilio → se encolan primero.
 const POPULAR_DELIVERY_TYPES = new Set([
   "pizza_restaurant",
   "hamburger_restaurant",
@@ -401,34 +479,70 @@ function isPopularDelivery(types: string[] | undefined): boolean {
   return Array.isArray(types) && types.some((t) => POPULAR_DELIVERY_TYPES.has(t));
 }
 
-export async function prewarmMenus(
-  restaurants: { id: string; source: string | null; menuFetchedAt: Date | null; types?: string[] }[],
+/**
+ * Encola (marca PENDING) los menús de los `limit` primeros restaurantes de Google sin
+ * carta fresca, priorizando cocinas de delivery. NO scrapea — eso lo hace el worker
+ * (cron). Barato: un solo updateMany. Devuelve los ids encolados.
+ */
+export async function enqueueMenusForList(
+  restaurants: { id: string; source: string | null; menuFetchedAt: Date | null; menuStatus?: string | null; types?: string[] }[],
   limit = 6,
-): Promise<void> {
-  if (!canScrapeMenus()) return;
-  // Candidatos que necesitan scrape (Google + sin carta fresca + no en vuelo), en orden de distancia.
+): Promise<string[]> {
+  if (!canScrapeMenus()) return [];
   const candidates = restaurants.filter((r) => {
     if (r.source !== "google") return false;
+    if (r.menuStatus === "PENDING" || r.menuStatus === "FETCHING") return false;
     const fresh = r.menuFetchedAt != null && Date.now() - r.menuFetchedAt.getTime() < MENU_TTL_MS;
-    return !fresh && !inFlight.has(r.id);
+    return !fresh;
   });
-  // Prioriza cocinas que más se piden a domicilio, conservando el orden de distancia dentro de cada grupo.
   const popular = candidates.filter((r) => isPopularDelivery(r.types));
   const rest = candidates.filter((r) => !isPopularDelivery(r.types));
   const targets = [...popular, ...rest].slice(0, limit).map((r) => r.id);
-  if (targets.length === 0) return;
-  console.log(`[food-menu] prewarm: ${targets.length} restaurantes (secuencial, populares primero)`);
-  // Secuencial (no en paralelo) para no saturar el límite por minuto del LLM gratis.
-  for (const id of targets) {
-    if (inFlight.has(id)) continue;
-    inFlight.add(id);
-    try {
-      await scrapeAndStoreMenu(id);
-    } catch (e) {
-      console.error("[food-menu] prewarm falló, marcando intento:", e instanceof Error ? e.message : e);
-      await prisma.restaurant.update({ where: { id }, data: { menuFetchedAt: new Date() } }).catch(() => {});
-    } finally {
-      inFlight.delete(id);
+  if (targets.length === 0) return [];
+  await prisma.restaurant.updateMany({
+    where: { id: { in: targets }, source: "google", NOT: { menuStatus: { in: ["PENDING", "FETCHING"] } } },
+    data: { menuStatus: "PENDING", menuQueuedAt: new Date() },
+  });
+  console.log(`[food-menu] encolados ${targets.length} restaurantes para el worker`);
+  return targets;
+}
+
+/**
+ * Worker de la cola (lo invoca el cron). Reclama hasta `limit` restaurantes PENDING (o
+ * FETCHING colgados, en orden de antigüedad) y los procesa SECUENCIALMENTE (respeta el
+ * rate-limit por minuto del LLM). Cada uno via processMenu (claim atómico → sin duplicados).
+ */
+export async function runMenuQueue(opts: { limit?: number } = {}): Promise<{
+  processed: number;
+  ready: number;
+  empty: number;
+  failed: number;
+  skipped: number;
+}> {
+  const out = { processed: 0, ready: 0, empty: 0, failed: 0, skipped: 0 };
+  if (!canScrapeMenus()) return out;
+  const limit = opts.limit ?? 8;
+  const stale = new Date(Date.now() - STALE_FETCH_LOCK_MS);
+  const queued = await prisma.restaurant.findMany({
+    where: {
+      source: "google",
+      OR: [{ menuStatus: "PENDING" }, { menuStatus: "FETCHING", menuQueuedAt: { lt: stale } }],
+    },
+    orderBy: { menuQueuedAt: "asc" },
+    take: limit,
+    select: { id: true },
+  });
+  for (const { id } of queued) {
+    const status = await processMenu(id);
+    if (status === null) {
+      out.skipped++;
+      continue;
     }
+    out.processed++;
+    if (status === "READY") out.ready++;
+    else if (status === "EMPTY") out.empty++;
+    else out.failed++;
   }
+  console.log(`[food-menu] worker: ${JSON.stringify(out)}`);
+  return out;
 }
