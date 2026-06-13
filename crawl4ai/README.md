@@ -22,7 +22,16 @@ Vive en el **mismo VPS** que el chat gateway (Hetzner). No toca la BBDD ni recib
 - nginx + certbot (ya en uso para `ws.nidokey.es`).
 - DNS: añade `scrape.nidokey.es` → IP del VPS (gestionado en **Vercel**, igual que el resto de `nidokey.es`).
 
-## Despliegue
+## Despliegue rápido (1 comando)
+`deploy.sh` hace todo de forma idempotente (instala Docker si falta, levanta Crawl4AI,
+configura nginx con el bearer, saca TLS y te imprime las vars para Vercel):
+```bash
+# Copiar la carpeta al VPS y ejecutar (DNS scrape.nidokey.es debe resolver ya para el TLS):
+rsync -a ./crawl4ai/ nidoadmin@167.233.16.6:/tmp/crawl4ai/
+ssh nidoadmin@167.233.16.6 'sudo bash /tmp/crawl4ai/deploy.sh'
+```
+
+## Despliegue manual (paso a paso)
 ```bash
 # 1) Copiar artefactos al VPS
 sudo mkdir -p /opt/nidokey-crawl4ai
