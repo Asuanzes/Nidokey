@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 import { useQuery } from "@/lib/hooks/useQuery";
 import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
-import { Card, EmptyState } from "@/components/ui";
+import { AdBannerSlot, Card, EmptyState } from "@/components/ui";
 import { categoryColor } from "@/lib/records/config";
 
 type FoodAddress = {
@@ -206,6 +206,11 @@ export function FoodHome() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {/* Hueco de anuncios bajo el panel de dirección/pedidos/cuenta y por
+            encima del pedido activo y del buscador. Inerte hasta que el flag
+            `adsEnabled` se active (devuelve null mientras tanto). */}
+        <AdBannerSlot />
+
         {activeOrder && (
           <Pressable onPress={() => router.push(`/food/order/${activeOrder.id}`)}>
           <Card style={[styles.activeOrder, { borderColor: foodAccent }]}>

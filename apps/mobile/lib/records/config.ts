@@ -1,5 +1,6 @@
 import type { Ionicons } from "@expo/vector-icons";
 import type { RecordType } from "@nidokey/shared";
+import type { AppStyle } from "@/lib/app-style-context";
 
 /**
  * Registry de tipos de registro para la UI móvil.
@@ -62,12 +63,39 @@ export function recordTypeConfig(type: RecordType): RecordTypeConfig {
 }
 
 /**
+ * Acentos de categoría para el estilo "2100" (visual futurista). Reemplazan la
+ * paleta vintage (acero/latón) por una familia melocotón/naranja/magenta. Solo
+ * los usa `categoryColor` cuando se le pasa `style: "2100"`; con `"vintage"` o
+ * sin estilo, devuelve los colores actuales sin cambios.
+ */
+const RECORD_TYPE_2100: Record<RecordType, { color: string; colorDark: string }> = {
+  property: { color: "#D44D7C", colorDark: "#F26D9A" }, // magenta cálido
+  food:     { color: "#F08A4B", colorDark: "#FFB994" }, // melocotón
+  holiday:  { color: "#C25CA8", colorDark: "#E37FC4" }, // orquídea
+  crypto:   { color: "#E8A33C", colorDark: "#FFC76B" }, // ámbar
+  market:   { color: "#B14A8F", colorDark: "#D971B0" }, // magenta uva
+  job:      { color: "#D86A4F", colorDark: "#F08F73" }, // teja melocotón
+  workout:  { color: "#B24A65", colorDark: "#D66C84" }, // rosa carmesí
+  chat:     { color: "#9A56C2", colorDark: "#BD86E0" }, // violeta luminoso
+  book:     { color: "#C45670", colorDark: "#E8788B" }, // coral rosa
+};
+
+/**
  * Color de acento del tipo resuelto para el tema activo. En oscuro usa
  * `colorDark` (aclarado para legibilidad de glifo/texto sobre #262320); en claro
  * usa `color`. Para FONDOS rellenos con texto blanco usa `color` directamente
  * (la variante clara empeoraría el contraste del texto blanco).
+ *
+ * `style` opcional (default "vintage"): cuando es "2100" devuelve la paleta
+ * melocotón/magenta del rediseño en lugar del acero/latón clásico. Mantiene la
+ * firma anterior compatible: las llamadas existentes `categoryColor(t, dark)`
+ * siguen devolviendo Vintage hasta que el callsite pase explícitamente "2100".
  */
-export function categoryColor(type: RecordType, dark: boolean): string {
+export function categoryColor(type: RecordType, dark: boolean, style: AppStyle = "vintage"): string {
+  if (style === "2100") {
+    const c = RECORD_TYPE_2100[type];
+    return dark ? c.colorDark : c.color;
+  }
   const cfg = RECORD_TYPE_CONFIG[type];
   return dark && cfg.colorDark ? cfg.colorDark : cfg.color;
 }

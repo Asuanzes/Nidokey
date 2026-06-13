@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/lib/auth-context";
 import { useTheme, type ThemeMode } from "@/lib/theme";
+import { useAppStyle, type AppStyle } from "@/lib/app-style-context";
 import { Button, Chip, Screen, Section } from "@/components/ui";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { UsernameEditor } from "@/components/chat/UsernameEditor";
@@ -21,9 +22,19 @@ const THEME_MODES: {
   { value: "auto", labelKey: "account.theme_auto", icon: "contrast-outline" },
 ];
 
+const APP_STYLES: {
+  value: AppStyle;
+  labelKey: "account.style_vintage" | "account.style_2100";
+  icon: keyof typeof Ionicons.glyphMap;
+}[] = [
+  { value: "vintage", labelKey: "account.style_vintage", icon: "library-outline" },
+  { value: "2100", labelKey: "account.style_2100", icon: "sparkles-outline" },
+];
+
 export default function AccountScreen() {
   const { state, logout } = useAuth();
   const { th, themeMode, setThemeMode } = useTheme();
+  const { appStyle, setAppStyle } = useAppStyle();
   const { t } = useTranslation();
   if (state.kind !== "authed") return null;
 
@@ -50,6 +61,20 @@ export default function AccountScreen() {
               icon={m.icon}
               selected={themeMode === m.value}
               onPress={() => setThemeMode(m.value)}
+            />
+          ))}
+        </View>
+      </Section>
+
+      <Section label={t("account.app_style")}>
+        <View style={styles.modeRow}>
+          {APP_STYLES.map((s) => (
+            <Chip
+              key={s.value}
+              label={t(s.labelKey)}
+              icon={s.icon}
+              selected={appStyle === s.value}
+              onPress={() => setAppStyle(s.value)}
             />
           ))}
         </View>

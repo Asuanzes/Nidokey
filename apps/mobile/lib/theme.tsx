@@ -169,6 +169,78 @@ export const TD = {
 
 export type Theme = typeof T;
 
+/**
+ * Paleta "2100" (visual alternativo). Mismo SHAPE que `T` para que el
+ * `useTheme()` y todas las primitivas (Card, Chip, Section, …) sigan funcionando
+ * sin condicionales en el sitio de uso. La rama del estilo vive en el
+ * `ThemeProvider` (Bloque D): cuando `appStyle === "2100"` el provider entrega
+ * `T2100`/`TD2100` en lugar de `T`/`TD`. Aquí solo se DECLARA la paleta; la
+ * conmutación NO entra en este lote (Bloque C solo aplica el cambio al fondo).
+ *
+ * Referencia visual: fondos cálidos oscuros con líneas onduladas color
+ * melocotón/naranja y formas angulares magenta/rosa + naranja, futuristas pero
+ * vibrantes. La variante clara mantiene la misma familia con menos saturación.
+ */
+export const T2100: Theme = {
+  bg: "#FFF5EC",        // crema cálida
+  surface: "#FFFFFF",
+  border: "#F0DDC9",
+  text: "#1B1421",      // ciruela muy oscuro
+  textMuted: "#5D4F5E",
+  textSubtle: "#90839A",
+  // Primario = magenta cálido (acción).
+  primary: "#D44D7C",
+  primarySoft: "#FCE3EA",
+  primaryFg: "#FFFFFF",
+  sourceBlue: "#7D4690",
+  // Acento = melocotón/naranja para énfasis.
+  accent: "#F08A4B",
+  accentSoft: "#FBE2CE",
+  dangerFg: "#C04A4A",
+  dangerSoft: "#FAD9D6",
+  imagePlaceholder: "#F7E6D5",
+  scoreBg: "#F7E6D5",
+  surfaceSoft: "#FFF0E2",
+  surfaceRaised: "#FFFFFF",
+  bgTop: "#FFE9D5",
+  bgBottom: "#FBD3D7",
+  overlay: "rgba(27,20,33,0.42)",
+  space: { ...T.space },
+  radii: { ...T.radii },
+  type: { ...T.type },
+  elevation: { ...T.elevation },
+};
+
+export const TD2100: Theme = {
+  bg: "#100A18",        // ciruela muy oscuro casi negro
+  surface: "#1B1024",
+  border: "#2E1E3A",
+  text: "#F5E3D2",      // crema melocotón muy claro
+  textMuted: "#C2A9B7",
+  textSubtle: "#8B7188",
+  // Primario = magenta cálido (acción).
+  primary: "#F26D9A",
+  primarySoft: "#3A1C2E",
+  primaryFg: "#1B1421",
+  sourceBlue: "#C58CD6",
+  // Acento = melocotón/naranja brillante.
+  accent: "#FFB994",
+  accentSoft: "#3A1E12",
+  dangerFg: "#F58D7A",
+  dangerSoft: "#3A1A18",
+  imagePlaceholder: "#22152C",
+  scoreBg: "#22152C",
+  surfaceSoft: "#190E22",
+  surfaceRaised: "#23142F",
+  bgTop: "#1A0E24",
+  bgBottom: "#0B0610",
+  overlay: "rgba(8,4,12,0.6)",
+  space: { ...TD.space },
+  radii: { ...TD.radii },
+  type: { ...TD.type },
+  elevation: { ...TD.elevation },
+};
+
 /** Modo de tema: "auto" sigue el sistema; "light"/"dark" fijan el tema. */
 export type ThemeMode = "auto" | "light" | "dark";
 

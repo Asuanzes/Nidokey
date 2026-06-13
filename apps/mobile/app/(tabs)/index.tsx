@@ -25,7 +25,7 @@ import { ConversationList } from "@/components/chat/ConversationList";
 import { ReorderableRecordList } from "@/components/ReorderableRecordList";
 import { deleteRecord } from "@/lib/data/records-repository";
 import { getSavedOrder, saveOrder, applySavedOrder } from "@/lib/local-order";
-import { EmptyState, ResultModal, Screen } from "@/components/ui";
+import { AdBannerSlot, EmptyState, ResultModal, Screen } from "@/components/ui";
 import { NewsSheet } from "@/components/NewsSheet";
 import { FoodHome } from "@/components/food/FoodHome";
 
@@ -127,6 +127,13 @@ export default function RecordsScreen() {
           {/* Chat: lista de conversaciones propia (no es una lista de records). */}
           {isChat && <ConversationList />}
           {isFood && <FoodHome />}
+
+          {/* Hueco de anuncios en la home de registros. Inerte hasta que el flag
+              `adsEnabled` se active; no afecta a chat ni a comida (renderizan en
+              su propio árbol). El componente devuelve `null` con el flag
+              apagado, así que la columna de registros queda exactamente igual
+              que antes hasta que activemos ads. */}
+          {!isChat && !isFood && <AdBannerSlot />}
 
           {!isChat && !isFood && showOpFilter && records && records.length > 0 && (
             <View style={[styles.opFilter, th.elevation.sm, { backgroundColor: th.surfaceRaised, borderColor: th.border }]}>

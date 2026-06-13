@@ -14,7 +14,7 @@ import { useSocketOpen } from "@/lib/chat/use-socket-open";
 import { homeBackground } from "@/lib/chat/home-bg";
 import { categoryColor } from "@/lib/records/config";
 import type { RecordType } from "@nidokey/shared";
-import { EmptyState } from "@/components/ui";
+import { AdBannerSlot, EmptyState } from "@/components/ui";
 
 /**
  * Lista de conversaciones (categoría Chat del rail). Polling suave de 20 s +
@@ -78,6 +78,10 @@ export function ConversationList() {
   } else {
     content = (
       <>
+        {/* Hueco de anuncios sobre la lista de conversaciones. Inerte mientras
+            `adsEnabled` esté apagado — el componente devuelve null y la lista
+            ocupa exactamente el espacio de antes. */}
+        <AdBannerSlot />
         <FlatList
           data={data ?? []}
           keyExtractor={(c) => c.id}

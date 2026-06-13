@@ -28,6 +28,7 @@ import { useChatNotificationTap } from "@/lib/chat/push";
 import "@/lib/i18n"; // inicializa i18next (debe importarse antes de usar t())
 import { useTranslation } from "react-i18next";
 import { LanguageProvider } from "@/lib/i18n/language-context";
+import { AppStyleProvider } from "@/lib/app-style-context";
 
 // Mantener el splash nativo hasta que la sesión esté resuelta: evita el
 // "cuadrado blanco" y el flash blanco entre el splash y el primer render.
@@ -98,6 +99,7 @@ export default function RootLayout() {
       <LanguageProvider>
       <AuthProvider>
         <ThemeContext.Provider value={{ dark, th, themeMode, setThemeMode, toggleTheme }}>
+          <AppStyleProvider>
           <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
             <PendingImportProvider>
               <BootProvider>
@@ -110,6 +112,7 @@ export default function RootLayout() {
               <StatusBar style="auto" />
             </PendingImportProvider>
           </ThemeProvider>
+          </AppStyleProvider>
         </ThemeContext.Provider>
       </AuthProvider>
       </LanguageProvider>
