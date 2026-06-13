@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   try {
     const restaurants = await discoverGoogleRestaurants({ lat, lng, radiusM, query: q });
     // Pre-calienta los menús de los más cercanos en background → carta instantánea al abrir.
-    after(() => prewarmMenus(restaurants, 4));
+    after(() => prewarmMenus(restaurants, 6));
     return NextResponse.json({ restaurants, source: "google" });
   } catch (e) {
     if (isProviderUnavailable(e)) {

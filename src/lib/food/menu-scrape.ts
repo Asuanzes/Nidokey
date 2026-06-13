@@ -99,6 +99,20 @@ function hostOf(u: string): string | null {
   }
 }
 
+/** Solo URLs https públicas (defensa en profundidad anti-SSRF + filtra basura/internas). */
+function isSafeHttpsUrl(u: string): boolean {
+  try {
+    const url = new URL(u);
+    if (url.protocol !== "https:") return false;
+    const h = url.hostname.toLowerCase();
+    if (h === "localhost" || h === "::1" || h.endsWith(".local")) return false;
+    if (/^(127\.|10\.|0\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Resuelve de dónde sacar el menú: (1) plataforma de delivery (menús estructurados);
  * (2) web propia del restaurante vía Google `websiteUri` — preferimos una página de su
@@ -106,15 +120,15 @@ function hostOf(u: string): string | null {
  * scrapeable.
  */
 async function resolveMenuUrl(opts: { name: string; city: string; googlePlaceId: string | null }): Promise<string | null> {
-  const results = await firecrawlSearch(`${opts.name} ${opts.city} carta menú`, 10);
+  const results = (await firecrawlSearch(`${opts.name} ${opts.city} carta menú`, 10)).filter((r) => isSafeHttpsUrl(r.url));
   // 1. Delivery
   for (const domain of DELIVERY_DOMAINS) {
     const hit = results.find((r) => hostOf(r.url)?.includes(domain));
     if (hit) return hit.url;
   }
-  // 2. Web propia del restaurante
+  // 2. Web propia del restaurante (solo https pública)
   const website = opts.googlePlaceId ? await placeWebsite(opts.googlePlaceId).catch(() => null) : null;
-  if (website) {
+  if (website && isSafeHttpsUrl(website)) {
     const siteHost = hostOf(website);
     if (siteHost) {
       const onSite = results.find((r) => hostOf(r.url)?.includes(siteHost));
@@ -225,22 +239,48 @@ export function menuPlan(r: {
  * dedup por TTL + inFlight (no re-scrapea los ya frescos/en vuelo). Pensado para
  * llamarse desde `after()` en el descubrimiento.
  */
+// Tipos de Google Places (cocinas) que más se piden a domicilio → se pre-calientan primero.
+const POPULAR_DELIVERY_TYPES = new Set([
+  "pizza_restaurant",
+  "hamburger_restaurant",
+  "fast_food_restaurant",
+  "mexican_restaurant",
+  "sushi_restaurant",
+  "japanese_restaurant",
+  "chinese_restaurant",
+  "asian_restaurant",
+  "thai_restaurant",
+  "indian_restaurant",
+  "turkish_restaurant",
+  "italian_restaurant",
+  "american_restaurant",
+  "kebab_restaurant",
+  "meal_delivery",
+  "meal_takeaway",
+]);
+
+function isPopularDelivery(types: string[] | undefined): boolean {
+  return Array.isArray(types) && types.some((t) => POPULAR_DELIVERY_TYPES.has(t));
+}
+
 export async function prewarmMenus(
-  restaurants: { id: string; source: string | null; menuFetchedAt: Date | null }[],
-  limit = 4,
+  restaurants: { id: string; source: string | null; menuFetchedAt: Date | null; types?: string[] }[],
+  limit = 6,
 ): Promise<void> {
   if (!hasFirecrawlKey()) return;
-  const targets: string[] = [];
-  for (const r of restaurants) {
-    if (targets.length >= limit) break;
-    if (r.source !== "google") continue;
+  // Candidatos que necesitan scrape (Google + sin carta fresca + no en vuelo), en orden de distancia.
+  const candidates = restaurants.filter((r) => {
+    if (r.source !== "google") return false;
     const fresh = r.menuFetchedAt != null && Date.now() - r.menuFetchedAt.getTime() < MENU_TTL_MS;
-    if (fresh || inFlight.has(r.id)) continue;
-    inFlight.add(r.id);
-    targets.push(r.id);
-  }
+    return !fresh && !inFlight.has(r.id);
+  });
+  // Prioriza cocinas que más se piden a domicilio, conservando el orden de distancia dentro de cada grupo.
+  const popular = candidates.filter((r) => isPopularDelivery(r.types));
+  const rest = candidates.filter((r) => !isPopularDelivery(r.types));
+  const targets = [...popular, ...rest].slice(0, limit).map((r) => r.id);
   if (targets.length === 0) return;
-  console.log(`[food-menu] prewarm: ${targets.length} restaurantes`);
+  for (const id of targets) inFlight.add(id);
+  console.log(`[food-menu] prewarm: ${targets.length} restaurantes (populares primero)`);
   await Promise.allSettled(
     targets.map(async (id) => {
       try {
