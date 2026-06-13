@@ -160,29 +160,20 @@ function isSafeHttpsUrl(u: string): boolean {
  * scrapeable.
  */
 async function resolveMenuUrl(opts: { name: string; city: string; googlePlaceId: string | null }): Promise<string | null> {
-  // La búsqueda web solo está disponible con Firecrawl (encuentra plataformas de
-  // delivery o la página /carta del propio dominio). Sin clave, vamos directos a la
-  // web del restaurante que da Google → Crawl4AI la renderiza gratis.
-  const results = hasFirecrawlKey()
-    ? (await firecrawlSearch(`${opts.name} ${opts.city} carta menú`, 10).catch(() => [])).filter((r) => isSafeHttpsUrl(r.url))
-    : [];
-  // 1. Delivery (menús estructurados; el scrape de estos lo cubre solo Firecrawl por DataDome).
+  // 1. Web propia del restaurante (Google websiteUri): fuente principal y RÁPIDA.
+  //    Si la hay, la usamos directamente — sin gastar una búsqueda en Firecrawl (que
+  //    además suele devolver homónimos de otra ciudad). Crawl4AI la renderiza.
+  const website = opts.googlePlaceId ? await placeWebsite(opts.googlePlaceId).catch(() => null) : null;
+  if (website && isSafeHttpsUrl(website)) return website;
+  // 2. Sin web propia: buscar con Firecrawl (plataforma de delivery o mejor resultado https).
+  if (!hasFirecrawlKey()) return null;
+  const results = (await firecrawlSearch(`${opts.name} ${opts.city} carta menú`, 10).catch(() => [])).filter((r) =>
+    isSafeHttpsUrl(r.url),
+  );
   for (const domain of DELIVERY_DOMAINS) {
     const hit = results.find((r) => hostOf(r.url)?.includes(domain));
     if (hit) return hit.url;
   }
-  // 2. Web propia del restaurante (Google websiteUri) — fuente GRATIS principal (Crawl4AI).
-  const website = opts.googlePlaceId ? await placeWebsite(opts.googlePlaceId).catch(() => null) : null;
-  if (website && isSafeHttpsUrl(website)) {
-    const siteHost = hostOf(website);
-    if (siteHost) {
-      // Prefiere una página de su dominio que la búsqueda asocie a la carta (suele ser /carta).
-      const onSite = results.find((r) => hostOf(r.url)?.includes(siteHost));
-      if (onSite) return onSite.url;
-    }
-    return website;
-  }
-  // 3. Sin web propia: el mejor resultado https de la búsqueda, si lo hay.
   return results[0]?.url ?? null;
 }
 
@@ -195,7 +186,7 @@ async function extractMenu(url: string): Promise<NormCat[]> {
   // Tier 1 (gratis): Crawl4AI renderiza+limpia en el VPS, el LLM (Gemini) estructura el menú.
   if (hasCrawl4aiConfig() && hasLlmExtractor()) {
     try {
-      const markdown = await crawl4aiMarkdown(url, { timeoutMs: 45000 });
+      const markdown = await crawl4aiMarkdown(url, { timeoutMs: 30000 });
       if (markdown) {
         const focused = condenseMenuMarkdown(markdown);
         const extracted = await extractJson<ExtractedMenu>(focused, MENU_SCHEMA, MENU_PROMPT, { timeoutMs: 60000 });

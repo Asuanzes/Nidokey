@@ -41,14 +41,14 @@ export default function RestaurantScreen() {
     }
   }
 
-  // Mientras el menú se scrapea en el servidor (background), reconsultamos cada 3.5s
+  // Mientras el menú se scrapea en el servidor (background), reconsultamos cada 1.5s
   // hasta que el estado deje de ser "fetching". `q.data` cambia de identidad en cada
   // refetch, así que el efecto se re-arma solo y se detiene al llegar a "ready".
   useEffect(() => {
     if (q.data?.menuStatus !== "fetching") return;
     const t = setTimeout(() => {
       void q.refetch();
-    }, 2500);
+    }, 1500);
     return () => clearTimeout(t);
   }, [q.data, q.refetch]);
 
