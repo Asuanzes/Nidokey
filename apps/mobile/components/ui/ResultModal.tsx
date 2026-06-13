@@ -64,16 +64,23 @@ export function ResultModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onRequestClose}>
-      <Pressable style={styles.backdrop} onPress={onRequestClose}>
+      <Pressable style={[styles.backdrop, { backgroundColor: th.overlay }]} onPress={onRequestClose}>
         {/* El card detiene la propagación: pulsar dentro no cierra. */}
-        <Pressable style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }]} onPress={() => {}}>
-          <View style={[styles.iconCircle, { backgroundColor: color + "1A" }]}>
+        <Pressable
+          style={[
+            styles.card,
+            th.elevation.lg,
+            { backgroundColor: th.surfaceRaised, borderColor: th.border, borderRadius: th.radii.xl },
+          ]}
+          onPress={() => {}}
+        >
+          <View style={[styles.iconCircle, { backgroundColor: color + "1F", borderColor: color + "3A" }]}>
             <Ionicons name={icon ?? defaultIcon(tone)} size={34} color={color} />
           </View>
           <Text style={[styles.title, { color: th.text }]}>{title}</Text>
           {message ? <Text style={[styles.message, { color: th.textMuted }]}>{message}</Text> : null}
           {detail ? (
-            <View style={[styles.detailBox, { backgroundColor: th.bg, borderColor: th.border }]}>
+            <View style={[styles.detailBox, { backgroundColor: th.surfaceSoft, borderColor: th.border }]}>
               <Text style={[styles.detailText, { color: th.text }]}>{detail}</Text>
             </View>
           ) : null}
@@ -96,7 +103,6 @@ export function ResultModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(20,20,18,0.45)",
     alignItems: "center",
     justifyContent: "center",
     padding: 28,
@@ -104,16 +110,22 @@ const styles = StyleSheet.create({
   card: {
     width: "100%",
     maxWidth: 360,
-    borderRadius: 16,
     borderWidth: 1,
-    padding: 22,
+    padding: 24,
     alignItems: "center",
-    gap: 10,
+    gap: 12,
   },
-  iconCircle: { width: 60, height: 60, borderRadius: 999, alignItems: "center", justifyContent: "center" },
-  title: { fontSize: 18, fontFamily: fonts.bodyBold, textAlign: "center" },
-  message: { fontSize: 14, lineHeight: 20, textAlign: "center" },
-  detailBox: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, alignSelf: "stretch" },
+  iconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 22,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  title: { fontSize: 20, lineHeight: 25, fontFamily: fonts.heading, textAlign: "center" },
+  message: { fontSize: 14, lineHeight: 20, textAlign: "center", fontFamily: fonts.body },
+  detailBox: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 9, alignSelf: "stretch" },
   detailText: { fontSize: 13, fontFamily: fonts.bodySemibold, textAlign: "center" },
-  actions: { alignSelf: "stretch", gap: 8, marginTop: 6 },
+  actions: { alignSelf: "stretch", gap: 8, marginTop: 4 },
 });

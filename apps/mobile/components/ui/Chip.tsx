@@ -34,10 +34,13 @@ export function Chip({ label, selected = false, onPress, icon, color, leading }:
       onPress={onPress}
       style={({ pressed }) => [
         styles.chip,
+        !selected ? th.elevation.sm : null,
         {
-          backgroundColor: selected ? accent : th.surface,
+          backgroundColor: selected ? accent : th.surfaceRaised,
           borderColor: selected ? accent : th.border,
-          opacity: pressed ? 0.85 : 1,
+          borderRadius: th.radii.pill,
+          opacity: pressed ? 0.86 : 1,
+          transform: [{ translateY: pressed ? 1 : 0 }],
         },
       ]}
     >
@@ -52,10 +55,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingHorizontal: 12,
-    height: 34,
-    borderRadius: 17,
+    paddingHorizontal: 14,
+    height: 36,
     borderWidth: 1,
   },
-  label: { fontSize: 13, fontFamily: fonts.bodyMedium },
+  label: { fontSize: 13, fontFamily: fonts.bodySemibold },
 });

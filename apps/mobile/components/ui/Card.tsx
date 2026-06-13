@@ -10,7 +10,17 @@ export function Card({ style, children, ...rest }: ViewProps) {
   const { th } = useTheme();
   return (
     <View
-      style={[styles.card, { backgroundColor: th.surface, borderColor: th.border }, style]}
+      style={[
+        styles.card,
+        th.elevation.sm,
+        {
+          backgroundColor: th.surfaceRaised,
+          borderColor: th.border,
+          borderRadius: th.radii.lg,
+          padding: th.space.lg,
+        },
+        style,
+      ]}
       {...rest}
     >
       {children}
@@ -19,5 +29,5 @@ export function Card({ style, children, ...rest }: ViewProps) {
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 12, borderWidth: 1, padding: 16 },
+  card: { borderWidth: 1 },
 });

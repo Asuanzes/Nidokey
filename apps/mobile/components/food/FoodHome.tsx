@@ -8,6 +8,7 @@ import { useQuery } from "@/lib/hooks/useQuery";
 import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
 import { Button, Card, EmptyState } from "@/components/ui";
+import { categoryColor } from "@/lib/records/config";
 
 type FoodAddress = {
   id: string;
@@ -73,7 +74,8 @@ function chipFromType(type: string): string | null {
 }
 
 export function FoodHome() {
-  const { th } = useTheme();
+  const { th, dark } = useTheme();
+  const foodAccent = categoryColor("food", dark);
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const addressesQ = useQuery(() => api<{ addresses: FoodAddress[] }>("/api/food/addresses"), [], { resetOnDepsChange: true });
@@ -147,9 +149,9 @@ export function FoodHome() {
 
   return (
     <View style={styles.root}>
-      <View style={[styles.header, { borderBottomColor: th.border }]}>
+      <View style={[styles.header, th.elevation.sm, { backgroundColor: th.surfaceRaised, borderColor: th.border }]}>
         <Pressable style={styles.address} onPress={() => router.push("/food/address")}>
-          <Ionicons name="location-outline" size={18} color={th.accent} />
+          <Ionicons name="location-outline" size={18} color={foodAccent} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.addressLabel, { color: th.text }]} numberOfLines={1}>
               Entregar en: {selected.label}
@@ -165,7 +167,7 @@ export function FoodHome() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {activeOrder && (
           <Pressable onPress={() => router.push(`/food/order/${activeOrder.id}`)}>
-            <Card style={[styles.activeOrder, { borderColor: th.accent }]}>
+          <Card style={[styles.activeOrder, { borderColor: foodAccent }]}>
               <Text style={[styles.activeTitle, { color: th.text }]}>{activeOrder.restaurant?.name ?? "Pedido en curso"}</Text>
               <Text style={[styles.activeMeta, { color: th.textMuted }]}>{activeOrder.code} · {activeOrder.status}</Text>
             </Card>
@@ -182,8 +184,12 @@ export function FoodHome() {
 
         <View style={styles.chips}>
           {cuisineChips.map((chip) => (
-            <Pressable key={chip} onPress={() => setQuery(chip)} style={[styles.chip, { backgroundColor: th.accentSoft }]}>
-              <Text style={[styles.chipText, { color: th.accent }]}>{chip}</Text>
+            <Pressable
+              key={chip}
+              onPress={() => setQuery(chip)}
+              style={[styles.chip, { backgroundColor: foodAccent + "1F", borderColor: foodAccent + "33" }]}
+            >
+              <Text style={[styles.chipText, { color: foodAccent }]}>{chip}</Text>
             </Pressable>
           ))}
         </View>
@@ -193,12 +199,14 @@ export function FoodHome() {
         ) : restaurantsQ.data?.restaurants.length ? (
           restaurantsQ.data.restaurants.map((restaurant) => (
             <Pressable key={restaurant.id} onPress={() => router.push(`/food/restaurant/${restaurant.id}`)}>
-              <Card style={styles.restaurant}>
+              <Card style={[styles.restaurant, { borderColor: restaurant.isOpen ? th.border : th.dangerSoft }]}>
                 <Image source={restaurant.imageUrl ? { uri: restaurant.imageUrl } : undefined} style={[styles.photo, { backgroundColor: th.imagePlaceholder }]} contentFit="cover" />
                 <View style={styles.restaurantInfo}>
                   <View style={styles.row}>
                     <Text style={[styles.restaurantName, { color: th.text }]} numberOfLines={1}>{restaurant.name}</Text>
-                    {!restaurant.isOpen && <Text style={[styles.closed, { color: th.dangerFg }]}>Cerrado</Text>}
+                    {!restaurant.isOpen && (
+                      <Text style={[styles.closed, { color: th.dangerFg, backgroundColor: th.dangerSoft }]}>Cerrado</Text>
+                    )}
                   </View>
                   <Text style={[styles.desc, { color: th.textMuted }]} numberOfLines={2}>{restaurant.description ?? "Carta disponible"}</Text>
                   <Text style={[styles.meta, { color: th.textSubtle }]}>

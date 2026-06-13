@@ -139,8 +139,9 @@ function CryptoCard({ record, editing, onLongPress, onDelete }: CardProps) {
       style={({ pressed }) => [
         styles.card,
         styles.cryptoCard,
-        { backgroundColor: th.surface, borderColor: th.border },
-        pressed && !editing && { opacity: 0.7 },
+        th.elevation.sm,
+        { backgroundColor: th.surfaceRaised, borderColor: th.border },
+        pressed && !editing && { opacity: 0.82, transform: [{ translateY: 1 }] },
       ]}
     >
       <View style={styles.row}>
@@ -337,7 +338,7 @@ const PORTAL_LABEL: Record<string, string> = {
 };
 
 function DefaultCard({ record, editing, onLongPress, onDelete }: CardProps) {
-  const { th } = useTheme();
+  const { th, dark } = useTheme();
   const { t } = useTranslation();
   const status = record.status ? STATUS_STYLE[record.status] : undefined;
   const footnote = metaField<string | null>(record, "footnote", null);
@@ -354,8 +355,9 @@ function DefaultCard({ record, editing, onLongPress, onDelete }: CardProps) {
         styles.card,
         styles.narrowCard,
         styles.propCard,
-        { backgroundColor: th.surface, borderColor: th.border },
-        pressed && !editing && { opacity: 0.7 },
+        th.elevation.sm,
+        { backgroundColor: th.surfaceRaised, borderColor: th.border },
+        pressed && !editing && { opacity: 0.82, transform: [{ translateY: 1 }] },
       ]}
     >
       <View style={styles.thumbCol}>
@@ -389,7 +391,7 @@ function DefaultCard({ record, editing, onLongPress, onDelete }: CardProps) {
         <View style={styles.priceRow}>
           <Text style={[styles.cardPrice, { color: th.accent }]} numberOfLines={1}>{record.primaryValue ?? "—"}</Text>
           {status && (
-            <View style={[styles.statusChip, { backgroundColor: status.bg }]}>
+            <View style={[styles.statusChip, { backgroundColor: dark ? status.color + "24" : status.bg }]}>
               <Text style={[styles.statusText, { color: status.color }]}>{t(status.key)}</Text>
             </View>
           )}
@@ -432,8 +434,9 @@ function JobCard({ record, editing, onLongPress, onDelete }: CardProps) {
       style={({ pressed }) => [
         styles.card,
         styles.narrowCard,
-        { backgroundColor: th.surface, borderColor: th.border },
-        pressed && !editing && { opacity: 0.7 },
+        th.elevation.sm,
+        { backgroundColor: th.surfaceRaised, borderColor: th.border },
+        pressed && !editing && { opacity: 0.82, transform: [{ translateY: 1 }] },
       ]}
     >
       {thumb ? (
@@ -505,7 +508,7 @@ function fmtAgo(iso: string | null, tr: TFn): { text: string; stale: boolean } |
 // AssetDetail y RecordCard; unificadas en shared).
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 10, borderWidth: 1, marginBottom: 8 },
+  card: { borderRadius: 16, borderWidth: 1, marginBottom: 10 },
   deleteBadge: {
     position: "absolute",
     top: -7,
@@ -524,7 +527,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
   },
   // crypto
-  cryptoCard: { padding: 12 },
+  cryptoCard: { padding: 14 },
   row: { flexDirection: "row", alignItems: "flex-start" },
   logo: {
     width: 36,
@@ -535,25 +538,25 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginRight: 10,
   },
-  logoSquare: { borderRadius: 8 }, // cuadrado redondeado (logos de marca de mercado)
+  logoSquare: { borderRadius: 10 }, // cuadrado redondeado (logos de marca de mercado)
   logoChip: { backgroundColor: "#fff", borderWidth: 1 },
   logoImg: { width: 30, height: 30 },
   flex: { flex: 1 },
   alignEnd: { alignItems: "flex-end" },
-  symbol: { fontSize: 16, fontFamily: fonts.bodyBold },
+  symbol: { fontSize: 16, lineHeight: 21, fontFamily: fonts.bodyBold },
   coinName: { fontSize: 12, marginTop: 1 },
-  price: { fontSize: 17, fontFamily: fonts.bodyBold },
+  price: { fontSize: 18, lineHeight: 23, fontFamily: fonts.bodyBold },
   changeRow: { flexDirection: "row", alignItems: "baseline", gap: 4, marginTop: 1 },
   change: { fontSize: 13, fontFamily: fonts.bodySemibold },
   periodLabel: { fontSize: 10, fontFamily: fonts.bodyMedium },
-  sparkHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8 },
+  sparkHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 10 },
   chart: { position: "relative", marginTop: 4 },
   barsRow: { flexDirection: "row", alignItems: "flex-end", height: "100%" },
   cryptoFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 8,
-    paddingTop: 6,
+    marginTop: 10,
+    paddingTop: 8,
     borderTopWidth: 1,
   },
   statLabel: { fontSize: 11 },
@@ -563,18 +566,18 @@ const styles = StyleSheet.create({
   jobFooterLeft: { flex: 1, fontSize: 12, fontFamily: fonts.bodyMedium },
   jobFooterRight: { fontSize: 11 },
   // tarjeta estrecha (miniatura izquierda + info derecha) — compacta
-  narrowCard: { flexDirection: "row", padding: 8, gap: 10, alignItems: "center" },
+  narrowCard: { flexDirection: "row", padding: 10, gap: 12, alignItems: "center" },
   // inmueble: columna [miniatura + portal] alineada por ABAJO, así el portal
   // queda a la altura del precio y la imagen no sube tanto.
   propCard: { alignItems: "flex-end" },
   thumbCol: { alignItems: "center" },
   portalLabel: { fontSize: 11, fontFamily: fonts.bodySemibold, marginTop: 4, maxWidth: 72, textAlign: "center" },
-  thumb: { width: 64, height: 64, borderRadius: 8 },
+  thumb: { width: 68, height: 68, borderRadius: 12 },
   thumbPlaceholder: { alignItems: "center", justifyContent: "center" },
-  info: { flex: 1, gap: 2 },
-  title: { fontSize: 14, fontFamily: fonts.bodySemibold },
-  sub: { fontSize: 12 },
-  foot: { fontSize: 11 },
+  info: { flex: 1, gap: 3 },
+  title: { fontSize: 15, lineHeight: 20, fontFamily: fonts.bodySemibold },
+  sub: { fontSize: 12, lineHeight: 16 },
+  foot: { fontSize: 11, lineHeight: 15 },
   priceRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -582,7 +585,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     gap: 8,
   },
-  cardPrice: { fontSize: 15, fontFamily: fonts.bodyBold, flexShrink: 1 },
-  statusChip: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 4 },
-  statusText: { fontSize: 10, fontFamily: fonts.bodySemibold },
+  cardPrice: { fontSize: 16, lineHeight: 21, fontFamily: fonts.bodyBold, flexShrink: 1 },
+  statusChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  statusText: { fontSize: 10, fontFamily: fonts.bodySemibold, textTransform: "uppercase", letterSpacing: 0.4 },
 });

@@ -11,4 +11,5 @@ export { Chip } from "./Chip";
 export { Section } from "./Section";
 export { EmptyState } from "./EmptyState";
 export { Screen } from "./Screen";
+export { ScreenBackground } from "./ScreenBackground";
 export { ResultModal } from "./ResultModal";

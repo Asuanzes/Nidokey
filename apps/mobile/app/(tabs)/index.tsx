@@ -120,7 +120,7 @@ export default function RecordsScreen() {
       : ordered;
 
   return (
-    <Screen>
+    <Screen background backgroundCategory={type}>
       <View style={styles.body}>
         {/* Contenido */}
         <View style={styles.main}>
@@ -129,7 +129,7 @@ export default function RecordsScreen() {
           {isFood && <FoodHome />}
 
           {!isChat && !isFood && showOpFilter && records && records.length > 0 && (
-            <View style={[styles.opFilter, { borderBottomColor: th.border }]}>
+            <View style={[styles.opFilter, th.elevation.sm, { backgroundColor: th.surfaceRaised, borderColor: th.border }]}>
               {(["ALL", "SALE", "RENT"] as const).map((opt) => {
                 const active = opFilter === opt;
                 const label =
@@ -140,7 +140,11 @@ export default function RecordsScreen() {
                     onPress={() => setOpFilter(opt)}
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
-                    style={[styles.opChip, active && { backgroundColor: th.accentSoft, borderColor: th.accent }]}
+                    style={[
+                      styles.opChip,
+                      { borderColor: active ? th.accent : "transparent" },
+                      active && { backgroundColor: th.accentSoft },
+                    ]}
                   >
                     <Text style={[styles.opChipText, { color: active ? th.accent : th.textMuted }]}>{label}</Text>
                   </Pressable>
@@ -191,7 +195,7 @@ export default function RecordsScreen() {
           {!isChat && !isFood && shown && shown.length > 0 && (
             <View style={styles.fill}>
               {editing && (
-                <View style={[styles.editBar, { backgroundColor: th.accentSoft, borderBottomColor: th.border }]}>
+                <View style={[styles.editBar, { backgroundColor: th.surfaceRaised, borderColor: th.border }]}>
                   <Text style={[styles.editHint, { color: th.textMuted }]} numberOfLines={1}>
                     {t("records.edit_hint")}
                   </Text>
@@ -234,7 +238,7 @@ export default function RecordsScreen() {
 
         {/* Rail vertical de tipos (solo iconos, activo en bronce) */}
         <ScrollView
-          style={[styles.rail, { borderLeftColor: th.border }]}
+          style={[styles.rail, th.elevation.md, { backgroundColor: th.surfaceRaised, borderColor: th.border }]}
           contentContainerStyle={styles.railContent}
           showsVerticalScrollIndicator={false}
         >
@@ -247,7 +251,11 @@ export default function RecordsScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={typeLabel(cat)}
                 accessibilityState={{ selected: active }}
-                style={[styles.railItem, active && { backgroundColor: th.accentSoft }]}
+                style={[
+                  styles.railItem,
+                  { borderColor: active ? th.accent : "transparent" },
+                  active && { backgroundColor: th.accentSoft },
+                ]}
               >
                 <CategoryIcon type={cat} size={26} />
               </Pressable>
@@ -294,17 +302,21 @@ export default function RecordsScreen() {
 }
 
 const styles = StyleSheet.create({
-  body: { flex: 1, flexDirection: "row" },
+  body: { flex: 1, flexDirection: "row", paddingLeft: 4 },
   main: { flex: 1 },
   fill: { flex: 1 },
-  list: { paddingHorizontal: 10, paddingTop: 6, paddingBottom: 14 },
+  list: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 18 },
   editBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
+    borderRadius: 16,
+    marginHorizontal: 12,
+    marginTop: 10,
+    marginBottom: 2,
   },
   editHint: { fontSize: 12, fontFamily: fonts.bodyMedium, flex: 1, marginRight: 8 },
   editDone: { fontSize: 14, fontFamily: fonts.bodyBold },
@@ -313,7 +325,11 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
+    borderRadius: 18,
+    marginHorizontal: 12,
+    marginTop: 10,
+    marginBottom: 4,
   },
   opChip: {
     paddingHorizontal: 12,
@@ -326,20 +342,25 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
   rail: {
     width: 60,
-    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
+    borderRadius: 22,
+    marginTop: 10,
+    marginRight: 8,
+    marginBottom: 10,
     flexGrow: 0,
   },
   railContent: {
     flexGrow: 1,
     justifyContent: "center",
     paddingVertical: 8,
-    gap: 6,
+    gap: 7,
     alignItems: "center",
   },
   railItem: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },

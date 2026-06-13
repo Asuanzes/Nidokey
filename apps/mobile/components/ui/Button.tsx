@@ -37,15 +37,16 @@ type Props = {
 
 const HEIGHT: Record<Size, number> = { sm: 40, md: 48, lg: 52 };
 const FONT: Record<Size, number> = { sm: 13, md: 15, lg: 16 };
+const H_PADDING: Record<Size, number> = { sm: 14, md: 18, lg: 20 };
 
 function palette(th: Theme, variant: Variant): { bg: string; fg: string; border: string } {
   switch (variant) {
     case "primary":
       return { bg: th.primary, fg: th.primaryFg, border: "transparent" };
     case "secondary":
-      return { bg: th.surface, fg: th.text, border: th.border };
+      return { bg: th.surfaceRaised, fg: th.text, border: th.border };
     case "danger":
-      return { bg: th.surface, fg: th.dangerFg, border: th.dangerSoft };
+      return { bg: th.dangerSoft, fg: th.dangerFg, border: th.dangerSoft };
     case "ghost":
       return { bg: "transparent", fg: th.primary, border: "transparent" };
   }
@@ -65,6 +66,7 @@ export function Button({
   const { th } = useTheme();
   const p = palette(th, variant);
   const isDisabled = disabled || loading;
+  const raised = variant === "primary" || variant === "secondary";
 
   return (
     <Pressable
@@ -79,9 +81,13 @@ export function Button({
           backgroundColor: p.bg,
           borderColor: p.border,
           borderWidth: p.border === "transparent" ? 0 : 1,
-          opacity: isDisabled ? 0.5 : pressed ? 0.85 : 1,
+          borderRadius: th.radii.lg,
+          paddingHorizontal: H_PADDING[size],
+          opacity: isDisabled ? 0.52 : pressed ? 0.88 : 1,
           alignSelf: fullWidth ? "stretch" : "flex-start",
+          transform: [{ translateY: pressed && raised ? 1 : 0 }],
         },
+        raised && !isDisabled ? th.elevation.sm : null,
         style,
       ]}
     >
@@ -99,11 +105,9 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 16,
   },
   content: { flexDirection: "row", alignItems: "center", gap: 8 },
-  label: { fontFamily: fonts.bodySemibold },
+  label: { fontFamily: fonts.bodySemibold, letterSpacing: 0.1 },
 });

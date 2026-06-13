@@ -76,7 +76,12 @@ export default function TabsLayout() {
       <View
         style={[
           styles.tabBar,
-          { backgroundColor: th.surface, borderTopColor: th.border, paddingBottom: insets.bottom },
+          th.elevation.md,
+          {
+            backgroundColor: th.surfaceRaised,
+            borderTopColor: th.border,
+            paddingBottom: Math.max(insets.bottom, 6),
+          },
         ]}
       >
         {TABS.map((tab) => {
@@ -91,9 +96,11 @@ export default function TabsLayout() {
                     <View
                       style={[
                         styles.fab,
+                        th.elevation.lg,
                         // Azul fijo (steel-blue del modo claro) en ambos temas:
                         // el primary de modo oscuro aclara demasiado y desentona.
-                        { backgroundColor: FAB_BG, opacity: pressed ? 0.9 : 1 },
+                        { backgroundColor: FAB_BG, borderColor: th.surfaceRaised, opacity: pressed ? 0.9 : 1 },
+                        pressed && { transform: [{ translateY: 1 }] },
                       ]}
                     >
                       <Ionicons name={tab.icon ?? "add"} size={30} color={FAB_FG} />
@@ -108,7 +115,13 @@ export default function TabsLayout() {
           return (
             <Link key={tab.href} href={tab.href as never} asChild>
               <Pressable style={styles.tabItem} accessibilityLabel={tab.label}>
-                <View style={styles.iconWrap}>
+                <View
+                  style={[
+                    styles.iconWrap,
+                    { borderColor: active ? th.accent : "transparent" },
+                    active && { backgroundColor: th.accentSoft },
+                  ]}
+                >
                   <SvgXml xml={TAB_ICON_SVG[tab.svg!]} width={24} height={24} color={color} />
                   {tab.badge ? (
                     <View style={[styles.badge, { backgroundColor: th.dangerFg }]}>
@@ -132,7 +145,7 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: "row",
     borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: 8,
+    paddingTop: 10,
   },
   tabItem: { flex: 1, alignItems: "center", gap: 3, paddingVertical: 4 },
   // Botón central elevado (acción principal "Importar").
@@ -141,17 +154,21 @@ const styles = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 29,
+    borderWidth: 3,
     alignItems: "center",
     justifyContent: "center",
     marginTop: -24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.22,
-    shadowRadius: 6,
-    elevation: 8,
   },
-  iconWrap: { position: "relative" },
-  tabLabel: { fontSize: 10, fontFamily: fonts.bodyMedium },
+  iconWrap: {
+    position: "relative",
+    minWidth: 38,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tabLabel: { fontSize: 10, fontFamily: fonts.bodySemibold },
   badge: {
     position: "absolute",
     top: -4,

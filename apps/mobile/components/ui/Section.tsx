@@ -14,7 +14,7 @@ export function Section({ label, children, style, ...rest }: Props) {
   const { th } = useTheme();
   return (
     <Card style={style} {...rest}>
-      {label && <Text style={[styles.label, { color: th.textMuted }]}>{label}</Text>}
+      {label && <Text style={[styles.label, { color: th.accent }]}>{label}</Text>}
       {children}
     </Card>
   );
@@ -25,7 +25,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: fonts.bodySemibold,
     textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 8,
+    letterSpacing: 0.7,
+    marginBottom: 10,
   },
 });
