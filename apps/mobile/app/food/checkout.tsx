@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text } from "react-native";
+import { useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { useQuery } from "@/lib/hooks/useQuery";
 import { API_URL } from "@/lib/api";
@@ -9,6 +10,7 @@ import { useFoodCart } from "@/lib/food-cart-context";
 import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
 import { Button, Card, EmptyState, Screen } from "@/components/ui";
+import { categoryColor } from "@/lib/records/config";
 
 type FoodAddress = { id: string; label: string; line: string; city: string };
 
@@ -18,7 +20,9 @@ function money(cents: number) {
 
 export default function FoodCheckoutScreen() {
   const cart = useFoodCart();
-  const { th } = useTheme();
+  const { th, dark } = useTheme();
+  const { t } = useTranslation();
+  const foodAccent = categoryColor("food", dark);
   const addressesQ = useQuery(() => api<{ addresses: FoodAddress[] }>("/api/food/addresses"), []);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -52,21 +56,31 @@ export default function FoodCheckoutScreen() {
 
   if (!cart.items.length) {
     return (
-      <Screen title="Checkout">
+      <Screen title={t("food.checkout")} background backgroundCategory="food">
         <EmptyState icon="cart-outline" title="Carrito vacío" description="Añade platos antes de pagar." />
       </Screen>
     );
   }
 
   return (
-    <Screen title="Checkout">
-      <ScrollView contentContainerStyle={styles.content}>
+    <Screen title={t("food.checkout")} background backgroundCategory="food">
+      <ScrollView contentContainerStyle={[styles.content, { padding: th.space.lg, gap: th.space.md }]}>
         <Card>
           <Text style={[styles.title, { color: th.text }]}>Entrega</Text>
           {addressesQ.loading && !addressesQ.data ? <ActivityIndicator color={th.primary} /> : addressesQ.data?.addresses.map((a) => {
             const selectedAddress = selected?.id === a.id;
             return (
-              <Pressable key={a.id} onPress={() => setSelectedId(a.id)} style={[styles.address, { borderColor: selectedAddress ? th.accent : th.border }]}>
+              <Pressable
+                key={a.id}
+                onPress={() => setSelectedId(a.id)}
+                style={[
+                  styles.address,
+                  {
+                    backgroundColor: selectedAddress ? th.accentSoft : th.surface,
+                    borderColor: selectedAddress ? foodAccent : th.border,
+                  },
+                ]}
+              >
                 <Text style={[styles.name, { color: th.text }]}>{a.label}</Text>
                 <Text style={[styles.meta, { color: th.textMuted }]}>{a.line}</Text>
               </Pressable>
@@ -81,7 +95,7 @@ export default function FoodCheckoutScreen() {
               {i.quantity} x {i.name} · {money(i.priceCents * i.quantity)}
             </Text>
           ))}
-          <Text style={[styles.total, { color: th.text }]}>Subtotal {money(cart.totalCents)}</Text>
+          <Text style={[styles.total, { color: foodAccent }]}>Subtotal {money(cart.totalCents)}</Text>
         </Card>
         {error && <Text style={[styles.error, { color: th.dangerFg }]}>{error}</Text>}
         <Button label="Pagar" loading={busy} disabled={!selected || busy} onPress={pay} />
@@ -91,7 +105,7 @@ export default function FoodCheckoutScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16, gap: 12 },
+  content: { paddingBottom: 28 },
   title: { fontSize: 16, fontFamily: fonts.bodyBold, marginBottom: 8 },
   address: { borderWidth: 1, borderRadius: 10, padding: 10, marginBottom: 8 },
   name: { fontSize: 14, fontFamily: fonts.bodyBold },

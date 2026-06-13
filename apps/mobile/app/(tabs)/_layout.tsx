@@ -11,6 +11,7 @@ import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
 import { useDuplicatesChanged } from "@/lib/dup-signal";
 import { TAB_ICON_SVG, type TabIconKey } from "@/lib/ui-icons";
+import { useCategoryPrefs } from "@/lib/records/category-prefs-context";
 
 /**
  * Navegación principal: una sola barra de pestañas con los 5 destinos clave.
@@ -33,8 +34,10 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const { th } = useTheme();
   const { t } = useTranslation();
+  const { category } = useCategoryPrefs();
   const [dupCount, setDupCount] = useState(0);
   const dupChanged = useDuplicatesChanged();
+  const isFoodCategory = category === "food";
 
   // Recalcula el badge al cambiar de pestaña Y tras fusionar/descartar (dupChanged).
   useEffect(() => {
@@ -59,11 +62,12 @@ export default function TabsLayout() {
     svg?: TabIconKey;
     badge?: number;
     primary?: boolean;
+    hideWhenFood?: boolean;
   }[] = [
     { href: "/",         label: t("tabs.records"),    svg: "records" },
-    { href: "/search",   label: t("tabs.search"),     svg: "search" },
+    { href: "/search",   label: t("tabs.search"),     svg: "search", hideWhenFood: true },
     { href: "/importar", label: t("tabs.import"),     icon: "add", primary: true },
-    { href: "/matches",  label: t("tabs.duplicates"), svg: "duplicates", badge: dupCount || undefined },
+    { href: "/matches",  label: t("tabs.duplicates"), svg: "duplicates", badge: dupCount || undefined, hideWhenFood: true },
     { href: "/account",  label: t("tabs.account"),    svg: "account" },
   ];
 
@@ -85,6 +89,10 @@ export default function TabsLayout() {
         ]}
       >
         {TABS.map((tab) => {
+          // Custom tab-bar equivalent of `tabBarButton: () => null` for food.
+          // Kept local to the tab config so removing the food exception is one-line.
+          if (isFoodCategory && tab.hideWhenFood) return null;
+
           const active = isActive(tab.href);
 
           // Acción principal: botón central, más grande y elevado sobre la barra.

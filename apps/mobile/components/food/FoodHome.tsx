@@ -3,11 +3,12 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { useQuery } from "@/lib/hooks/useQuery";
 import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
-import { Button, Card, EmptyState } from "@/components/ui";
+import { Card, EmptyState } from "@/components/ui";
 import { categoryColor } from "@/lib/records/config";
 
 type FoodAddress = {
@@ -75,6 +76,7 @@ function chipFromType(type: string): string | null {
 
 export function FoodHome() {
   const { th, dark } = useTheme();
+  const { t } = useTranslation();
   const foodAccent = categoryColor("food", dark);
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -149,19 +151,44 @@ export function FoodHome() {
 
   return (
     <View style={styles.root}>
-      <View style={[styles.header, th.elevation.sm, { backgroundColor: th.surfaceRaised, borderColor: th.border }]}>
-        <Pressable style={styles.address} onPress={() => router.push("/food/address")}>
-          <Ionicons name="location-outline" size={18} color={foodAccent} />
-          <View style={{ flex: 1 }}>
+      <View style={styles.header}>
+        <Pressable
+          style={[
+            styles.addressPanel,
+            th.elevation.sm,
+            { backgroundColor: th.surfaceRaised, borderColor: th.border },
+          ]}
+          onPress={() => router.push("/food/address")}
+        >
+          <View style={[styles.headerIcon, { backgroundColor: th.accentSoft }]}>
+            <Ionicons name="location-outline" size={18} color={foodAccent} />
+          </View>
+          <View style={styles.addressText}>
+            <Text style={[styles.addressEyebrow, { color: th.textSubtle }]} numberOfLines={1}>
+              {t("food.address")}
+            </Text>
             <Text style={[styles.addressLabel, { color: th.text }]} numberOfLines={1}>
-              Entregar en: {selected.label}
+              {selected.label || t("food.address")}
             </Text>
             <Text style={[styles.addressLine, { color: th.textSubtle }]} numberOfLines={1}>
               {selected.line}
             </Text>
           </View>
+          <Ionicons name="chevron-forward" size={17} color={th.textSubtle} />
         </Pressable>
-        <Button label="Mis pedidos" size="sm" variant="ghost" fullWidth={false} onPress={() => router.push("/food/orders")} />
+        <Pressable
+          style={[
+            styles.ordersPanel,
+            th.elevation.sm,
+            { backgroundColor: th.surfaceRaised, borderColor: th.border },
+          ]}
+          onPress={() => router.push("/food/orders")}
+        >
+          <Ionicons name="receipt-outline" size={18} color={foodAccent} />
+          <Text style={[styles.ordersLabel, { color: th.text }]} numberOfLines={1}>
+            {t("food.orders")}
+          </Text>
+        </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -179,7 +206,11 @@ export function FoodHome() {
           onChangeText={setQuery}
           placeholder="Buscar restaurante o cocina"
           placeholderTextColor={th.textSubtle}
-          style={[styles.search, { color: th.text, borderColor: th.border, backgroundColor: th.surface }]}
+          style={[
+            styles.search,
+            th.elevation.sm,
+            { color: th.text, borderColor: th.border, backgroundColor: th.surface },
+          ]}
         />
 
         <View style={styles.chips}>
@@ -187,7 +218,7 @@ export function FoodHome() {
             <Pressable
               key={chip}
               onPress={() => setQuery(chip)}
-              style={[styles.chip, { backgroundColor: foodAccent + "1F", borderColor: foodAccent + "33" }]}
+              style={[styles.chip, th.elevation.sm, { backgroundColor: th.surface, borderColor: th.border }]}
             >
               <Text style={[styles.chipText, { color: foodAccent }]}>{chip}</Text>
             </Pressable>
@@ -226,15 +257,39 @@ export function FoodHome() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: { paddingHorizontal: 14, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, gap: 8 },
-  address: { flexDirection: "row", alignItems: "center", gap: 8 },
+  header: { flexDirection: "row", alignItems: "stretch", paddingHorizontal: 12, paddingBottom: 10, gap: 8 },
+  addressPanel: {
+    flex: 1,
+    minHeight: 62,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 16,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+  },
+  headerIcon: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
+  addressText: { flex: 1, minWidth: 0 },
+  addressEyebrow: { fontSize: 10, lineHeight: 13, fontFamily: fonts.bodySemibold, textTransform: "uppercase" },
   addressLabel: { fontSize: 15, fontFamily: fonts.bodyBold },
   addressLine: { fontSize: 12, marginTop: 1 },
+  ordersPanel: {
+    width: 104,
+    minHeight: 62,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 16,
+    paddingHorizontal: 8,
+  },
+  ordersLabel: { fontSize: 11, lineHeight: 14, fontFamily: fonts.bodySemibold, textAlign: "center" },
   content: { padding: 12, gap: 10, paddingBottom: 24 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   search: { height: 46, borderRadius: 10, borderWidth: 1, paddingHorizontal: 14, fontSize: 14 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },
+  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: StyleSheet.hairlineWidth },
   chipText: { fontSize: 12, fontFamily: fonts.bodySemibold },
   activeOrder: { gap: 2 },
   activeTitle: { fontSize: 15, fontFamily: fonts.bodyBold },

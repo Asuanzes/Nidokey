@@ -1,9 +1,11 @@
 import { router } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { useFoodCart } from "@/lib/food-cart-context";
 import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
 import { Button, Card, EmptyState, Screen } from "@/components/ui";
+import { categoryColor } from "@/lib/records/config";
 
 function money(cents: number) {
   return (cents / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" });
@@ -11,31 +13,33 @@ function money(cents: number) {
 
 export default function FoodCartScreen() {
   const cart = useFoodCart();
-  const { th } = useTheme();
+  const { th, dark } = useTheme();
+  const { t } = useTranslation();
+  const foodAccent = categoryColor("food", dark);
   if (!cart.items.length) {
     return (
-      <Screen title="Carrito">
+      <Screen title={t("food.cart")} background backgroundCategory="food">
         <EmptyState icon="cart-outline" title="Carrito vacío" description="Añade platos desde un restaurante." />
       </Screen>
     );
   }
   return (
-    <Screen title="Carrito" subtitle={cart.restaurantName ?? undefined}>
-      <ScrollView contentContainerStyle={styles.content}>
+    <Screen title={t("food.cart")} subtitle={cart.restaurantName ?? undefined} background backgroundCategory="food">
+      <ScrollView contentContainerStyle={[styles.content, { padding: th.space.lg, gap: th.space.md }]}>
         {cart.items.map((item) => (
           <Card key={item.menuItemId} style={styles.line}>
             <View style={styles.lineTop}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.name, { color: th.text }]}>{item.name}</Text>
-                <Text style={[styles.meta, { color: th.accent }]}>{money(item.priceCents)}</Text>
+                <Text style={[styles.meta, { color: foodAccent }]}>{money(item.priceCents)}</Text>
               </View>
               <View style={styles.stepper}>
-                <Pressable onPress={() => cart.updateQuantity(item.menuItemId, item.quantity - 1)} style={[styles.step, { borderColor: th.border }]}>
+                <Pressable onPress={() => cart.updateQuantity(item.menuItemId, item.quantity - 1)} style={[styles.step, { backgroundColor: th.surface, borderColor: th.border }]}>
                   <Text style={{ color: th.text }}>−</Text>
                 </Pressable>
                 <Text style={[styles.qty, { color: th.text }]}>{item.quantity}</Text>
-                <Pressable onPress={() => cart.updateQuantity(item.menuItemId, item.quantity + 1)} style={[styles.step, { borderColor: th.border }]}>
-                  <Text style={{ color: th.text }}>+</Text>
+                <Pressable onPress={() => cart.updateQuantity(item.menuItemId, item.quantity + 1)} style={[styles.step, { backgroundColor: foodAccent, borderColor: foodAccent }]}>
+                  <Text style={{ color: th.primaryFg }}>+</Text>
                 </Pressable>
               </View>
             </View>
@@ -44,7 +48,7 @@ export default function FoodCartScreen() {
               onChangeText={(v) => cart.updateNotes(item.menuItemId, v)}
               placeholder="Notas para este plato"
               placeholderTextColor={th.textSubtle}
-              style={[styles.notes, { color: th.text, borderColor: th.border }]}
+              style={[styles.notes, { color: th.text, backgroundColor: th.surface, borderColor: th.border }]}
             />
           </Card>
         ))}
@@ -59,7 +63,7 @@ export default function FoodCartScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16, gap: 12 },
+  content: { paddingBottom: 28 },
   line: { gap: 10 },
   lineTop: { flexDirection: "row", alignItems: "center", gap: 12 },
   name: { fontSize: 15, fontFamily: fonts.bodyBold },
