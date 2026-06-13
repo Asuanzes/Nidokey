@@ -24,6 +24,7 @@ import { BrandLoading } from "@/components/BrandLoading";
 import { BootProvider, useBoot } from "@/lib/boot-context";
 import { CategoryPrefsProvider } from "@/lib/records/category-prefs-context";
 import { FoodCartProvider } from "@/lib/food-cart-context";
+import { useFoodWarmup } from "@/lib/food-warmup";
 import { useChatNotificationTap } from "@/lib/chat/push";
 import "@/lib/i18n"; // inicializa i18next (debe importarse antes de usar t())
 import { useTranslation } from "react-i18next";
@@ -136,6 +137,9 @@ function AuthGate() {
   // precarga de los registros → UNA sola carga, no dos.
   const { firstScreenReady } = useBoot();
   const authResolved = state.kind !== "loading";
+
+  // Calienta los menús de comida al arrancar (una vez por sesión), si estás logueado.
+  useFoodWarmup(state.kind === "authed");
 
   const [minElapsed, setMinElapsed] = useState(false);
   useEffect(() => {
