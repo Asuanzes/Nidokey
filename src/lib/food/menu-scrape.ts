@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { firecrawlScrapeJson, firecrawlSearch, hasFirecrawlKey } from "@/features/sources/providers/firecrawl";
+import { placeWebsite } from "@/features/sources/providers/google-places";
 
 /**
  * Menús reales por scraping (Firecrawl). Solo para restaurantes descubiertos por
@@ -90,17 +91,36 @@ function normalizeMenu(extracted: ExtractedMenu | null): NormCat[] {
   return out;
 }
 
-async function resolveDeliveryUrl(name: string, city: string): Promise<string | null> {
-  const results = await firecrawlSearch(`${name} ${city} carta a domicilio`, 8);
+function hostOf(u: string): string | null {
+  try {
+    return new URL(u).hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resuelve de dónde sacar el menú: (1) plataforma de delivery (menús estructurados);
+ * (2) web propia del restaurante vía Google `websiteUri` — preferimos una página de su
+ * dominio que aparezca en la búsqueda (suele ser /carta) y, si no, la home. null = nada
+ * scrapeable.
+ */
+async function resolveMenuUrl(opts: { name: string; city: string; googlePlaceId: string | null }): Promise<string | null> {
+  const results = await firecrawlSearch(`${opts.name} ${opts.city} carta menú`, 10);
+  // 1. Delivery
   for (const domain of DELIVERY_DOMAINS) {
-    const hit = results.find((r) => {
-      try {
-        return new URL(r.url).hostname.toLowerCase().includes(domain);
-      } catch {
-        return false;
-      }
-    });
+    const hit = results.find((r) => hostOf(r.url)?.includes(domain));
     if (hit) return hit.url;
+  }
+  // 2. Web propia del restaurante
+  const website = opts.googlePlaceId ? await placeWebsite(opts.googlePlaceId).catch(() => null) : null;
+  if (website) {
+    const siteHost = hostOf(website);
+    if (siteHost) {
+      const onSite = results.find((r) => hostOf(r.url)?.includes(siteHost));
+      if (onSite) return onSite.url;
+    }
+    return website;
   }
   return null;
 }
@@ -108,11 +128,11 @@ async function resolveDeliveryUrl(name: string, city: string): Promise<string | 
 async function scrapeAndStoreMenu(restaurantId: string): Promise<void> {
   const r = await prisma.restaurant.findUnique({
     where: { id: restaurantId },
-    select: { id: true, name: true, city: true, menuSourceUrl: true, source: true },
+    select: { id: true, name: true, city: true, menuSourceUrl: true, source: true, googlePlaceId: true },
   });
   if (!r || r.source !== "google") return;
 
-  const url = r.menuSourceUrl ?? (await resolveDeliveryUrl(r.name, r.city));
+  const url = r.menuSourceUrl ?? (await resolveMenuUrl({ name: r.name, city: r.city, googlePlaceId: r.googlePlaceId }));
   if (!url) {
     // No encontramos plataforma: marcamos intento para no re-buscar en cada apertura (TTL).
     await prisma.restaurant.update({ where: { id: r.id }, data: { menuFetchedAt: new Date() } });

@@ -245,6 +245,14 @@ export async function placeDetails(placeId: string): Promise<GooglePlaceDetails 
   };
 }
 
+/** Web propia del restaurante (para buscar su carta cuando no está en delivery). */
+export async function placeWebsite(placeId: string): Promise<string | null> {
+  const json = await googleFetch<{ websiteUri?: string }>(`/places/${encodeURIComponent(placeId)}`, {
+    fieldMask: "websiteUri",
+  });
+  return json?.websiteUri?.trim() || null;
+}
+
 export async function resolvePhotoUrl(photoName: string | undefined | null): Promise<string | null> {
   const name = photoName?.trim();
   if (!name || !name.startsWith("places/")) return null;
