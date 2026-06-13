@@ -68,7 +68,7 @@ export async function firecrawlSearch(query: string, limit = 8): Promise<Firecra
   const json = await firecrawlPost<{ data?: { web?: { url?: string; title?: string; description?: string }[] } }>(
     "/search",
     { query, limit },
-    25000
+    15000
   );
   return (json?.data?.web ?? [])
     .filter((r): r is { url: string } & typeof r => typeof r.url === "string")

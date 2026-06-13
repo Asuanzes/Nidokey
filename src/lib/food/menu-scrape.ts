@@ -224,8 +224,9 @@ export function menuPlan(r: {
     try {
       await scrapeAndStoreMenu(r.id);
     } catch (e) {
-      // Transitorio (anti-bot, timeout): no marcamos menuFetchedAt → se reintenta al reabrir.
-      console.error("[food-menu] scrape falló:", e instanceof Error ? e.message : e);
+      // Marcar intento para NO quedarse en "cargando" infinito si el scrape falla.
+      console.error("[food-menu] scrape falló, marcando intento:", e instanceof Error ? e.message : e);
+      await prisma.restaurant.update({ where: { id: r.id }, data: { menuFetchedAt: new Date() } }).catch(() => {});
     } finally {
       inFlight.delete(r.id);
     }
@@ -286,7 +287,8 @@ export async function prewarmMenus(
       try {
         await scrapeAndStoreMenu(id);
       } catch (e) {
-        console.error("[food-menu] prewarm falló:", e instanceof Error ? e.message : e);
+        console.error("[food-menu] prewarm falló, marcando intento:", e instanceof Error ? e.message : e);
+        await prisma.restaurant.update({ where: { id }, data: { menuFetchedAt: new Date() } }).catch(() => {});
       } finally {
         inFlight.delete(id);
       }

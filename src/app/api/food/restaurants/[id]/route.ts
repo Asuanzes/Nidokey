@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth-helpers";
 import { menuPlan } from "@/lib/food/menu-scrape";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   await requireUserId();

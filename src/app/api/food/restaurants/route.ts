@@ -5,7 +5,7 @@ import { isProviderUnavailable } from "@/features/sources/providers/availability
 import { dbRestaurantsNearby, discoverGoogleRestaurants, googlePlacesConfigured } from "@/lib/food/google-restaurants";
 import { prewarmMenus } from "@/lib/food/menu-scrape";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const Query = z.object({
   lat: z.coerce.number(),
