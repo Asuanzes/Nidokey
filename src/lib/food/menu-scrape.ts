@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import { firecrawlScrapeJson, firecrawlSearch, hasFirecrawlKey } from "@/features/sources/providers/firecrawl";
 import { placeWebsite } from "@/features/sources/providers/google-places";
 import { crawl4aiMarkdown, hasCrawl4aiConfig } from "@/features/sources/providers/crawl4ai";
-import { extractJson, hasAnthropicKey } from "@/features/sources/providers/claude-extract";
+import { extractJson, hasLlmExtractor } from "@/features/sources/providers/llm-extract";
 
 /**
  * Menús reales por scraping (Firecrawl). Solo para restaurantes descubiertos por
@@ -30,7 +30,7 @@ const DELIVERY_DOMAINS = ["glovoapp.com", "just-eat.es", "justeat.es", "ubereats
  * las cartas de Google quedan como "no disponible".
  */
 function canScrapeMenus(): boolean {
-  return hasFirecrawlKey() || (hasCrawl4aiConfig() && hasAnthropicKey());
+  return hasFirecrawlKey() || (hasCrawl4aiConfig() && hasLlmExtractor());
 }
 
 const MENU_SCHEMA: Record<string, unknown> = {
@@ -166,8 +166,8 @@ async function resolveMenuUrl(opts: { name: string; city: string; googlePlaceId:
  * cubre sitios con DataDome). Devuelve categorías normalizadas (puede ser []).
  */
 async function extractMenu(url: string): Promise<NormCat[]> {
-  // Tier 1 (gratis): Crawl4AI renderiza+limpia en el VPS, Claude estructura el menú.
-  if (hasCrawl4aiConfig() && hasAnthropicKey()) {
+  // Tier 1 (gratis): Crawl4AI renderiza+limpia en el VPS, el LLM (Gemini) estructura el menú.
+  if (hasCrawl4aiConfig() && hasLlmExtractor()) {
     try {
       const markdown = await crawl4aiMarkdown(url, { timeoutMs: 45000 });
       if (markdown) {
