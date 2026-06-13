@@ -105,6 +105,32 @@ function normalizeMenu(extracted: ExtractedMenu | null): NormCat[] {
   return out;
 }
 
+const MENU_INPUT_CHARS = 12000;
+/**
+ * Condensa el markdown de una web a lo relevante del menú: titulares (#) + líneas con
+ * precio (€ / 9,50) + sus vecinas (el nombre del plato suele ir en la línea anterior).
+ * Reduce mucho los tokens enviados al LLM (evita 413/429 de free tier) y enfoca la
+ * extracción en la carta en vez de en el ruido de la página.
+ */
+function condenseMenuMarkdown(md: string): string {
+  const lines = md.split("\n");
+  const priceRe = /(\d{1,3}(?:[.,]\d{1,2})?\s*€|€\s*\d|\b\d{1,2}[.,]\d{2}\b)/;
+  const keep = new Set<number>();
+  for (let i = 0; i < lines.length; i++) {
+    if (/^#{1,6}\s/.test(lines[i].trim()) || priceRe.test(lines[i])) {
+      if (i > 0) keep.add(i - 1);
+      keep.add(i);
+      keep.add(i + 1);
+    }
+  }
+  if (keep.size === 0) return md.slice(0, MENU_INPUT_CHARS);
+  return [...keep]
+    .sort((a, b) => a - b)
+    .map((i) => lines[i] ?? "")
+    .join("\n")
+    .slice(0, MENU_INPUT_CHARS);
+}
+
 function hostOf(u: string): string | null {
   try {
     return new URL(u).hostname.toLowerCase().replace(/^www\./, "");
@@ -171,12 +197,13 @@ async function extractMenu(url: string): Promise<NormCat[]> {
     try {
       const markdown = await crawl4aiMarkdown(url, { timeoutMs: 45000 });
       if (markdown) {
-        const extracted = await extractJson<ExtractedMenu>(markdown, MENU_SCHEMA, MENU_PROMPT, { timeoutMs: 60000 });
+        const focused = condenseMenuMarkdown(markdown);
+        const extracted = await extractJson<ExtractedMenu>(focused, MENU_SCHEMA, MENU_PROMPT, { timeoutMs: 60000 });
         const cats = normalizeMenu(extracted);
         if (cats.length) return cats;
       }
     } catch (e) {
-      console.error("[food-menu] Crawl4AI/Claude falló, probando Firecrawl:", e instanceof Error ? e.message : e);
+      console.error("[food-menu] Crawl4AI/LLM falló, probando Firecrawl:", e instanceof Error ? e.message : e);
     }
   }
   // Tier 2 (respaldo de pago): Firecrawl hace scrape + extracción con schema en una llamada.
@@ -328,17 +355,16 @@ export async function prewarmMenus(
   const targets = [...popular, ...rest].slice(0, limit).map((r) => r.id);
   if (targets.length === 0) return;
   for (const id of targets) inFlight.add(id);
-  console.log(`[food-menu] prewarm: ${targets.length} restaurantes (populares primero)`);
-  await Promise.allSettled(
-    targets.map(async (id) => {
-      try {
-        await scrapeAndStoreMenu(id);
-      } catch (e) {
-        console.error("[food-menu] prewarm falló, marcando intento:", e instanceof Error ? e.message : e);
-        await prisma.restaurant.update({ where: { id }, data: { menuFetchedAt: new Date() } }).catch(() => {});
-      } finally {
-        inFlight.delete(id);
-      }
-    }),
-  );
+  console.log(`[food-menu] prewarm: ${targets.length} restaurantes (secuencial, populares primero)`);
+  // Secuencial (no en paralelo) para no saturar el límite por minuto del LLM gratis.
+  for (const id of targets) {
+    try {
+      await scrapeAndStoreMenu(id);
+    } catch (e) {
+      console.error("[food-menu] prewarm falló, marcando intento:", e instanceof Error ? e.message : e);
+      await prisma.restaurant.update({ where: { id }, data: { menuFetchedAt: new Date() } }).catch(() => {});
+    } finally {
+      inFlight.delete(id);
+    }
+  }
 }
