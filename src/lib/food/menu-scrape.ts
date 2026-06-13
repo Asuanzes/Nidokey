@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { firecrawlScrapeJson, firecrawlSearch, hasFirecrawlKey } from "@/features/sources/providers/firecrawl";
 import { placeWebsite } from "@/features/sources/providers/google-places";
-import { crawl4aiMarkdown, hasCrawl4aiConfig } from "@/features/sources/providers/crawl4ai";
+import { crawl4aiCrawl, crawl4aiMarkdown, hasCrawl4aiConfig, type Crawl4aiLink } from "@/features/sources/providers/crawl4ai";
 import { extractJson, hasLlmExtractor } from "@/features/sources/providers/llm-extract";
 
 /**
@@ -177,21 +177,88 @@ async function resolveMenuUrl(opts: { name: string; city: string; googlePlaceId:
   return results[0]?.url ?? null;
 }
 
+/** Estructura el markdown de una página en categorías de menú (vacío si no hay carta). */
+async function extractFromMarkdown(markdown: string | null): Promise<NormCat[]> {
+  if (!markdown) return [];
+  const focused = condenseMenuMarkdown(markdown);
+  const extracted = await extractJson<ExtractedMenu>(focused, MENU_SCHEMA, MENU_PROMPT, { timeoutMs: 60000 });
+  return normalizeMenu(extracted);
+}
+
+// Enlaces que suelen llevar a la carta/pedidos (muchas webs no traen el menú en la home).
+const MENU_TEXT_RE = /\b(cartas?|men[uú]s?|pedir|pedidos?|a\s*domicilio|haz\s*tu\s*pedido|comida|delivery|takeaway)\b/i;
+const MENU_HREF_RE = /(carta|menu|pedir|pedido|comida|delivery|takeaway|order|online|food|productos|tienda)/i;
+const SKIP_HREF_RE = /\.(pdf|jpe?g|png|webp|gif|svg|mp4|zip|docx?)(\?|#|$)/i;
+
+function baseDomain(host: string): string {
+  return host.split(".").slice(-2).join(".");
+}
+function sameSite(a: string | null, b: string | null): boolean {
+  return Boolean(a && b && (a === b || baseDomain(a) === baseDomain(b)));
+}
+
 /**
- * Extrae la carta de `url` con la cascada: (1) Crawl4AI (markdown gratis) + Claude
- * (estructura el JSON) y (2) Firecrawl como respaldo (scrape+extract en una llamada,
- * cubre sitios con DataDome). Devuelve categorías normalizadas (puede ser []).
+ * De los enlaces internos de una página, elige el que más probablemente lleva a la
+ * carta/pedidos (mismo sitio, https seguro, no la propia página, no PDF/imagen). null
+ * si ninguno parece de menú. Puntúa el texto del enlace y la ruta; "carta"/"menú" pesan más.
  */
-async function extractMenu(url: string): Promise<NormCat[]> {
-  // Tier 1 (gratis): Crawl4AI renderiza+limpia en el VPS, el LLM (Gemini) estructura el menú.
+function pickMenuLink(links: Crawl4aiLink[], pageUrl: string): string | null {
+  const pageHost = hostOf(pageUrl);
+  let pagePath = "/";
+  try {
+    pagePath = new URL(pageUrl).pathname.replace(/\/+$/, "") || "/";
+  } catch {
+    /* noop */
+  }
+  let best: { url: string; score: number; len: number } | null = null;
+  for (const l of links) {
+    if (!l.href || /^(#|mailto:|tel:|javascript:)/i.test(l.href)) continue;
+    let abs: URL;
+    try {
+      abs = new URL(l.href, pageUrl);
+    } catch {
+      continue;
+    }
+    if (SKIP_HREF_RE.test(abs.pathname)) continue;
+    const host = abs.hostname.toLowerCase().replace(/^www\./, "");
+    if (!sameSite(pageHost, host)) continue;
+    const path = abs.pathname.replace(/\/+$/, "") || "/";
+    if (path === pagePath) continue; // la propia home/página actual
+    const candidate = abs.toString();
+    if (!isSafeHttpsUrl(candidate)) continue;
+    const decoded = decodeURIComponent(abs.pathname);
+    let score = 0;
+    if (MENU_TEXT_RE.test(l.text)) score += 3;
+    if (MENU_HREF_RE.test(decoded)) score += 2;
+    if (/\b(carta|men[uú])\b/i.test(l.text) || /(carta|menu)/i.test(decoded)) score += 2; // explícito > genérico
+    if (score <= 0) continue;
+    if (!best || score > best.score || (score === best.score && candidate.length < best.len)) {
+      best = { url: candidate, score, len: candidate.length };
+    }
+  }
+  return best?.url ?? null;
+}
+
+/**
+ * Extrae la carta de `url` con la cascada: (1) Crawl4AI (markdown gratis) + LLM
+ * (estructura el JSON), siguiendo el enlace a la carta si la home no la trae, y
+ * (2) Firecrawl como respaldo (scrape+extract, cubre sitios con DataDome). Devuelve
+ * las categorías normalizadas y la URL que de verdad dio la carta (para cachearla y
+ * ahorrarse el salto desde la home en refrescos).
+ */
+async function extractMenu(url: string): Promise<{ categories: NormCat[]; usedUrl: string }> {
+  // Tier 1 (gratis): Crawl4AI renderiza+limpia en el VPS, el LLM estructura el menú.
   if (hasCrawl4aiConfig() && hasLlmExtractor()) {
     try {
-      const markdown = await crawl4aiMarkdown(url, { timeoutMs: 30000 });
-      if (markdown) {
-        const focused = condenseMenuMarkdown(markdown);
-        const extracted = await extractJson<ExtractedMenu>(focused, MENU_SCHEMA, MENU_PROMPT, { timeoutMs: 60000 });
-        const cats = normalizeMenu(extracted);
-        if (cats.length) return cats;
+      const home = await crawl4aiCrawl(url, { timeoutMs: 30000 });
+      const fromHome = await extractFromMarkdown(home.markdown);
+      if (fromHome.length) return { categories: fromHome, usedUrl: url };
+      // La home no trae carta → sigue el mejor enlace a la carta/pedidos (un salto).
+      const menuUrl = pickMenuLink(home.links, url);
+      if (menuUrl) {
+        const md = await crawl4aiMarkdown(menuUrl, { timeoutMs: 30000 });
+        const fromMenu = await extractFromMarkdown(md);
+        if (fromMenu.length) return { categories: fromMenu, usedUrl: menuUrl };
       }
     } catch (e) {
       console.error("[food-menu] Crawl4AI/LLM falló, probando Firecrawl:", e instanceof Error ? e.message : e);
@@ -204,9 +271,9 @@ async function extractMenu(url: string): Promise<NormCat[]> {
       timeoutMs: 45000,
       maxAge: MENU_TTL_MS, // reusa la caché de Firecrawl en refrescos de la misma URL
     });
-    return normalizeMenu(extracted);
+    return { categories: normalizeMenu(extracted), usedUrl: url };
   }
-  return [];
+  return { categories: [], usedUrl: url };
 }
 
 async function scrapeAndStoreMenu(restaurantId: string): Promise<void> {
@@ -224,7 +291,7 @@ async function scrapeAndStoreMenu(restaurantId: string): Promise<void> {
     return;
   }
 
-  const categories = await extractMenu(url);
+  const { categories, usedUrl } = await extractMenu(url);
   if (categories.length === 0) {
     await prisma.restaurant.update({ where: { id: r.id }, data: { menuFetchedAt: new Date(), menuSourceUrl: url } });
     console.log(`[food-menu] carta vacía para "${r.name}" desde ${url}`);
@@ -253,10 +320,10 @@ async function scrapeAndStoreMenu(restaurantId: string): Promise<void> {
         },
       });
     }
-    await tx.restaurant.update({ where: { id: r.id }, data: { menuFetchedAt: new Date(), menuSourceUrl: url } });
+    await tx.restaurant.update({ where: { id: r.id }, data: { menuFetchedAt: new Date(), menuSourceUrl: usedUrl } });
   });
   const itemCount = categories.reduce((n, c) => n + c.items.length, 0);
-  console.log(`[food-menu] "${r.name}": ${categories.length} categorías, ${itemCount} platos desde ${url}`);
+  console.log(`[food-menu] "${r.name}": ${categories.length} categorías, ${itemCount} platos desde ${usedUrl}`);
 }
 
 // Dedup best-effort de scrapes concurrentes dentro de una misma instancia.

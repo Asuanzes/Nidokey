@@ -4,15 +4,15 @@ import { ProviderUnavailableError } from "./availability";
  * Cliente fino del servidor Docker de Crawl4AI (https://crawl4ai.com) self-hosted
  * en el VPS (junto al chat gateway), expuesto en `scrape.nidokey.es` tras nginx
  * con TLS + un bearer compartido. Renderiza la página con Playwright y devuelve
- * MARKDOWN limpio; la extracción del menú a JSON la hace Claude en Node
- * (claude-extract.ts), no Crawl4AI. Es la fuente de scraping GRATIS (alternativa
- * a Firecrawl, de pago). Mismo patrón que firecrawl.ts/google-places.ts:
- * config en process.env, fetch crudo, errores como ProviderUnavailableError
- * (reintentable), null = "sin contenido" legítimo.
+ * MARKDOWN limpio (+ los enlaces internos, para poder seguir el de la carta); la
+ * extracción del menú a JSON la hace un LLM en Node (llm-extract.ts), no Crawl4AI.
+ * Es la fuente de scraping GRATIS (alternativa a Firecrawl, de pago). Mismo patrón
+ * que firecrawl.ts/google-places.ts: config en process.env, fetch crudo, errores
+ * como ProviderUnavailableError (reintentable), null = "sin contenido" legítimo.
  *
  * Contrato REST (Crawl4AI Docker, puerto interno 11235):
  *   POST /crawl { urls, browser_config, crawler_config }
- *   → [{ success, markdown, html, cleaned_html, status_code, error_message }]
+ *   → [{ success, markdown, links:{internal,external}, status_code, error_message }]
  */
 
 const PROVIDER = "Crawl4AI";
@@ -29,12 +29,17 @@ function base(): string {
   return url.replace(/\/+$/, "");
 }
 
+type RawLink = { href?: string; url?: string; text?: string; title?: string };
 type CrawlResult = {
   success?: boolean;
   markdown?: string | { raw_markdown?: string; fit_markdown?: string };
+  links?: { internal?: RawLink[]; external?: RawLink[] } | RawLink[];
   status_code?: number;
   error_message?: string | null;
 };
+
+export type Crawl4aiLink = { href: string; text: string };
+export type Crawl4aiPage = { markdown: string | null; links: Crawl4aiLink[] };
 
 function pickMarkdown(r: CrawlResult | undefined): string | null {
   const md = r?.markdown;
@@ -43,12 +48,23 @@ function pickMarkdown(r: CrawlResult | undefined): string | null {
   return raw || null;
 }
 
-/**
- * Renderiza `url` con Crawl4AI y devuelve su markdown limpio. null = sin contenido
- * útil. Lanza ProviderUnavailableError en fallo de red/HTTP (el caller hace fallback).
- */
-export async function crawl4aiMarkdown(url: string, opts: { timeoutMs?: number } = {}): Promise<string | null> {
-  const timeoutMs = opts.timeoutMs ?? 45000;
+/** Enlaces internos (mismo sitio) normalizados a {href, text}, deduplicados por href. */
+function pickInternalLinks(r: CrawlResult | undefined): Crawl4aiLink[] {
+  const links = r?.links;
+  const raw: RawLink[] = Array.isArray(links) ? links : Array.isArray(links?.internal) ? links!.internal! : [];
+  const out: Crawl4aiLink[] = [];
+  const seen = new Set<string>();
+  for (const l of raw) {
+    const href = (l?.href ?? l?.url ?? "").trim();
+    if (!href || seen.has(href)) continue;
+    seen.add(href);
+    out.push({ href, text: (l?.text ?? l?.title ?? "").trim() });
+  }
+  return out;
+}
+
+/** POST /crawl para una URL y devuelve el primer resultado (o lanza si la red/HTTP falla). */
+async function crawlOnce(url: string, timeoutMs: number): Promise<CrawlResult | undefined> {
   const secret = process.env.CRAWL4AI_SECRET?.trim() || "";
   let res: Response;
   try {
@@ -86,5 +102,22 @@ export async function crawl4aiMarkdown(url: string, opts: { timeoutMs?: number }
     : Array.isArray((parsed as { results?: CrawlResult[] })?.results)
       ? (parsed as { results: CrawlResult[] }).results
       : [];
-  return pickMarkdown(arr[0]);
+  return arr[0];
+}
+
+/**
+ * Renderiza `url` con Crawl4AI y devuelve su markdown limpio. null = sin contenido
+ * útil. Lanza ProviderUnavailableError en fallo de red/HTTP (el caller hace fallback).
+ */
+export async function crawl4aiMarkdown(url: string, opts: { timeoutMs?: number } = {}): Promise<string | null> {
+  return pickMarkdown(await crawlOnce(url, opts.timeoutMs ?? 45000));
+}
+
+/**
+ * Como `crawl4aiMarkdown` pero además devuelve los enlaces internos de la página,
+ * para poder seguir el de la carta cuando la home no trae el menú.
+ */
+export async function crawl4aiCrawl(url: string, opts: { timeoutMs?: number } = {}): Promise<Crawl4aiPage> {
+  const r = await crawlOnce(url, opts.timeoutMs ?? 45000);
+  return { markdown: pickMarkdown(r), links: pickInternalLinks(r) };
 }

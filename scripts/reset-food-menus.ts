@@ -1,25 +1,53 @@
 /**
- * Resetea la caché de menús de los restaurantes de Google (menuFetchedAt +
- * menuSourceUrl a NULL) para que se vuelvan a scrapear con la cascada nueva
- * (Crawl4AI + Claude → Firecrawl de respaldo). Idempotente y seguro de re-ejecutar.
+ * Resetea por COMPLETO la caché de menús de los restaurantes de Google: borra las
+ * líneas de carta guardadas (MenuItem/MenuCategory) y pone menuFetchedAt + menuSourceUrl
+ * a NULL, dejándolos limpios para re-scrapearse con la cascada nueva (Crawl4AI + Groq →
+ * Firecrawl de respaldo). Acotado a `source: "google"` → los menús del seed/manuales NO
+ * se tocan. Idempotente y seguro de re-ejecutar.
  *
- * Ejecutar SOLO después de que Vercel tenga CRAWL4AI_URL / CRAWL4AI_SECRET /
- * ANTHROPIC_API_KEY y haya redesplegado; si no, los reintentos caen al respaldo.
+ * Antes de borrar imprime un diagnóstico de lo que había cacheado (nombre, ciudad, nº de
+ * platos y la URL de origen), útil para entender por qué un sitio no saca carta.
+ *
+ * Ejecutar SOLO después de que Vercel tenga CRAWL4AI_URL / CRAWL4AI_SECRET / GROQ_API_KEY
+ * y haya redesplegado; si no, los reintentos caen al respaldo (Firecrawl) o a "no disponible".
  *
  * Uso: node --env-file=.env --import tsx scripts/reset-food-menus.ts
  */
 import { prisma } from "../src/lib/db";
 
 async function main() {
-  const total = await prisma.restaurant.count({ where: { source: "google" } });
-  const cached = await prisma.restaurant.count({ where: { source: "google", menuFetchedAt: { not: null } } });
-  console.log(`[reset-food-menus] Restaurantes Google: ${total} (con menú cacheado: ${cached})`);
+  const google = await prisma.restaurant.findMany({
+    where: { source: "google" },
+    select: {
+      id: true,
+      name: true,
+      city: true,
+      menuFetchedAt: true,
+      menuSourceUrl: true,
+      _count: { select: { items: true } },
+    },
+  });
+  const total = google.length;
+  const attempted = google.filter((r) => r.menuFetchedAt != null).length;
+  const withItems = google.filter((r) => r._count.items > 0);
+  console.log(
+    `[reset-food-menus] Restaurantes Google: ${total} (con intento/caché: ${attempted}, con platos guardados: ${withItems.length})`,
+  );
+  for (const r of withItems) {
+    console.log(`  · ${r.name} (${r.city}) — ${r._count.items} platos · ${r.menuSourceUrl ?? "sin URL"}`);
+  }
 
-  const r = await prisma.restaurant.updateMany({
+  const ids = google.map((r) => r.id);
+  const delItems = await prisma.menuItem.deleteMany({ where: { restaurantId: { in: ids } } });
+  const delCats = await prisma.menuCategory.deleteMany({ where: { restaurantId: { in: ids } } });
+  const upd = await prisma.restaurant.updateMany({
     where: { source: "google" },
     data: { menuFetchedAt: null, menuSourceUrl: null },
   });
-  console.log(`[reset-food-menus] Reseteados ${r.count} → reintentarán al abrirlos/descubrirlos (Crawl4AI + Claude).`);
+  console.log(
+    `[reset-food-menus] Borrados ${delItems.count} platos y ${delCats.count} categorías; ` +
+      `${upd.count} restaurantes reseteados → re-scrapearán al abrirlos/descubrirlos (Crawl4AI + Groq).`,
+  );
 }
 
 main()
