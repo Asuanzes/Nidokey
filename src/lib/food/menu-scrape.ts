@@ -139,11 +139,16 @@ function hostOf(u: string): string | null {
   }
 }
 
-/** Solo URLs https públicas (defensa en profundidad anti-SSRF + filtra basura/internas). */
-function isSafeHttpsUrl(u: string): boolean {
+/**
+ * URLs http/https públicas (defensa en profundidad anti-SSRF + filtra basura/internas).
+ * Acepta http porque Google Places devuelve MUCHAS webs de restaurante como `http://`
+ * (Goiko, etc.); Crawl4AI/Playwright sigue el redirect a https si lo hay. Mantiene el
+ * bloqueo de hosts internos (localhost, .local, rangos privados).
+ */
+function isSafeWebUrl(u: string): boolean {
   try {
     const url = new URL(u);
-    if (url.protocol !== "https:") return false;
+    if (url.protocol !== "https:" && url.protocol !== "http:") return false;
     const h = url.hostname.toLowerCase();
     if (h === "localhost" || h === "::1" || h.endsWith(".local")) return false;
     if (/^(127\.|10\.|0\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h)) return false;
@@ -164,11 +169,11 @@ async function resolveMenuUrl(opts: { name: string; city: string; googlePlaceId:
   //    Si la hay, la usamos directamente — sin gastar una búsqueda en Firecrawl (que
   //    además suele devolver homónimos de otra ciudad). Crawl4AI la renderiza.
   const website = opts.googlePlaceId ? await placeWebsite(opts.googlePlaceId).catch(() => null) : null;
-  if (website && isSafeHttpsUrl(website)) return website;
+  if (website && isSafeWebUrl(website)) return website;
   // 2. Sin web propia: buscar con Firecrawl (plataforma de delivery o mejor resultado https).
   if (!hasFirecrawlKey()) return null;
   const results = (await firecrawlSearch(`${opts.name} ${opts.city} carta menú`, 10).catch(() => [])).filter((r) =>
-    isSafeHttpsUrl(r.url),
+    isSafeWebUrl(r.url),
   );
   for (const domain of DELIVERY_DOMAINS) {
     const hit = results.find((r) => hostOf(r.url)?.includes(domain));
@@ -225,7 +230,7 @@ function pickMenuLink(links: Crawl4aiLink[], pageUrl: string): string | null {
     const path = abs.pathname.replace(/\/+$/, "") || "/";
     if (path === pagePath) continue; // la propia home/página actual
     const candidate = abs.toString();
-    if (!isSafeHttpsUrl(candidate)) continue;
+    if (!isSafeWebUrl(candidate)) continue;
     const decoded = decodeURIComponent(abs.pathname);
     let score = 0;
     if (MENU_TEXT_RE.test(l.text)) score += 3;
