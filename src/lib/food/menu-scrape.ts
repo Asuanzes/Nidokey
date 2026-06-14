@@ -41,7 +41,7 @@ const DELIVERY_CUISINES = new Set([
   "sandwich_shop", "barbecue_restaurant", "vegan_restaurant",
 ]);
 
-function isDeliveryCuisine(types: string[] | null | undefined): boolean {
+export function isDeliveryCuisine(types: string[] | null | undefined): boolean {
   return Array.isArray(types) && types.some((t) => DELIVERY_CUISINES.has(t));
 }
 

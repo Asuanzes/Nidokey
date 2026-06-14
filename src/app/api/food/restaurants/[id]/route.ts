@@ -1,32 +1,32 @@
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth-helpers";
 import { enqueueMenu, menuStatusFor, processMenu } from "@/lib/food/menu-scrape";
 
-// La RESPUESTA al usuario es siempre inmediata (lee BBDD + 1 UPDATE de encolado). El
-// presupuesto largo es solo para el fast-path after() que intenta scrapear ya mismo;
-// si se corta, el cron (/api/cron/food-menus) lo termina. El usuario nunca espera.
+// La primera apertura de un restaurante sin carta ESPERA el scrape (await processMenu,
+// ~20s con esqueleto). NO usamos after(): en Vercel se mata al cerrar la respuesta y el
+// menú nunca llegaba (y dependía del cron, que es frágil). Al esperar, el lambda sigue
+// vivo y la carta se devuelve ya poblada. Reaperturas = instantáneas (cacheado). 300s de
+// presupuesto sobra para los ~20s del scrape.
 export const maxDuration = 300;
+
+const MENU_INCLUDE = {
+  categories: {
+    where: { active: true },
+    orderBy: { sortOrder: "asc" as const },
+    include: { items: { where: { available: true }, orderBy: { sortOrder: "asc" as const } } },
+  },
+};
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   await requireUserId();
   const { id } = await params;
-  const restaurant = await prisma.restaurant.findFirst({
-    where: { id, active: true },
-    include: {
-      categories: {
-        where: { active: true },
-        orderBy: { sortOrder: "asc" },
-        include: { items: { where: { available: true }, orderBy: { sortOrder: "asc" } } },
-      },
-    },
-  });
+  let restaurant = await prisma.restaurant.findFirst({ where: { id, active: true }, include: MENU_INCLUDE });
   if (!restaurant) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
-  // Menús reales por scraping (solo restaurantes de Google; el seed conserva el suyo).
   const hasMenu = restaurant.categories.some((c) => c.items.length > 0);
 
-  // Encola si falta carta fresca y es cocina de delivery (barato: 1 UPDATE con guard).
+  // Encola si falta carta fresca y es cocina de delivery (solo restaurantes de Google).
   const enqueued = await enqueueMenu({
     id: restaurant.id,
     source: restaurant.source,
@@ -35,14 +35,21 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     hasMenu,
     cuisineTypes: restaurant.cuisineTypes,
   });
-  // Fast-path: intenta procesarlo YA en background (lock en BBDD evita duplicar con el
-  // cron). No bloquea la respuesta; si este lambda muere, el cron es la red de seguridad.
-  if (enqueued) after(() => processMenu(restaurant.id).catch(() => {}));
 
+  if (enqueued) {
+    // Scrape AHORA, esperándolo (no after). processMenu tiene lock en BBDD: si otra
+    // instancia lo está haciendo, devuelve null y caemos al polling del móvil. Tras el
+    // scrape, releemos para devolver la carta ya poblada en esta misma respuesta.
+    await processMenu(restaurant.id).catch(() => {});
+    const refreshed = await prisma.restaurant.findFirst({ where: { id, active: true }, include: MENU_INCLUDE });
+    if (refreshed) restaurant = refreshed;
+  }
+
+  const hasMenuNow = restaurant.categories.some((c) => c.items.length > 0);
   const menuStatus = menuStatusFor({
     source: restaurant.source,
-    menuStatus: enqueued ? "PENDING" : restaurant.menuStatus,
-    hasMenu,
+    menuStatus: restaurant.menuStatus,
+    hasMenu: hasMenuNow,
     cuisineTypes: restaurant.cuisineTypes,
   });
 

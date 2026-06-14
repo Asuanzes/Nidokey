@@ -3,7 +3,13 @@ import { z } from "zod";
 import { requireUserId } from "@/lib/auth-helpers";
 import { isProviderUnavailable } from "@/features/sources/providers/availability";
 import { dbRestaurantsNearby, discoverGoogleRestaurants, googlePlacesConfigured } from "@/lib/food/google-restaurants";
-import { enqueueMenusForList } from "@/lib/food/menu-scrape";
+import { enqueueMenusForList, isDeliveryCuisine } from "@/lib/food/menu-scrape";
+
+/** Solo mostramos cocinas de delivery (pizza, burger, kebab, sushi, mexicano…). Fuera
+ *  bares/sidrerías/cafés que ni se piden a domicilio ni tendrán carta. */
+function onlyDelivery<T extends { types?: string[]; cuisineTypes?: string[] }>(rows: T[]): T[] {
+  return rows.filter((r) => isDeliveryCuisine(r.types) || isDeliveryCuisine(r.cuisineTypes));
+}
 
 export const maxDuration = 300;
 
@@ -23,13 +29,13 @@ export async function GET(req: NextRequest) {
   const { lat, lng, q, radiusM } = parsed.data;
   if (!googlePlacesConfigured()) {
     console.log("[food-google] GOOGLE_PLACES_API_KEY missing; using DB fallback");
-    const restaurants = await dbRestaurantsNearby({ lat, lng, radiusM, query: q });
+    const restaurants = onlyDelivery(await dbRestaurantsNearby({ lat, lng, radiusM, query: q }));
     return NextResponse.json({ restaurants, source: "db-fallback", googlePlaces: { configured: false } });
   }
   try {
-    const restaurants = await discoverGoogleRestaurants({ lat, lng, radiusM, query: q });
-    // Encola los menús de los más cercanos (1 UPDATE) → el worker (cron) los scrapea en
-    // background y estarán cacheados al abrir. NO se scrapea aquí (fuera del camino del usuario).
+    const discovered = await discoverGoogleRestaurants({ lat, lng, radiusM, query: q });
+    const restaurants = onlyDelivery(discovered); // fuera bares/cafés sin menú
+    // Encola los menús de los más cercanos (1 UPDATE); el worker los scrapea en background.
     after(() => enqueueMenusForList(restaurants, 3));
     return NextResponse.json({ restaurants, source: "google" });
   } catch (e) {
