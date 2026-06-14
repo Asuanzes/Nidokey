@@ -17,6 +17,11 @@ const BASE = "https://api.apify.com/v2";
 /** Item crudo del dataset de un actor (JSON arbitrario). */
 export type ApifyItem = Record<string, unknown>;
 
+/** ¿Hay token de Apify configurado? (no lanza; patrón de los otros providers `hasXKey`). */
+export function hasApifyToken(): boolean {
+  return Boolean(process.env.APIFY_TOKEN?.trim());
+}
+
 /** Lee el token del entorno o lanza un error claro (patrón de twelvedata.ts). */
 export function apifyToken(): string {
   const t = process.env.APIFY_TOKEN;

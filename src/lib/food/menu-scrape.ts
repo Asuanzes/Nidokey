@@ -3,6 +3,7 @@ import { firecrawlScrapeJson, firecrawlSearch, hasFirecrawlKey } from "@/feature
 import { placeWebsite } from "@/features/sources/providers/google-places";
 import { crawl4aiCrawl, crawl4aiMarkdown, hasCrawl4aiConfig, type Crawl4aiLink } from "@/features/sources/providers/crawl4ai";
 import { extractJson, hasLlmExtractor } from "@/features/sources/providers/llm-extract";
+import { apifyMenuFromDeliveryUrl, hasApifyMenu, type DeliveryPlatform } from "@/features/sources/providers/apify-menu";
 
 /**
  * Menús reales por scraping (Firecrawl). Solo para restaurantes descubiertos por
@@ -25,12 +26,17 @@ const MAX_ITEMS = 80;
 const DELIVERY_DOMAINS = ["glovoapp.com", "just-eat.es", "justeat.es", "ubereats.com"];
 
 /**
- * ¿Podemos scrapear menús? Con Crawl4AI+Claude (gratis, web propia del restaurante)
- * o con Firecrawl (respaldo de pago, cubre delivery con DataDome). Si no hay ninguno,
- * las cartas de Google quedan como "no disponible".
+ * ¿Podemos scrapear menús? Con Crawl4AI+LLM (gratis, web propia del restaurante),
+ * con Apify (Glovo/Just Eat estructurado — necesita Firecrawl para hallar la URL) o
+ * con Firecrawl (respaldo de pago). Si no hay ninguno, las cartas de Google quedan
+ * como "no disponible".
  */
 function canScrapeMenus(): boolean {
-  return hasFirecrawlKey() || (hasCrawl4aiConfig() && hasLlmExtractor());
+  return (
+    hasFirecrawlKey() ||
+    (hasCrawl4aiConfig() && hasLlmExtractor()) ||
+    (hasApifyMenu() && hasFirecrawlKey())
+  );
 }
 
 const MENU_SCHEMA: Record<string, unknown> = {
@@ -247,13 +253,38 @@ function pickMenuLink(links: Crawl4aiLink[], pageUrl: string): string | null {
 }
 
 /**
- * Extrae la carta de `url` con la cascada: (1) Crawl4AI (markdown gratis) + LLM
- * (estructura el JSON), siguiendo el enlace a la carta si la home no la trae, y
- * (2) Firecrawl como respaldo (scrape+extract, cubre sitios con DataDome). Devuelve
- * las categorías normalizadas y la URL que de verdad dio la carta (para cachearla y
- * ahorrarse el salto desde la home en refrescos).
+ * Busca la URL del restaurante en una plataforma de delivery con actor de Apify
+ * (Glovo / Just Eat) vía Firecrawl search. Devuelve plataforma + URL del primer
+ * resultado de un dominio soportado. null si no hay (o sin Firecrawl para buscar).
  */
-async function extractMenu(url: string): Promise<{ categories: NormCat[]; usedUrl: string }> {
+async function findDeliveryUrl(name: string, city: string): Promise<{ platform: DeliveryPlatform; url: string } | null> {
+  if (!hasFirecrawlKey()) return null;
+  const results = (await firecrawlSearch(`${name} ${city} just eat glovo carta`, 10).catch(() => [])).filter((r) =>
+    isSafeWebUrl(r.url),
+  );
+  for (const r of results) {
+    const host = hostOf(r.url);
+    if (!host) continue;
+    if (host.includes("just-eat") || host.includes("justeat")) return { platform: "justeat", url: r.url };
+    if (host.includes("glovoapp.com")) return { platform: "glovo", url: r.url };
+  }
+  return null;
+}
+
+/**
+ * Extrae la carta de `url` con la cascada:
+ *   (1) Crawl4AI (markdown gratis) + LLM, siguiendo el enlace a la carta si la home no
+ *       la trae — ideal para restaurantes con web propia sencilla.
+ *   (1.5) Apify (Glovo/Just Eat): menú YA estructurado, sin LLM — para cadenas cuya web
+ *       propia es app-JS sin menú en el HTML. Requiere Firecrawl para hallar la URL.
+ *   (2) Firecrawl como respaldo de pago (scrape+extract, cubre DataDome).
+ * Devuelve las categorías normalizadas y la URL que de verdad dio la carta (para
+ * cachearla y ahorrarse el salto en refrescos). `ctx` aporta name/city para el tier Apify.
+ */
+async function extractMenu(
+  url: string,
+  ctx: { name?: string; city?: string } = {},
+): Promise<{ categories: NormCat[]; usedUrl: string }> {
   // Tier 1 (gratis): Crawl4AI renderiza+limpia en el VPS, el LLM estructura el menú.
   if (hasCrawl4aiConfig() && hasLlmExtractor()) {
     try {
@@ -272,9 +303,26 @@ async function extractMenu(url: string): Promise<{ categories: NormCat[]; usedUr
         if (fromMenu.length) return { categories: fromMenu, usedUrl: menuUrl };
       }
     } catch (e) {
-      console.error("[food-menu] Crawl4AI/LLM falló, probando Firecrawl:", e instanceof Error ? e.message : e);
+      console.error("[food-menu] Crawl4AI/LLM falló, probando siguiente tier:", e instanceof Error ? e.message : e);
     }
   }
+
+  // Tier 1.5 (Apify): plataforma de delivery con menú estructurado (sin LLM). Para
+  // cadenas/sitios donde la web propia dio carta vacía. Más barato y fiable que el
+  // respaldo de Firecrawl para esos casos.
+  if (hasApifyMenu() && ctx.name && hasFirecrawlKey()) {
+    try {
+      const delivery = await findDeliveryUrl(ctx.name, ctx.city ?? "");
+      if (delivery) {
+        const extracted = await apifyMenuFromDeliveryUrl(delivery.platform, delivery.url, ctx.city ?? "");
+        const cats = normalizeMenu(extracted);
+        if (cats.length) return { categories: cats, usedUrl: delivery.url };
+      }
+    } catch (e) {
+      console.error("[food-menu] Apify falló, probando Firecrawl:", e instanceof Error ? e.message : e);
+    }
+  }
+
   // Tier 2 (respaldo de pago): Firecrawl hace scrape + extracción con schema en una llamada.
   if (hasFirecrawlKey()) {
     const extracted = await firecrawlScrapeJson<ExtractedMenu>(url, MENU_SCHEMA, {
@@ -315,7 +363,7 @@ async function scrapeAndStore(r: {
   }
 
   const te = Date.now();
-  const { categories, usedUrl } = await extractMenu(url);
+  const { categories, usedUrl } = await extractMenu(url, { name: r.name, city: r.city });
   const tExtract = Date.now() - te;
   if (categories.length === 0) {
     await prisma.restaurant.update({ where: { id: r.id }, data: { menuSourceUrl: url } }).catch(() => {});
