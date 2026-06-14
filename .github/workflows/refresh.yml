@@ -31,3 +31,14 @@ jobs:
           curl -fsS --max-time 70 \
             -H "Authorization: Bearer ${CRON_SECRET}" \
             "https://nidokey.es/api/cron/refresh?type=all"
+
+      # Worker de menús de comida enganchado AQUÍ porque este workflow sí corre fiable cada
+      # 5 min (el food-menus.yml nuevo no arrancaba su schedule). `|| true` + sin -f: si el
+      # worker falla, NO tumba el refresh de cripto. limit=3 para caber en el presupuesto.
+      - name: Ping worker de menús (comida)
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -sS --max-time 70 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://nidokey.es/api/cron/food-menus?limit=3" || true

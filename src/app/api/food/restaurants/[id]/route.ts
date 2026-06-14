@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth-helpers";
 import { enqueueMenu, menuStatusFor, processMenu } from "@/lib/food/menu-scrape";
 
-// La primera apertura de un restaurante sin carta ESPERA el scrape (await processMenu,
-// ~20s con esqueleto). NO usamos after(): en Vercel se mata al cerrar la respuesta y el
-// menú nunca llegaba (y dependía del cron, que es frágil). Al esperar, el lambda sigue
-// vivo y la carta se devuelve ya poblada. Reaperturas = instantáneas (cacheado). 300s de
-// presupuesto sobra para los ~20s del scrape.
+// El GET SIEMPRE responde rápido ("fetching") y el móvil hace polling. El scrape corre en
+// background con after() — NO con await: bloquear el GET ~20-40s hacía que iOS cancelara la
+// petición a los ~60s (Vercel registraba "GET ---", no 200) y la app se quedaba cargando.
+// El scrape con gooyer (~20s) cabe en el presupuesto de la función. processMenu tiene lock
+// en BBDD (claima PENDING) → no duplica con el cron.
 export const maxDuration = 300;
 
 const MENU_INCLUDE = {
@@ -21,7 +21,7 @@ const MENU_INCLUDE = {
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   await requireUserId();
   const { id } = await params;
-  let restaurant = await prisma.restaurant.findFirst({ where: { id, active: true }, include: MENU_INCLUDE });
+  const restaurant = await prisma.restaurant.findFirst({ where: { id, active: true }, include: MENU_INCLUDE });
   if (!restaurant) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
   const hasMenu = restaurant.categories.some((c) => c.items.length > 0);
@@ -36,20 +36,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     cuisineTypes: restaurant.cuisineTypes,
   });
 
-  if (enqueued) {
-    // Scrape AHORA, esperándolo (no after). processMenu tiene lock en BBDD: si otra
-    // instancia lo está haciendo, devuelve null y caemos al polling del móvil. Tras el
-    // scrape, releemos para devolver la carta ya poblada en esta misma respuesta.
-    await processMenu(restaurant.id).catch(() => {});
-    const refreshed = await prisma.restaurant.findFirst({ where: { id, active: true }, include: MENU_INCLUDE });
-    if (refreshed) restaurant = refreshed;
-  }
+  // Dispara el scrape en background si está PENDING: lo acabamos de encolar (enqueued) O ya
+  // estaba PENDING por el pre-warm de la lista (en ese caso enqueueMenu devuelve false pero
+  // hay que procesarlo igual). El cron es la red de seguridad si este after() no completa.
+  const pending = enqueued || restaurant.menuStatus === "PENDING";
+  if (pending) after(() => processMenu(restaurant.id).catch(() => {}));
 
-  const hasMenuNow = restaurant.categories.some((c) => c.items.length > 0);
   const menuStatus = menuStatusFor({
     source: restaurant.source,
-    menuStatus: restaurant.menuStatus,
-    hasMenu: hasMenuNow,
+    menuStatus: pending ? "PENDING" : restaurant.menuStatus,
+    hasMenu,
     cuisineTypes: restaurant.cuisineTypes,
   });
 
