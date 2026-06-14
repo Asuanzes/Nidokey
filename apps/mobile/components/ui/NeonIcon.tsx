@@ -12,6 +12,9 @@ type Props = {
   color: string;
   active?: boolean;
   disabled?: boolean;
+  /** `true` (def.) = contenedor tipo pastilla con halo (tab bar). `false` = footprint
+   *  natural (size×size) sin pastilla, solo glifo + glow — para iconos inline (categorías). */
+  framed?: boolean;
 };
 
 function outlineName(name: keyof typeof Ionicons.glyphMap): keyof typeof Ionicons.glyphMap {
@@ -21,7 +24,7 @@ function outlineName(name: keyof typeof Ionicons.glyphMap): keyof typeof Ionicon
   return Object.prototype.hasOwnProperty.call(Ionicons.glyphMap, next) ? next : name;
 }
 
-export function NeonIcon({ name, svgXml, size, color, active = false, disabled = false }: Props) {
+export function NeonIcon({ name, svgXml, size, color, active = false, disabled = false, framed = true }: Props) {
   const { th } = useTheme();
   const { appStyle } = useAppStyle();
   const effectiveColor = disabled ? th.textSubtle : color;
@@ -42,18 +45,22 @@ export function NeonIcon({ name, svgXml, size, color, active = false, disabled =
 
   const glowEnabled = !disabled;
   const haloOpacity = active ? 0.28 : 0.16;
+  // Con marco (tabs): pastilla más ancha + fondo activo. Sin marco (iconos inline de
+  // categoría): footprint natural size×size para no descuadrar chips/listas/cabeceras.
+  const box = framed
+    ? {
+        width: size + 14,
+        height: Math.max(size + 6, 30),
+        borderRadius: th.radii.pill,
+        backgroundColor: active && glowEnabled ? th.accentSoft : "transparent",
+      }
+    : { width: size, height: size };
 
   return (
     <View
       style={[
         styles.container,
-        {
-          width: size + 14,
-          height: Math.max(size + 6, 30),
-          borderRadius: th.radii.pill,
-          backgroundColor: active && glowEnabled ? th.accentSoft : "transparent",
-          opacity,
-        },
+        { ...box, opacity },
         glowEnabled && Platform.OS === "ios"
           ? {
               shadowColor: effectiveColor,
@@ -64,7 +71,7 @@ export function NeonIcon({ name, svgXml, size, color, active = false, disabled =
           : null,
       ]}
     >
-      {glowEnabled ? (
+      {glowEnabled && framed ? (
         <View
           pointerEvents="none"
           style={[
