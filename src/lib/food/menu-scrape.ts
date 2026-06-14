@@ -25,6 +25,24 @@ const MAX_CATEGORIES = 40;
 const MAX_ITEMS = 120;
 const STALE_FETCH_LOCK_MS = 5 * 60 * 1000; // un FETCHING más viejo = lock muerto reclamable
 const MAX_MENU_ATTEMPTS = 3;
+// Reintento de los que salieron SIN carta (EMPTY/FAILED): no machacar en cada apertura,
+// pero reintentar pasado este tiempo (Glovo puede haber añadido la tienda).
+const EMPTY_RETRY_MS = 3 * 24 * 60 * 60 * 1000;
+
+/**
+ * ¿Hay que (re)scrapear? Solo se SALTA si:
+ *  - ya hay carta y es fresca (< MENU_TTL), o
+ *  - se intentó hace muy poco y salió vacía (EMPTY/FAILED).
+ * Clave: un `menuFetchedAt` viejo SIN carta (estado basura del pipeline anterior: fecha
+ * puesta pero 0 platos) NO debe bloquear — ese era el bug por el que el GET volvía 200 sin
+ * scrapear nada.
+ */
+function needsScrape(hasMenu: boolean, menuStatus: string | null, menuFetchedAt: Date | null): boolean {
+  const age = menuFetchedAt ? Date.now() - menuFetchedAt.getTime() : Infinity;
+  if (hasMenu && age < MENU_TTL_MS) return false;
+  if (!hasMenu && (menuStatus === "EMPTY" || menuStatus === "FAILED") && age < EMPTY_RETRY_MS) return false;
+  return true;
+}
 
 /**
  * Cocinas de delivery (types de Google Places) que cubren ~80-90% de los pedidos a
@@ -277,10 +295,11 @@ export async function enqueueMenu(r: {
   if (r.source !== "google" || !canScrapeMenus()) return false;
   if (!isDeliveryCuisine(r.cuisineTypes)) return false;
   if (r.menuStatus === "PENDING" || r.menuStatus === "FETCHING") return false;
-  const fresh = r.menuFetchedAt != null && Date.now() - r.menuFetchedAt.getTime() < MENU_TTL_MS;
-  if (fresh) return false;
+  if (!needsScrape(r.hasMenu, r.menuStatus, r.menuFetchedAt)) return false;
   const res = await prisma.restaurant.updateMany({
-    where: { id: r.id, source: "google", NOT: { menuStatus: { in: ["PENDING", "FETCHING"] } } },
+    // OJO: NOT-IN excluye filas con menuStatus NULL (semántica SQL de NULL) → hay que
+    // permitir NULL explícitamente, si no los recién descubiertos (status null) nunca se encolan.
+    where: { id: r.id, source: "google", OR: [{ menuStatus: null }, { menuStatus: { notIn: ["PENDING", "FETCHING"] } }] },
     data: { menuStatus: "PENDING", menuQueuedAt: new Date() },
   });
   return res.count > 0;
@@ -299,13 +318,13 @@ export async function enqueueMenusForList(
     if (r.source !== "google") return false;
     if (!isDeliveryCuisine(r.types)) return false;
     if (r.menuStatus === "PENDING" || r.menuStatus === "FETCHING") return false;
-    const fresh = r.menuFetchedAt != null && Date.now() - r.menuFetchedAt.getTime() < MENU_TTL_MS;
-    return !fresh;
+    // Sin hasMenu por fila aquí; usamos menuStatus==="READY" como proxy de "tiene carta".
+    return needsScrape(r.menuStatus === "READY", r.menuStatus ?? null, r.menuFetchedAt ?? null);
   });
   const targets = candidates.slice(0, limit).map((r) => r.id);
   if (targets.length === 0) return [];
   await prisma.restaurant.updateMany({
-    where: { id: { in: targets }, source: "google", NOT: { menuStatus: { in: ["PENDING", "FETCHING"] } } },
+    where: { id: { in: targets }, source: "google", OR: [{ menuStatus: null }, { menuStatus: { notIn: ["PENDING", "FETCHING"] } }] },
     data: { menuStatus: "PENDING", menuQueuedAt: new Date() },
   });
   console.log(`[food-menu] encolados ${targets.length} restaurantes para el worker`);
