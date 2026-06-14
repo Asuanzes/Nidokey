@@ -259,24 +259,23 @@ function pickMenuLink(links: Crawl4aiLink[], pageUrl: string): string | null {
  */
 async function findDeliveryUrl(name: string, city: string): Promise<{ platform: DeliveryPlatform; url: string } | null> {
   if (!hasFirecrawlKey()) return null;
-  const results = (await firecrawlSearch(`${name} ${city} just eat glovo carta`, 10).catch(() => [])).filter((r) =>
-    isSafeWebUrl(r.url),
-  );
-  for (const r of results) {
-    const host = hostOf(r.url);
-    if (!host) continue;
-    if (host.includes("just-eat") || host.includes("justeat")) return { platform: "justeat", url: r.url };
-    if (host.includes("glovoapp.com")) return { platform: "glovo", url: r.url };
-  }
-  return null;
+  // Solo Glovo: en pruebas el actor de Just Eat devolvió 0 items (incl. el ejemplo UK de
+  // su doc → roto). Preferimos la URL de TIENDA (/stores/...), no las páginas de marca
+  // (/glovo-delivery/...), que no dan menú.
+  const results = (await firecrawlSearch(`${name} ${city} glovo`, 10).catch(() => [])).filter((r) => isSafeWebUrl(r.url));
+  const store = results
+    .map((r) => r.url)
+    .find((u) => hostOf(u)?.includes("glovoapp.com") && u.includes("/stores/"));
+  return store ? { platform: "glovo", url: store } : null;
 }
 
 /**
  * Extrae la carta de `url` con la cascada:
  *   (1) Crawl4AI (markdown gratis) + LLM, siguiendo el enlace a la carta si la home no
  *       la trae — ideal para restaurantes con web propia sencilla.
- *   (1.5) Apify (Glovo/Just Eat): menú YA estructurado, sin LLM — para cadenas cuya web
- *       propia es app-JS sin menú en el HTML. Requiere Firecrawl para hallar la URL.
+ *   (1.5) Apify (Glovo): menú YA estructurado, sin LLM — para cadenas cuya web propia es
+ *       app-JS sin menú en el HTML (KFC, Goiko...). Requiere Firecrawl para hallar la URL
+ *       de tienda. (Just Eat se probó y su actor está roto; queda fuera.)
  *   (2) Firecrawl como respaldo de pago (scrape+extract, cubre DataDome).
  * Devuelve las categorías normalizadas y la URL que de verdad dio la carta (para
  * cachearla y ahorrarse el salto en refrescos). `ctx` aporta name/city para el tier Apify.

@@ -17,6 +17,8 @@ import { hasApifyToken, runActorGetItems, type ApifyItem } from "./apify";
  * que `menu-scrape.normalizeMenu` ya sabe normalizar (eurToCents + topes de sanidad).
  */
 
+// Just Eat: el actor devolvió 0 items en pruebas incluso con el ejemplo UK de su doc
+// (roto). Se mantiene la rama por si se arregla, pero findDeliveryUrl NO lo selecciona.
 const JUST_EAT_ACTOR = "easyapi/just-eat-restaurant-menu-scraper";
 const GLOVO_ACTOR = "antonionduarte/glovo-scraper";
 
@@ -136,10 +138,13 @@ export async function apifyMenuFromDeliveryUrl(
   } else {
     const slug = glovoSlug(url);
     if (!slug) return null;
+    // omitChargeGuards: validado en pruebas que CON maxItems/maxTotalChargeUsd en la query
+    // el run da 0 items; SIN ellos devuelve la carta. El coste queda acotado igualmente por
+    // `maxStoresPerCategory: 1` (una sola tienda ≈ 40-60 productos ≈ $0,15/run).
     const out = await runActorGetItems(
       GLOVO_ACTOR,
       { location: city || "España", storeUrls: [slug], includeProducts: true, maxStoresPerCategory: 1 },
-      { maxItems: MENU_MAX_ITEMS, maxTotalChargeUsd: MENU_MAX_CHARGE_USD, timeoutSecs: MENU_TIMEOUT_SECS },
+      { timeoutSecs: MENU_TIMEOUT_SECS, omitChargeGuards: true },
     );
     items = out.items;
   }
