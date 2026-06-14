@@ -85,6 +85,38 @@ function mapItemsToMenu(items: ApifyItem[]): ExtractedMenuLike {
   return { categories: [...byCat.entries()].map(([name, catItems]) => ({ name, items: catItems })) };
 }
 
+/** Tienda del catálogo de una ciudad (sin productos). */
+export type GlovoStore = { slug: string; url: string; title: string };
+
+/**
+ * Lista el catálogo de tiendas de Glovo de una ciudad (sin productos). Una sola llamada
+ * trae cientos de tiendas con slug+url+title → se cachea y se matchea por nombre, en vez
+ * de una búsqueda web por restaurante. Cap del actor: 200 por categoría.
+ */
+export async function apifyGlovoCityStores(city: string): Promise<GlovoStore[]> {
+  if (!hasApifyToken() || !city.trim()) return [];
+  const t = Date.now();
+  const out = await runActorGetItems(
+    GLOVO_ACTOR,
+    { location: city, includeProducts: false, maxStoresPerCategory: 200 },
+    { timeoutSecs: 250, omitChargeGuards: true },
+  );
+  const stores: GlovoStore[] = [];
+  const seen = new Set<string>();
+  for (const it of out.items) {
+    const recordType = pickStr(it, ["recordType", "type"]);
+    if (recordType && recordType.toLowerCase() !== "store") continue;
+    const slug = pickStr(it, ["slug", "storeSlug"]);
+    const url = pickStr(it, ["url", "storeUrl"]);
+    const title = pickStr(it, ["title", "storeName", "name"]);
+    if (!slug || !title || seen.has(slug)) continue;
+    seen.add(slug);
+    stores.push({ slug, url: url ?? `https://glovoapp.com/es/es/${city.toLowerCase()}/stores/${slug}`, title });
+  }
+  console.log(`[food-menu] glovo catálogo "${city}": ${stores.length} tiendas (${Date.now() - t}ms)`);
+  return stores;
+}
+
 /** Slug de tienda Glovo desde su URL (último segmento de ruta no vacío). */
 function glovoSlug(url: string): string | null {
   try {

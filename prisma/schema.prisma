@@ -703,6 +703,7 @@ model Restaurant {
   menuStatus       String?
   menuQueuedAt     DateTime?          // momento de encolado / inicio del lock (para orden y caducidad del lock)
   menuAttempts     Int      @default(0) // intentos de scrape (cap para no reintentar webs no-scrapeables)
+  cuisineTypes     String[] @default([]) // types de Google Places (filtro: solo se scrapean cocinas de delivery)
   active           Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -742,6 +743,16 @@ model CourierProfile {
   createdAt  DateTime  @default(now())
 
   @@index([active])
+}
+
+// Catálogo de tiendas de Glovo por ciudad (cacheado). Evita una búsqueda web por
+// restaurante: se trae una vez por ciudad (TTL) y se matchea por nombre. `stores` =
+// [{ slug, url, title }, ...] tal cual lo lista el actor de Glovo (sin productos).
+model GlovoCatalog {
+  id        String   @id @default(cuid())
+  city      String   @unique // normalizada en minúsculas
+  stores    Json
+  fetchedAt DateTime @default(now())
 }
 
 model MenuCategory {

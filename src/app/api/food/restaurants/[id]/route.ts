@@ -26,13 +26,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   // Menús reales por scraping (solo restaurantes de Google; el seed conserva el suyo).
   const hasMenu = restaurant.categories.some((c) => c.items.length > 0);
 
-  // Encola si falta carta fresca (barato: 1 UPDATE con guard, no scrapea aquí).
+  // Encola si falta carta fresca y es cocina de delivery (barato: 1 UPDATE con guard).
   const enqueued = await enqueueMenu({
     id: restaurant.id,
     source: restaurant.source,
     menuStatus: restaurant.menuStatus,
     menuFetchedAt: restaurant.menuFetchedAt,
     hasMenu,
+    cuisineTypes: restaurant.cuisineTypes,
   });
   // Fast-path: intenta procesarlo YA en background (lock en BBDD evita duplicar con el
   // cron). No bloquea la respuesta; si este lambda muere, el cron es la red de seguridad.
@@ -42,6 +43,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     source: restaurant.source,
     menuStatus: enqueued ? "PENDING" : restaurant.menuStatus,
     hasMenu,
+    cuisineTypes: restaurant.cuisineTypes,
   });
 
   return NextResponse.json({ restaurant, menuStatus });

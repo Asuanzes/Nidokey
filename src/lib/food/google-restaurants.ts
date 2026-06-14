@@ -63,6 +63,7 @@ export async function upsertGoogleRestaurants(places: GoogleRestaurant[]) {
             description: existing.description ?? descriptionForPlace(place),
             rating: place.rating,
             userRatingCount: place.userRatingCount,
+            cuisineTypes: place.types ?? [], // backfill del filtro de cocinas al re-descubrir
           },
         })
       );
@@ -89,6 +90,7 @@ export async function upsertGoogleRestaurants(places: GoogleRestaurant[]) {
           currency: "EUR",
           rating: place.rating,
           userRatingCount: place.userRatingCount,
+          cuisineTypes: place.types ?? [], // para el filtro de cocinas de delivery (menú)
           active: true,
         },
       })
