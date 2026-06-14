@@ -20,6 +20,7 @@ import { fonts } from "@/lib/fonts";
 import { useQuery } from "@/lib/hooks/useQuery";
 import { notifyDuplicatesChanged } from "@/lib/dup-signal";
 import { categoryColor } from "@/lib/records/config";
+import { useAppStyle } from "@/lib/app-style-context";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { Button, EmptyState, ResultModal, Screen } from "@/components/ui";
 
@@ -185,8 +186,9 @@ function GroupCard({
   onDismiss: () => void;
 }) {
   const { th, dark } = useTheme();
+  const { appStyle } = useAppStyle();
   const { t } = useTranslation();
-  const accent = categoryColor(g.type, dark);
+  const accent = categoryColor(g.type, dark, appStyle);
   const scoreColor = g.score >= 90 ? "#15803D" : g.score >= 70 ? "#A86A17" : th.textMuted;
 
   return (

@@ -12,12 +12,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui";
+import { useTheme } from "@/lib/theme";
 
 type Phase = "email" | "code";
 
 export default function LoginScreen() {
   const { requestOtp, verifyOtp } = useAuth();
   const { t } = useTranslation();
+  const { th } = useTheme();
   const [phase, setPhase] = useState<Phase>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -55,36 +57,45 @@ export default function LoginScreen() {
   // ────────────────────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: th.bg }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.flex}
       >
         <View style={styles.brand}>
-          <View style={styles.iconBox}>
+          <View style={[styles.iconBox, { backgroundColor: th.primarySoft, borderRadius: th.radii.md }]}>
             <Text style={styles.iconText}>🔑</Text>
           </View>
-          <Text style={styles.title}>Nidokey</Text>
+          <Text style={[styles.title, { color: th.text }]}>Nidokey</Text>
         </View>
 
-        <View style={styles.card}>
+        <View
+          style={[
+            styles.card,
+            th.elevation.sm,
+            { backgroundColor: th.surfaceRaised, borderColor: th.border, borderRadius: th.radii.lg },
+          ]}
+        >
           {phase === "email" ? (
             <>
-              <Text style={styles.heading}>{t("login.heading")}</Text>
-              <Text style={styles.sub}>{t("login.sub")}</Text>
+              <Text style={[styles.heading, { color: th.text }]}>{t("login.heading")}</Text>
+              <Text style={[styles.sub, { color: th.textMuted }]}>{t("login.sub")}</Text>
               <TextInput
                 value={email}
                 onChangeText={setEmail}
                 placeholder={t("login.email_placeholder")}
-                placeholderTextColor="#999"
+                placeholderTextColor={th.textSubtle}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoComplete="email"
                 autoFocus
                 editable={!loading}
-                style={styles.input}
+                style={[
+                  styles.input,
+                  { backgroundColor: th.surfaceSoft, borderColor: th.border, borderRadius: th.radii.sm, color: th.text },
+                ]}
               />
-              {error && <Text style={styles.error}>{error}</Text>}
+              {error && <Text style={[styles.error, { color: th.dangerFg }]}>{error}</Text>}
               <Button
                 label={t("login.send_code")}
                 onPress={handleEmail}
@@ -95,20 +106,24 @@ export default function LoginScreen() {
             </>
           ) : (
             <>
-              <Text style={styles.heading}>{t("login.code_heading")}</Text>
-              <Text style={styles.sub}>{t("login.code_sub", { email })}</Text>
+              <Text style={[styles.heading, { color: th.text }]}>{t("login.code_heading")}</Text>
+              <Text style={[styles.sub, { color: th.textMuted }]}>{t("login.code_sub", { email })}</Text>
               <TextInput
                 value={code}
                 onChangeText={(v) => setCode(v.replace(/\D/g, "").slice(0, 6))}
                 placeholder={t("login.code_placeholder")}
-                placeholderTextColor="#999"
+                placeholderTextColor={th.textSubtle}
                 keyboardType="number-pad"
                 autoFocus
                 maxLength={6}
                 editable={!loading}
-                style={[styles.input, styles.codeInput]}
+                style={[
+                  styles.input,
+                  styles.codeInput,
+                  { backgroundColor: th.surfaceSoft, borderColor: th.border, borderRadius: th.radii.sm, color: th.text },
+                ]}
               />
-              {error && <Text style={styles.error}>{error}</Text>}
+              {error && <Text style={[styles.error, { color: th.dangerFg }]}>{error}</Text>}
               <Button
                 label={t("login.enter")}
                 onPress={handleCode}
@@ -130,45 +145,36 @@ export default function LoginScreen() {
           )}
         </View>
 
-        <Text style={styles.footer}>{t("login.footer")}</Text>
+        <Text style={[styles.footer, { color: th.textSubtle }]}>{t("login.footer")}</Text>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FAFAF7" },
+  container: { flex: 1 },
   flex: { flex: 1, padding: 24, justifyContent: "center" },
   brand: { alignItems: "center", gap: 8, marginBottom: 32 },
   iconBox: {
     width: 56,
     height: 56,
-    borderRadius: 12,
-    backgroundColor: "#EAEFF6",
     alignItems: "center",
     justifyContent: "center",
   },
   iconText: { fontSize: 28 },
-  title: { fontSize: 18, fontFamily: fonts.bodySemibold, color: "#1a1a1a" },
+  title: { fontSize: 18, fontFamily: fonts.bodySemibold },
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
     padding: 24,
     borderWidth: 1,
-    borderColor: "#e5e5e5",
     gap: 12,
   },
-  heading: { fontSize: 18, fontFamily: fonts.bodySemibold, color: "#1a1a1a" },
-  sub: { fontSize: 13, color: "#666", marginBottom: 8 },
+  heading: { fontSize: 18, fontFamily: fonts.bodySemibold },
+  sub: { fontSize: 13, marginBottom: 8 },
   input: {
     height: 44,
     borderWidth: 1,
-    borderColor: "#e5e5e5",
-    borderRadius: 8,
     paddingHorizontal: 12,
     fontSize: 15,
-    color: "#1a1a1a",
-    backgroundColor: "#FAFAF7",
   },
   codeInput: {
     fontSize: 24,
@@ -177,6 +183,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   cta: { marginTop: 4 },
-  error: { fontSize: 12, color: "#B91C1C" },
-  footer: { fontSize: 11, color: "#888", textAlign: "center", marginTop: 24 },
+  error: { fontSize: 12 },
+  footer: { fontSize: 11, textAlign: "center", marginTop: 24 },
 });

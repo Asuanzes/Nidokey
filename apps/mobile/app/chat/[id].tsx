@@ -60,6 +60,7 @@ import { setActiveConversation } from "@/lib/chat/push";
 import { chatSocket } from "@/lib/chat/socket";
 import { useSocketOpen } from "@/lib/chat/use-socket-open";
 import { ResultModal } from "@/components/ui";
+import { useAppStyle } from "@/lib/app-style-context";
 
 // Componentes que importan expo-audio (nativo) ESTÁTICAMENTE: se cargan en
 // perezoso solo si el binario trae el módulo — una OTA sobre un build viejo
@@ -734,7 +735,7 @@ export default function ChatScreen() {
             accessibilityLabel={t("chat.send")}
             style={[styles.sendBtn, { backgroundColor: text.trim() ? th.primary : th.border }]}
           >
-            <Ionicons name="send" size={18} color="#fff" />
+            <Ionicons name="send" size={18} color={th.primaryFg} />
           </Pressable>
         </View>
       )}
@@ -1038,6 +1039,7 @@ function BubbleInner({
   onOpenImage: (url: string) => void;
 }) {
   const { th } = useTheme();
+  const { appStyle } = useAppStyle();
   const { t, i18n } = useTranslation();
 
   if (m.kind === "SYSTEM") {
@@ -1061,7 +1063,7 @@ function BubbleInner({
         : { icon: "checkmark", color: th.textSubtle };
   }
 
-  const mineBg = dark ? "#3D3554" : "#E9E2F5"; // morado suave (color de la categoría chat)
+  const mineBg = appStyle === "2100" ? th.primarySoft : dark ? "#3D3554" : "#E9E2F5"; // morado suave en Vintage.
   return (
     <Pressable onLongPress={onLongPress} delayLongPress={350} style={[styles.bubbleRow, mine && styles.bubbleRowMine]}>
       <View

@@ -14,7 +14,7 @@ import { ShareIntentProvider, useShareIntentContext } from "expo-share-intent";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
-import { ThemeContext, T, TD, useTheme, type ThemeMode } from "@/lib/theme";
+import { ThemeContext, pickTheme, useTheme, type ThemeMode } from "@/lib/theme";
 import { useFonts } from "expo-font";
 import { fontAssets, fonts } from "@/lib/fonts";
 import { isPortalUrl, extractSharedText } from "@/lib/portal-url";
@@ -28,17 +28,31 @@ import { useChatNotificationTap } from "@/lib/chat/push";
 import "@/lib/i18n"; // inicializa i18next (debe importarse antes de usar t())
 import { useTranslation } from "react-i18next";
 import { LanguageProvider } from "@/lib/i18n/language-context";
-import { AppStyleProvider } from "@/lib/app-style-context";
+import { AppStyleProvider, useAppStyle } from "@/lib/app-style-context";
 
 // Mantener el splash nativo hasta que la sesión esté resuelta: evita el
 // "cuadrado blanco" y el flash blanco entre el splash y el primer render.
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   // Carga Inter/Poppins (assets JS → OTA, sin recompilar nativo). No bloquea el
   // arranque: el loader de marca (≥1 s) tapa la carga; si tardara, un breve FOUT.
   useFonts(fontAssets);
+
+  return (
+    // ShareIntentProvider entrega el contenido compartido al hook (un solo root)
+    // en vez de montar una 2ª instancia como react-native-share-menu.
+    <ShareIntentProvider options={{ resetOnBackground: true }}>
+      <AppStyleProvider>
+        <ThemedProviders />
+      </AppStyleProvider>
+    </ShareIntentProvider>
+  );
+}
+
+function ThemedProviders() {
+  const colorScheme = useColorScheme();
+  const { appStyle } = useAppStyle();
   // Sembrar el tema desde el modo del SO de forma SÍNCRONA en el primer frame:
   // si arrancáramos siempre en claro (false), un usuario en modo oscuro vería
   // unos frames con fondo claro (#FAFAF7) sobre negro — el "cuadrado claro" del
@@ -79,7 +93,7 @@ export default function RootLayout() {
   const dark = themeMode === "auto" ? systemDark : themeMode === "dark";
   const toggleTheme = () => setThemeMode(dark ? "light" : "dark");
 
-  const th = dark ? TD : T;
+  const th = pickTheme(appStyle, dark);
 
   // Barra de navegación de Android (edge-to-edge): por defecto sus botones siguen
   // al SISTEMA, no a la app → en tema claro con el sistema en oscuro quedaban
@@ -92,14 +106,10 @@ export default function RootLayout() {
   }, [dark]);
 
   return (
-    // ShareIntentProvider entrega el contenido compartido al hook (un solo root)
-    // en vez de montar una 2ª instancia como react-native-share-menu.
-    <ShareIntentProvider options={{ resetOnBackground: true }}>
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: th.bg }}>
       <LanguageProvider>
       <AuthProvider>
         <ThemeContext.Provider value={{ dark, th, themeMode, setThemeMode, toggleTheme }}>
-          <AppStyleProvider>
           <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
             <PendingImportProvider>
               <BootProvider>
@@ -112,12 +122,10 @@ export default function RootLayout() {
               <StatusBar style="auto" />
             </PendingImportProvider>
           </ThemeProvider>
-          </AppStyleProvider>
         </ThemeContext.Provider>
       </AuthProvider>
       </LanguageProvider>
     </GestureHandlerRootView>
-    </ShareIntentProvider>
   );
 }
 

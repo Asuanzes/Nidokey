@@ -6,6 +6,7 @@ import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
 import { Button, Card, EmptyState, Screen } from "@/components/ui";
 import { categoryColor } from "@/lib/records/config";
+import { useAppStyle } from "@/lib/app-style-context";
 
 function money(cents: number) {
   return (cents / 100).toLocaleString("es-ES", { style: "currency", currency: "EUR" });
@@ -14,8 +15,9 @@ function money(cents: number) {
 export default function FoodCartScreen() {
   const cart = useFoodCart();
   const { th, dark } = useTheme();
+  const { appStyle } = useAppStyle();
   const { t } = useTranslation();
-  const foodAccent = categoryColor("food", dark);
+  const foodAccent = categoryColor("food", dark, appStyle);
   if (!cart.items.length) {
     return (
       <Screen title={t("food.cart")} background backgroundCategory="food">

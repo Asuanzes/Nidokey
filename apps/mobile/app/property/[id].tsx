@@ -242,7 +242,7 @@ export default function PropertyDetailScreen() {
             hitSlop={8}
             style={({ pressed }) => [styles.toolsFab, { backgroundColor: th.primary }, pressed && { opacity: 0.85 }]}
           >
-            <Ionicons name="construct" size={20} color="#fff" />
+            <Ionicons name="construct" size={20} color={th.primaryFg} />
           </Pressable>
         </View>
 

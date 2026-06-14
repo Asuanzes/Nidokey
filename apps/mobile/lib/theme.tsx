@@ -1,4 +1,5 @@
 import { createContext, useContext } from "react";
+import type { AppStyle } from "@/lib/app-style-context";
 
 // Design system "acero y latón envejecido" (steel & aged brass).
 // Dos acentos distintos, como en el tema de referencia:
@@ -206,7 +207,7 @@ export const T2100: Theme = {
   bgBottom: "#FBD3D7",
   overlay: "rgba(27,20,33,0.42)",
   space: { ...T.space },
-  radii: { ...T.radii },
+  radii: { ...T.radii, lg: 20, xl: 28 },
   type: { ...T.type },
   elevation: { ...T.elevation },
 };
@@ -236,10 +237,20 @@ export const TD2100: Theme = {
   bgBottom: "#0B0610",
   overlay: "rgba(8,4,12,0.6)",
   space: { ...TD.space },
-  radii: { ...TD.radii },
+  radii: { ...TD.radii, lg: 20, xl: 28 },
   type: { ...TD.type },
-  elevation: { ...TD.elevation },
+  elevation: {
+    ...TD.elevation,
+    sm: { ...TD.elevation.sm, shadowColor: "#F26D9A", shadowOpacity: 0.24 },
+    md: { ...TD.elevation.md, shadowColor: "#F26D9A", shadowOpacity: 0.3 },
+    lg: { ...TD.elevation.lg, shadowColor: "#F26D9A", shadowOpacity: 0.36 },
+  },
 };
+
+export function pickTheme(appStyle: AppStyle, dark: boolean): Theme {
+  if (appStyle === "2100") return dark ? TD2100 : T2100;
+  return dark ? TD : T;
+}
 
 /** Modo de tema: "auto" sigue el sistema; "light"/"dark" fijan el tema. */
 export type ThemeMode = "auto" | "light" | "dark";
