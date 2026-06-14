@@ -1,24 +1,21 @@
 import { hasApifyToken, runActorGetItems, type ApifyItem } from "./apify";
 
 /**
- * Menús de GLOVO vía actor de Apify (`antonionduarte/glovo-scraper`), que devuelve la
- * carta YA ESTRUCTURADA. Es la ÚNICA fuente de menús: el usuario paga la suscripción de
- * Apify para esto y no queremos pasos intermedios (Crawl4AI/LLM) que ralenticen.
+ * Menús de GLOVO vía actor de Apify `gooyer.co/glovo-scraper`, que scrapea una URL de
+ * tienda directamente (input `startUrls`) SIN campo de ubicación → no depende de ningún
+ * "GeoNamesCache" y funciona en CUALQUIER ciudad (validado en Vitoria, donde los actores
+ * `antonionduarte` y `blagoysimandoff` fallaban). Es la única fuente de menús.
  *
- * Just Eat se descartó: su actor (`easyapi/...`) devolvía 0 items incluso con el ejemplo
- * UK de su doc (roto) y cobraba igual → gasto inútil. No se llama.
- *
- * Esquema de salida real (validado, KFC/Goiko Oviedo):
- *   { storeSlug, storeName, name, price (número en EUR), description, currency, productId,
- *     imageUrl, recordType:"product" }
- * Glovo NO trae categorías → todos los platos caen en una sección "Carta".
- *
- * omitChargeGuards: validado que CON maxItems/maxTotalChargeUsd en la query el run da 0
- * items; SIN ellos devuelve la carta. El coste queda acotado por `maxStoresPerCategory:1`.
+ * Salida: el actor devuelve el árbol crudo de la página de Glovo. Los PLATOS son records
+ * de producto con `{ id, name, description, price, priceInfo:{amount}, attributeGroups }`.
+ * Los modificadores/extras viven DENTRO de `attributeGroups` de cada plato → NO se
+ * descienden (si no, se cuelan como platos: el recursivo ingenuo sacaba 353 vs 72 reales).
+ * v1: carta plana en una sección "Carta" (categorías = pulido posterior, requieren
+ * correlacionar el layout `sections`). Extras = fase posterior.
  */
 
-const GLOVO_ACTOR = "antonionduarte/glovo-scraper";
-const MENU_TIMEOUT_SECS = 150;
+const GLOVO_ACTOR = "gooyer.co/glovo-scraper";
+const MENU_TIMEOUT_SECS = 220;
 
 /** Forma que consume `menu-scrape.normalizeMenu` (categorías → items con precio en euros). */
 export type ExtractedMenuLike = {
@@ -29,120 +26,57 @@ export function hasApifyMenu(): boolean {
   return hasApifyToken();
 }
 
-/** Primer valor string no vacío entre varias claves candidatas (mapeo defensivo). */
-function pickStr(obj: ApifyItem, keys: string[]): string | null {
-  for (const k of keys) {
-    const v = obj[k];
-    if (typeof v === "string" && v.trim()) return v.trim();
+/** Precio en euros desde priceInfo.amount (número) o price; tolera string "9,50 €". */
+function priceEurOf(p: ApifyItem): number | null {
+  const info = p.priceInfo as { amount?: unknown } | undefined;
+  const raw = (info && info.amount != null ? info.amount : p.price) as unknown;
+  if (typeof raw === "number") return Number.isFinite(raw) && raw > 0 ? raw : null;
+  if (typeof raw === "string") {
+    const n = Number.parseFloat(raw.replace(/[^0-9,.]/g, "").replace(",", "."));
+    return Number.isFinite(n) && n > 0 ? n : null;
   }
   return null;
 }
 
-/**
- * Precio en EUROS de formas variadas: número (10.85), string ("9,50 €"), objeto
- * ({ amount } / { value }). Heurística cents↔euros: entero grande (>=1000) → céntimos.
- */
-function pickEur(obj: ApifyItem, keys: string[]): number | null {
-  let raw: unknown = null;
-  for (const k of keys) {
-    if (obj[k] != null) {
-      raw = obj[k];
-      break;
-    }
-  }
-  if (raw && typeof raw === "object") {
-    const o = raw as Record<string, unknown>;
-    raw = o.amount ?? o.value ?? o.price ?? o.eur ?? null;
-  }
-  let eur: number | null = null;
-  if (typeof raw === "number") {
-    eur = Number.isInteger(raw) && raw >= 1000 ? raw / 100 : raw;
-  } else if (typeof raw === "string") {
-    const cleaned = raw.replace(/[^0-9,.]/g, "").replace(",", ".");
-    const n = Number.parseFloat(cleaned);
-    if (Number.isFinite(n)) eur = n;
-  }
-  return eur != null && Number.isFinite(eur) && eur > 0 ? eur : null;
-}
-
-/** Mapea items del actor de Glovo a `ExtractedMenuLike`. Filtra a productos; sin categoría → "Carta". */
-function mapItemsToMenu(items: ApifyItem[]): ExtractedMenuLike {
-  if (items.length) {
-    console.log(`[food-menu]   apify(glovo) muestra item:`, JSON.stringify(items[0]).slice(0, 300));
-  }
-  const byCat = new Map<string, { name: string; description: string | null; priceEur: number | null }[]>();
-  for (const it of items) {
-    const recordType = pickStr(it, ["recordType", "type"]);
-    if (recordType && recordType.toLowerCase() !== "product") continue; // Glovo emite store+product
-    const name = pickStr(it, ["name", "title", "productName", "itemName", "dishName"]);
-    if (!name) continue;
-    const priceEur = pickEur(it, ["priceEur", "price", "amount", "priceValue", "cost", "unitPrice"]);
-    const description = pickStr(it, ["description", "desc", "productDescription", "details", "subtitle"]);
-    const category = pickStr(it, ["category", "categoryName", "section", "menuCategory", "group", "categoryTitle"]) ?? "Carta";
-    if (!byCat.has(category)) byCat.set(category, []);
-    byCat.get(category)!.push({ name, description, priceEur });
-  }
-  return { categories: [...byCat.entries()].map(([name, catItems]) => ({ name, items: catItems })) };
-}
-
-/** Tienda del catálogo de una ciudad (sin productos). */
-export type GlovoStore = { slug: string; url: string; title: string };
-
-/**
- * Lista el catálogo de tiendas de Glovo de una ciudad (sin productos). Una sola llamada
- * trae cientos de tiendas con slug+url+title → se cachea y se matchea por nombre, en vez
- * de una búsqueda web por restaurante. Cap del actor: 200 por categoría.
- */
-export async function apifyGlovoCityStores(city: string): Promise<GlovoStore[]> {
-  if (!hasApifyToken() || !city.trim()) return [];
-  const t = Date.now();
-  const out = await runActorGetItems(
-    GLOVO_ACTOR,
-    { location: city, includeProducts: false, maxStoresPerCategory: 200 },
-    { timeoutSecs: 250, omitChargeGuards: true },
-  );
-  const stores: GlovoStore[] = [];
-  const seen = new Set<string>();
-  for (const it of out.items) {
-    const recordType = pickStr(it, ["recordType", "type"]);
-    if (recordType && recordType.toLowerCase() !== "store") continue;
-    const slug = pickStr(it, ["slug", "storeSlug"]);
-    const url = pickStr(it, ["url", "storeUrl"]);
-    const title = pickStr(it, ["title", "storeName", "name"]);
-    if (!slug || !title || seen.has(slug)) continue;
-    seen.add(slug);
-    stores.push({ slug, url: url ?? `https://glovoapp.com/es/es/${city.toLowerCase()}/stores/${slug}`, title });
-  }
-  console.log(`[food-menu] glovo catálogo "${city}": ${stores.length} tiendas (${Date.now() - t}ms)`);
-  return stores;
-}
-
-/** Slug de tienda Glovo desde su URL (último segmento de ruta no vacío). */
-function glovoSlug(url: string): string | null {
-  try {
-    const parts = new URL(url).pathname.split("/").filter(Boolean);
-    return parts.length ? parts[parts.length - 1] : null;
-  } catch {
-    return null;
-  }
+/** ¿Es un record de PLATO? (nombre + precio + id; NO un badge/sección/store header). */
+function isProduct(it: ApifyItem): boolean {
+  return typeof it.name === "string" && it.name.trim().length > 0 && it.priceInfo != null && it.id != null;
 }
 
 /**
- * Corre el actor de Glovo para una URL de tienda y devuelve la carta estructurada (o null
- * si no hay nada / error). `city` alimenta el input del actor (su búsqueda es por ubicación).
+ * Scrapea la carta de una URL de tienda Glovo y devuelve los platos en una sección
+ * "Carta" (limpia, sin modificadores). null si no hay platos / error.
  */
-export async function apifyGlovoMenu(url: string, city: string): Promise<ExtractedMenuLike | null> {
+export async function apifyGlovoMenu(url: string): Promise<ExtractedMenuLike | null> {
   if (!hasApifyToken()) return null;
-  const slug = glovoSlug(url);
-  if (!slug) return null;
   const t = Date.now();
+  // omitChargeGuards: gooyer no usa maxItems en query; el coste lo acota una sola tienda
+  // (followStoreLinks/fetchFullProductPages en false → no sigue a otras tiendas ni a fichas).
   const out = await runActorGetItems(
     GLOVO_ACTOR,
-    { location: city || "España", storeUrls: [slug], includeProducts: true, maxStoresPerCategory: 1 },
+    {
+      startUrls: [{ url }],
+      followStoreLinks: false,
+      fetchFullProductPages: false,
+      proxyConfiguration: { useApifyProxy: true },
+    },
     { timeoutSecs: MENU_TIMEOUT_SECS, omitChargeGuards: true },
   );
-  const menu = mapItemsToMenu(out.items);
-  const itemCount = menu.categories.reduce((n, c) => n + c.items.length, 0);
-  console.log(`[food-menu]   apify(glovo)=${Date.now() - t}ms items=${out.items.length} mapeados=${itemCount}`);
-  return itemCount > 0 ? menu : null;
+
+  const items: { name: string; description: string | null; priceEur: number | null }[] = [];
+  const seen = new Set<string>();
+  for (const it of out.items) {
+    if (!isProduct(it)) continue; // ignora badges, secciones, store header y modificadores anidados
+    const name = String(it.name).trim();
+    const key = String(it.id ?? name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const priceEur = priceEurOf(it);
+    if (priceEur == null) continue;
+    const description = typeof it.description === "string" && it.description.trim() ? it.description.trim() : null;
+    items.push({ name, description, priceEur });
+  }
+  console.log(`[food-menu]   apify(gooyer)=${Date.now() - t}ms records=${out.items.length} platos=${items.length}`);
+  if (items.length === 0) return null;
+  return { categories: [{ name: "Carta", items }] };
 }

@@ -1,55 +1,43 @@
-import { Prisma } from "@prisma/client";
-import { slugifyTitle, bigrams, jaccard } from "@nidokey/shared";
+import { firecrawlSearch, hasFirecrawlKey } from "@/features/sources/providers/firecrawl";
 import { prisma } from "@/lib/db";
-import { apifyGlovoMenu, apifyGlovoCityStores, hasApifyMenu, type GlovoStore } from "@/features/sources/providers/apify-menu";
+import { apifyGlovoMenu, hasApifyMenu } from "@/features/sources/providers/apify-menu";
 
 /**
- * Menús de restaurantes de Google (`source === "google"`) vía Apify/Glovo, DIRECTO y 100%
- * Apify (sin Crawl4AI/LLM/Firecrawl). La carta se cachea en MenuCategory/MenuItem; el
- * scraping corre en un worker desacoplado (cola + cron, lock en BBDD), nunca en la request
- * del usuario: la ficha abre al instante con menuStatus="fetching" y el móvil hace polling.
+ * Menús de restaurantes de Google (`source === "google"`) vía Apify/Glovo (actor
+ * `gooyer.co/glovo-scraper`, por URL → funciona en cualquier ciudad). La carta se cachea
+ * en MenuCategory/MenuItem; el scraping corre en un worker desacoplado (cola + cron, lock
+ * en BBDD), nunca en la request del usuario: la ficha abre al instante con
+ * menuStatus="fetching" y el móvil hace polling.
  *
- * Solo se scrapean COCINAS DE DELIVERY (pizza, hamburguesa, kebab, sushi/asiático, mexicano,
- * pollo/fast-food…), que cubren el grueso de los pedidos a domicilio. El bar de tapas, la
- * cafetería o la marisquería NO se scrapean (filtro por types de Google) → menos coste y BBDD.
+ * Solo se scrapean COCINAS DE DELIVERY (pizza, hamburguesa, kebab, sushi/asiático,
+ * mexicano, pollo/fast-food…). El bar de tapas/cafetería/marisquería NO se scrapean.
  *
  * Flujo por restaurante (worker):
- *   1. URL de tienda Glovo: cacheada (menuSourceUrl) o por MATCH contra el catálogo de la
- *      ciudad (1 listado de Glovo por ciudad, cacheado en BBDD con TTL).
- *   2. Actor de Glovo (productos) → carta estructurada → guardar.
+ *   1. URL de tienda Glovo: cacheada (menuSourceUrl) o por búsqueda (Firecrawl search).
+ *   2. Actor gooyer (por URL) → platos → guardar.
  * Restaurantes NO listados en Glovo se quedan sin carta.
  */
 
 export type MenuStatus = "ready" | "fetching" | "unavailable" | "empty";
 
 const MENU_TTL_MS = 90 * 24 * 60 * 60 * 1000; // refresco de carta muy esporádico
-const CATALOG_TTL_MS = 3 * 24 * 60 * 60 * 1000; // catálogo de ciudad: refresco cada 3 días
 const MAX_CATEGORIES = 40;
-const MAX_ITEMS = 80;
+const MAX_ITEMS = 120;
 const STALE_FETCH_LOCK_MS = 5 * 60 * 1000; // un FETCHING más viejo = lock muerto reclamable
 const MAX_MENU_ATTEMPTS = 3;
-const MATCH_MIN_SCORE = 0.6; // umbral de similitud de nombre para casar Google ↔ Glovo
 
 /**
  * Cocinas de delivery (types de Google Places) que cubren ~80-90% de los pedidos a
- * domicilio en España. Solo estos restaurantes se scrapean; el resto se deja sin carta.
- * Editar este set para ampliar/reducir el filtro.
+ * domicilio en España. Solo estos se scrapean; el resto se deja sin carta. Editable.
  */
 const DELIVERY_CUISINES = new Set([
-  // Pizza / italiano
   "pizza_restaurant", "italian_restaurant",
-  // Hamburguesa / americano / fast food / pollo
   "hamburger_restaurant", "american_restaurant", "fast_food_restaurant", "meal_takeaway", "meal_delivery",
-  // Kebab / turco / oriente medio / griego
   "turkish_restaurant", "middle_eastern_restaurant", "lebanese_restaurant", "greek_restaurant",
-  // Sushi / asiático
   "sushi_restaurant", "japanese_restaurant", "ramen_restaurant", "chinese_restaurant",
   "asian_restaurant", "thai_restaurant", "vietnamese_restaurant", "korean_restaurant", "indonesian_restaurant",
-  // Mexicano
   "mexican_restaurant",
-  // Indio
   "indian_restaurant",
-  // Bocadillos / barbacoa / saludable (poke, vegano)
   "sandwich_shop", "barbecue_restaurant", "vegan_restaurant",
 ]);
 
@@ -57,9 +45,9 @@ function isDeliveryCuisine(types: string[] | null | undefined): boolean {
   return Array.isArray(types) && types.some((t) => DELIVERY_CUISINES.has(t));
 }
 
-/** Necesitamos Apify (motor del menú: catálogo + productos). Sin él, "no disponible". */
+/** Necesitamos Apify (motor del menú) y Firecrawl (búsqueda de la URL de tienda). */
 function canScrapeMenus(): boolean {
-  return hasApifyMenu();
+  return hasApifyMenu() && hasFirecrawlKey();
 }
 
 type ExtractedMenu = {
@@ -111,60 +99,39 @@ function hostOf(u: string): string | null {
   }
 }
 
-/** ¿Es ya una URL de TIENDA de Glovo? (para reusar en refrescos sin tocar el catálogo). */
+/** URL http/https pública (defensa anti-SSRF + filtra internas). */
+function isSafeWebUrl(u: string): boolean {
+  try {
+    const url = new URL(u);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return false;
+    const h = url.hostname.toLowerCase();
+    if (h === "localhost" || h === "::1" || h.endsWith(".local")) return false;
+    if (/^(127\.|10\.|0\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** ¿Es ya una URL de TIENDA de Glovo? (para reusar en refrescos sin re-buscar). */
 function isGlovoStoreUrl(u: string | null): boolean {
   return Boolean(u && hostOf(u)?.includes("glovoapp.com") && u.includes("/stores/"));
 }
 
 /**
- * Catálogo de tiendas de Glovo de una ciudad, cacheado en BBDD (TTL). Una sola llamada al
- * actor por ciudad cada CATALOG_TTL_MS; el resto de restaurantes de esa ciudad reusan la caché.
+ * Localiza la URL de tienda del restaurante en Glovo vía Firecrawl search. Prefiere la URL
+ * de TIENDA (/stores/...), no las de marca (/glovo-delivery/...), que no dan menú. null si
+ * no aparece (no listado en Glovo o sin Firecrawl para buscar).
  */
-async function getGlovoCatalog(city: string): Promise<GlovoStore[]> {
-  const key = city.trim().toLowerCase();
-  if (!key) return [];
-  const cached = await prisma.glovoCatalog.findUnique({ where: { city: key } }).catch(() => null);
-  if (cached && Date.now() - cached.fetchedAt.getTime() < CATALOG_TTL_MS) {
-    return Array.isArray(cached.stores) ? (cached.stores as unknown as GlovoStore[]) : [];
-  }
-  const stores = await apifyGlovoCityStores(city);
-  if (stores.length) {
-    await prisma.glovoCatalog
-      .upsert({
-        where: { city: key },
-        create: { city: key, stores: stores as unknown as Prisma.InputJsonValue, fetchedAt: new Date() },
-        update: { stores: stores as unknown as Prisma.InputJsonValue, fetchedAt: new Date() },
-      })
-      .catch(() => {});
-  }
-  return stores;
-}
-
-/** Casa un restaurante (nombre de Google) con una tienda del catálogo Glovo por similitud de nombre. */
-function matchGlovoStore(name: string, stores: GlovoStore[]): GlovoStore | null {
-  const target = slugifyTitle(name);
-  if (!target) return null;
-  const tb = bigrams(target);
-  let best: GlovoStore | null = null;
-  let bestScore = 0;
-  for (const s of stores) {
-    const st = slugifyTitle(s.title);
-    if (!st) continue;
-    let score: number;
-    if (st === target) score = 1;
-    else if (target.includes(st) || st.includes(target)) score = 0.9;
-    else score = jaccard(tb, bigrams(st));
-    if (score > bestScore) {
-      bestScore = score;
-      best = s;
-    }
-  }
-  return bestScore >= MATCH_MIN_SCORE ? best : null;
+async function findGlovoUrl(name: string, city: string): Promise<string | null> {
+  if (!hasFirecrawlKey()) return null;
+  const results = (await firecrawlSearch(`${name} ${city} glovo`, 10).catch(() => [])).filter((r) => isSafeWebUrl(r.url));
+  return results.map((r) => r.url).find((u) => hostOf(u)?.includes("glovoapp.com") && u.includes("/stores/")) ?? null;
 }
 
 /**
- * Resuelve la tienda Glovo (cacheada o por match contra el catálogo de la ciudad) → corre
- * el actor de productos → guarda la carta. READY (con items) o EMPTY. NO toca menuStatus.
+ * Resuelve la URL de tienda Glovo (cacheada o por búsqueda) → scrapea la carta con el
+ * actor gooyer → guarda. READY (con items) o EMPTY. NO toca menuStatus. Emite tiempos.
  */
 async function scrapeAndStore(r: {
   id: string;
@@ -173,23 +140,19 @@ async function scrapeAndStore(r: {
   menuSourceUrl: string | null;
 }): Promise<{ status: "READY" | "EMPTY"; items: number }> {
   const t0 = Date.now();
-  let glovoUrl = isGlovoStoreUrl(r.menuSourceUrl) ? r.menuSourceUrl! : null;
-  if (!glovoUrl) {
-    const stores = await getGlovoCatalog(r.city);
-    glovoUrl = matchGlovoStore(r.name, stores)?.url ?? null;
-  }
+  const glovoUrl = isGlovoStoreUrl(r.menuSourceUrl) ? r.menuSourceUrl! : await findGlovoUrl(r.name, r.city);
   const tFind = Date.now() - t0;
   if (!glovoUrl) {
-    console.log(`[food-menu] ${r.id} match=${tFind}ms → no está en Glovo ("${r.name}", ${r.city})`);
+    console.log(`[food-menu] ${r.id} findGlovo=${tFind}ms → no está en Glovo ("${r.name}", ${r.city})`);
     return { status: "EMPTY", items: 0 };
   }
 
   const te = Date.now();
-  const cats = normalizeMenu(await apifyGlovoMenu(glovoUrl, r.city));
+  const cats = normalizeMenu(await apifyGlovoMenu(glovoUrl));
   const tApify = Date.now() - te;
   if (cats.length === 0) {
     await prisma.restaurant.update({ where: { id: r.id }, data: { menuSourceUrl: glovoUrl } }).catch(() => {});
-    console.log(`[food-menu] ${r.id} match=${tFind}ms apify=${tApify}ms → carta vacía ("${r.name}")`);
+    console.log(`[food-menu] ${r.id} findGlovo=${tFind}ms apify=${tApify}ms → carta vacía ("${r.name}")`);
     return { status: "EMPTY", items: 0 };
   }
 
@@ -218,7 +181,7 @@ async function scrapeAndStore(r: {
     await tx.restaurant.update({ where: { id: r.id }, data: { menuSourceUrl: glovoUrl } });
   });
   const items = cats.reduce((n, c) => n + c.items.length, 0);
-  console.log(`[food-menu] ${r.id} match=${tFind}ms apify=${tApify}ms → READY ${cats.length} cats / ${items} platos ("${r.name}")`);
+  console.log(`[food-menu] ${r.id} findGlovo=${tFind}ms apify=${tApify}ms → READY ${cats.length} cats / ${items} platos ("${r.name}")`);
   return { status: "READY", items };
 }
 
@@ -274,9 +237,9 @@ export async function processMenu(restaurantId: string): Promise<TerminalStatus 
 }
 
 /**
- * Estado del menú para la respuesta de la ficha (contrato del móvil), SIN efectos. El
- * encolado lo hace `enqueueMenu`. Cocina no-delivery (y sin carta) → "unavailable" (no se
- * scrapea). Stale-while-revalidate: si hay carta cacheada se muestra ("ready").
+ * Estado del menú para la respuesta de la ficha (contrato del móvil), SIN efectos. Cocina
+ * no-delivery (y sin carta) → "unavailable" (no se scrapea). Stale-while-revalidate: si
+ * hay carta cacheada se muestra ("ready").
  */
 export function menuStatusFor(r: {
   source: string | null;
@@ -286,7 +249,7 @@ export function menuStatusFor(r: {
 }): MenuStatus {
   if (r.source !== "google") return r.hasMenu ? "ready" : "empty";
   if (r.hasMenu) return "ready";
-  if (!isDeliveryCuisine(r.cuisineTypes) && r.menuStatus == null) return "unavailable"; // filtrado por cocina
+  if (!isDeliveryCuisine(r.cuisineTypes) && r.menuStatus == null) return "unavailable";
   switch (r.menuStatus) {
     case "PENDING":
     case "FETCHING":
@@ -312,7 +275,7 @@ export async function enqueueMenu(r: {
   cuisineTypes?: string[] | null;
 }): Promise<boolean> {
   if (r.source !== "google" || !canScrapeMenus()) return false;
-  if (!isDeliveryCuisine(r.cuisineTypes)) return false; // filtro: solo cocinas de delivery
+  if (!isDeliveryCuisine(r.cuisineTypes)) return false;
   if (r.menuStatus === "PENDING" || r.menuStatus === "FETCHING") return false;
   const fresh = r.menuFetchedAt != null && Date.now() - r.menuFetchedAt.getTime() < MENU_TTL_MS;
   if (fresh) return false;
@@ -334,7 +297,7 @@ export async function enqueueMenusForList(
   if (!canScrapeMenus()) return [];
   const candidates = restaurants.filter((r) => {
     if (r.source !== "google") return false;
-    if (!isDeliveryCuisine(r.types)) return false; // filtro de cocinas
+    if (!isDeliveryCuisine(r.types)) return false;
     if (r.menuStatus === "PENDING" || r.menuStatus === "FETCHING") return false;
     const fresh = r.menuFetchedAt != null && Date.now() - r.menuFetchedAt.getTime() < MENU_TTL_MS;
     return !fresh;
@@ -351,8 +314,7 @@ export async function enqueueMenusForList(
 
 /**
  * Worker de la cola (lo invoca el cron). Reclama hasta `limit` restaurantes PENDING (o
- * FETCHING colgados, por antigüedad) y los procesa SECUENCIALMENTE via processMenu (claim
- * atómico → sin duplicados entre instancias).
+ * FETCHING colgados, por antigüedad) y los procesa SECUENCIALMENTE via processMenu.
  */
 export async function runMenuQueue(opts: { limit?: number } = {}): Promise<{
   processed: number;
