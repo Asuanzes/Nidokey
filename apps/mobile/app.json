@@ -16,7 +16,12 @@
     },
     "ios": {
       "bundleIdentifier": "es.nidokey.app",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "appleTeamId": "6SPGZ83KG7",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "buildNumber": "2"
     },
     "android": {
       "intentFilters": [
@@ -70,7 +75,14 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.nidokey"
+      "package": "com.anonymous.nidokey",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "output": "static",
