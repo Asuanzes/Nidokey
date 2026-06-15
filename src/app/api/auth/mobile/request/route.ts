@@ -39,6 +39,15 @@ export async function POST(req: NextRequest) {
   }
   const email = parsed.data.email.trim().toLowerCase();
 
+  // Cuenta de revisión (App Store): no enviamos email ni generamos OTP; el código
+  // fijo lo valida /verify. Evita rebotes en Resend y deja avanzar la UI al paso
+  // de introducir el código.
+  const reviewEmail = process.env.REVIEW_LOGIN_EMAIL?.trim().toLowerCase();
+  if (reviewEmail && email === reviewEmail) {
+    await prisma.user.upsert({ where: { email }, create: { email }, update: {} });
+    return NextResponse.json({ ok: true }, { headers: CORS_HEADERS });
+  }
+
   // Throttle: no emitimos un OTP nuevo si se pidió uno hace < 60s. Evita que el
   // límite de 5 intentos de /verify se eluda pidiendo códigos en bucle y frena
   // el email-bombing. Heurística por `expires` (no requiere columna extra).

@@ -42,6 +42,23 @@ export async function POST(req: NextRequest) {
   const email = parsed.data.email.trim().toLowerCase();
   const code = parsed.data.code;
 
+  // Cuenta de revisión (App Store): permite a los revisores entrar sin acceso
+  // al email. Solo activo si REVIEW_LOGIN_EMAIL y REVIEW_LOGIN_CODE están puestas.
+  const reviewEmail = process.env.REVIEW_LOGIN_EMAIL?.trim().toLowerCase();
+  const reviewCode = process.env.REVIEW_LOGIN_CODE;
+  if (reviewEmail && reviewCode && email === reviewEmail && code === reviewCode) {
+    const user = await prisma.user.upsert({
+      where: { email },
+      create: { email, emailVerified: new Date() },
+      update: { emailVerified: new Date() },
+    });
+    const token = await issueMobileJwt(user.id, user.email);
+    return NextResponse.json(
+      { token, user: { id: user.id, email: user.email, name: user.name } },
+      { headers: CORS_HEADERS }
+    );
+  }
+
   // Buscamos el OTP pendiente por EMAIL (no por el código tecleado): así
   // podemos contar intentos fallidos aunque el código no coincida. request/
   // borra los anteriores, por lo que hay como mucho uno por email.
