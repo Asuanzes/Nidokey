@@ -1,79 +1,88 @@
 import type { TrendProvider, TrendListOutcome, NormalizedTrend } from "@/features/trends/types";
 import { trendToQuery } from "@/features/trends/normalize";
-import { getJsonStrict, isProviderUnavailable } from "@/features/sources/providers/availability";
 
-const WOEID: Record<string, number> = {
-  WORLD: 1,
-  ES: 23424950,
-  US: 23424977,
+/**
+ * Provider de tendencias de X/Twitter SIN claves (keyless).
+ *
+ * X/Twitter bloquea la lectura anónima (la API oficial de trends exige tier Pro
+ * ~$5k/mes). En su lugar leemos el agregador público trends24.in a través de
+ * Jina Reader (https://r.jina.ai/<url>) — un simple GET, gratis y sin API key,
+ * que devuelve la página como markdown. Parseamos el bloque de tendencias más
+ * reciente. Las noticias relacionadas las resuelve trendNews() vía Google News.
+ */
+
+const UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+  "(KHTML, like Gecko) Chrome/131.0 Safari/537.36";
+
+// locale interno -> ruta de país en trends24 ("" = mundial)
+const REGION: Record<string, string> = {
+  ES: "spain/",
+  WORLD: "",
+  US: "united-states/",
+  MX: "mexico/",
+  AR: "argentina/",
 };
 
-function num(v: unknown): number | null {
-  return typeof v === "number" && Number.isFinite(v) ? v : null;
+async function fetchJinaText(targetUrl: string, timeoutMs: number): Promise<string> {
+  const res = await fetch(`https://r.jina.ai/${targetUrl}`, {
+    headers: { "User-Agent": UA, Accept: "text/plain" },
+    cache: "no-store",
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!res.ok) throw new Error(`Jina HTTP ${res.status}`);
+  return res.text();
 }
 
-function str(v: unknown): string | null {
-  return typeof v === "string" && v.trim() ? v.trim() : null;
-}
+const ITEM_RE = /^\s*(\d+)\.\s+\[([^\]]+)\]\(([^)]+)\)/;
 
-function trendUrl(name: string): string {
-  return `https://twitter.com/search?q=${encodeURIComponent(name)}&src=trend_click`;
-}
-
-function extractArray(json: unknown): Record<string, unknown>[] {
-  const root = json as Record<string, unknown> | null;
-  const candidates = [
-    root?.trends,
-    root?.data,
-    (root?.data as Record<string, unknown> | undefined)?.trends,
-    Array.isArray(root) ? root : null,
-  ];
-  for (const c of candidates) {
-    if (Array.isArray(c)) return c.filter((x): x is Record<string, unknown> => !!x && typeof x === "object");
+/** Extrae el bloque de tendencias más reciente (primer "### … ago") de trends24. */
+function parseTrends24(md: string, limit: number): NormalizedTrend[] {
+  const lines = md.split(/\r?\n/);
+  // cabecera de tiempo más reciente, p.ej. "### 55 minutes ago"
+  let start = lines.findIndex((l) => /^#{2,4}\s+.*\b(ago|now)\b/i.test(l));
+  if (start === -1) start = -1; // sin cabecera: escanea desde el principio
+  const out: NormalizedTrend[] = [];
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (start >= 0 && /^#{2,4}\s+/.test(line)) break; // siguiente sección -> solo el bloque reciente
+    const m = ITEM_RE.exec(line);
+    if (!m) continue;
+    const name = m[2].trim();
+    if (!name) continue;
+    out.push({
+      name,
+      query: trendToQuery(name),
+      rank: parseInt(m[1], 10),
+      volume: null,
+      url: m[3].trim() || null,
+      meta: { via: "trends24+jina" },
+    });
+    if (out.length >= limit) break;
   }
-  return [];
+  return out;
 }
 
 export const twitterTrendProvider: TrendProvider = {
   source: "twitter",
   available() {
-    return Boolean(process.env.TWITTERAPI_IO_KEY);
+    return true; // keyless: trends24 vía Jina, sin claves
   },
   async fetchTrends({ locale, limit = 50 }): Promise<TrendListOutcome> {
-    const key = process.env.TWITTERAPI_IO_KEY;
-    if (!key) return { kind: "blocked", reason: "TWITTERAPI_IO_KEY no configurado" };
-
-    const woeid = WOEID[locale.toUpperCase()] ?? WOEID.WORLD;
-    const base = process.env.TWITTERAPI_IO_TRENDS_URL ?? "https://api.twitterapi.io/twitter/trends";
-    const url = `${base}?woeid=${woeid}`;
+    const region = REGION[locale.toUpperCase()] ?? "";
+    const target = `https://trends24.in/${region}`;
     try {
-      const json = await getJsonStrict(url, {
-        provider: "TwitterAPI.io",
-        timeoutMs: 12000,
-        headers: { "X-API-Key": key, Authorization: `Bearer ${key}` },
-      });
-      const raw = extractArray(json);
-      const trends: NormalizedTrend[] = raw
-        .map((it, i) => {
-          const name = str(it.name) ?? str(it.trend) ?? str(it.query);
-          if (!name) return null;
-          const rank = num(it.rank) ?? i + 1;
-          const volume = num(it.tweet_volume) ?? num(it.tweetVolume) ?? num(it.volume);
-          return {
-            name,
-            query: trendToQuery(name),
-            rank,
-            volume,
-            url: str(it.url) ?? trendUrl(name),
-            meta: it,
-          };
-        })
-        .filter((x): x is NormalizedTrend => !!x)
-        .slice(0, limit);
+      const md = await fetchJinaText(target, 20000);
+      if (/Anonymous access to domain .* blocked|SecurityCompromiseError/i.test(md)) {
+        return { kind: "blocked", reason: "Jina bloqueó temporalmente trends24" };
+      }
+      const trends = parseTrends24(md, limit);
+      if (trends.length === 0) {
+        return { kind: "error", error: "trends24: no se pudieron parsear tendencias" };
+      }
       return { kind: "ok", trends };
     } catch (e) {
-      if (isProviderUnavailable(e)) return { kind: "blocked", reason: e.message };
-      return { kind: "error", error: e instanceof Error ? e.message : "twitter fetch failed" };
+      return { kind: "error", error: e instanceof Error ? e.message : "trends24 fetch failed" };
     }
   },
 };
