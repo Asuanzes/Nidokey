@@ -89,7 +89,16 @@ export async function authRequestOtp(email: string): Promise<{ ok: true }> {
 export async function authVerifyOtp(
   email: string,
   code: string
-): Promise<{ token: string; user: { id: string; email: string; name: string | null } }> {
+): Promise<{
+  token: string;
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    username: string | null;
+    needsOnboarding: boolean;
+  };
+}> {
   return api("/api/auth/mobile/verify", {
     method: "POST",
     body: JSON.stringify({ email, code }),

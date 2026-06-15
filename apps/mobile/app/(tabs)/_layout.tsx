@@ -14,6 +14,7 @@ import { TAB_ICON_SVG, type TabIconKey } from "@/lib/ui-icons";
 import { TAB_ICON_SVG_2100 } from "@/lib/ui-icons-2100";
 import { useCategoryPrefs } from "@/lib/records/category-prefs-context";
 import { useAppStyle } from "@/lib/app-style-context";
+import { useNeon } from "@/lib/neon-context";
 import { NeonIcon } from "@/components/ui/NeonIcon";
 
 /**
@@ -35,8 +36,9 @@ const FAB_FG = "#FAFAF7";
 export default function TabsLayout() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
-  const { th } = useTheme();
+  const { th, dark } = useTheme();
   const { appStyle } = useAppStyle();
+  const { intensity } = useNeon();
   const { t } = useTranslation();
   const { category } = useCategoryPrefs();
   const [dupCount, setDupCount] = useState(0);
@@ -51,6 +53,16 @@ export default function TabsLayout() {
   const is2100 = appStyle === "2100";
   const fabBg = is2100 ? th.primary : FAB_BG;
   const fabFg = is2100 ? th.primaryFg : FAB_FG;
+  const fabGlow =
+    is2100 && dark
+      ? {
+          shadowColor: fabBg,
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.58 * (intensity / 0.6),
+          shadowRadius: 18 * (intensity / 0.6),
+          elevation: 12,
+        }
+      : null;
 
   // Recalcula el badge al cambiar de pestaña Y tras fusionar/descartar (dupChanged).
   useEffect(() => {
@@ -115,6 +127,7 @@ export default function TabsLayout() {
                         styles.fab,
                         th.elevation.lg,
                         { backgroundColor: fabBg, borderColor: th.surfaceRaised, opacity: pressed ? 0.9 : 1 },
+                        fabGlow,
                         pressed && { transform: [{ translateY: 1 }] },
                       ]}
                     >
@@ -137,8 +150,10 @@ export default function TabsLayout() {
                 <View
                   style={[
                     styles.iconWrap,
-                    { borderColor: !is2100 && active ? th.accent : "transparent" },
+                    { borderColor: active ? th.accent : "transparent" },
                     !is2100 && active && { backgroundColor: th.accentSoft },
+                    is2100 && active && styles.iconWrap2100Active,
+                    is2100 && active && { backgroundColor: th.accentSoft },
                   ]}
                 >
                   {is2100 ? (
@@ -147,6 +162,7 @@ export default function TabsLayout() {
                       size={24}
                       color={color}
                       active={active}
+                      framed={false}
                     />
                   ) : (
                     <SvgXml xml={TAB_ICON_SVG[tab.svg!]} width={24} height={24} color={color} />
@@ -196,6 +212,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+  iconWrap2100Active: {
+    width: 42,
+    height: 36,
+    borderRadius: 16,
   },
   tabLabel: { fontSize: 10, fontFamily: fonts.bodySemibold },
   badge: {
