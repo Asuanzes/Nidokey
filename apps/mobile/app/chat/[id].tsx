@@ -54,8 +54,6 @@ import {
 } from "@/lib/chat/media";
 import { Avatar, chatTime } from "@/components/chat/ConversationList";
 import { ActionsSheet, type SheetOption } from "@/components/chat/ActionsSheet";
-import { WallpaperSheet } from "@/components/chat/WallpaperSheet";
-import { getWallpaper, setWallpaper, wallpaperSource, type WallpaperId } from "@/lib/chat/wallpapers";
 import { setActiveConversation } from "@/lib/chat/push";
 import { chatSocket } from "@/lib/chat/socket";
 import { useSocketOpen } from "@/lib/chat/use-socket-open";
@@ -115,14 +113,6 @@ export default function ChatScreen() {
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
-
-  // Fondo de pantalla (preferencia local: override por conversación > global).
-  const [wallpaper, setWallpaperState] = useState<WallpaperId>("none");
-  const [wallpaperOpen, setWallpaperOpen] = useState(false);
-  useEffect(() => {
-    if (id) void getWallpaper(id).then(setWallpaperState);
-  }, [id]);
-  const bgSource = wallpaperSource(wallpaper);
 
   // Menú de cabecera (contacto / silenciar / bloquear).
   const [menuOpen, setMenuOpen] = useState(false);
@@ -482,7 +472,6 @@ export default function ChatScreen() {
     label: muted ? t("chat.menu_muted") : t("chat.menu_mute"),
     hint: muted ? t("chat.menu_muted_hint") : undefined,
   });
-  menuOptions.push({ id: "wallpaper", icon: "image-outline", label: t("chat.menu_wallpaper") });
   if (otherUserId) {
     menuOptions.push(
       isBlocked
@@ -495,11 +484,6 @@ export default function ChatScreen() {
     if (option.id === "mute") {
       setMenuOpen(false);
       setMuteOpen(true);
-      return;
-    }
-    if (option.id === "wallpaper") {
-      setMenuOpen(false);
-      setWallpaperOpen(true);
       return;
     }
     setMenuOpen(false);
@@ -531,16 +515,6 @@ export default function ChatScreen() {
       ? [{ id: "none", icon: "notifications-outline" as const, label: t("chat.mute_off") }]
       : []),
   ];
-
-  async function onWallpaperSelect(wid: WallpaperId, allChats: boolean) {
-    setWallpaperOpen(false);
-    try {
-      await setWallpaper(id!, wid, allChats);
-      setWallpaperState(wid);
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : t("chat.action_error"));
-    }
-  }
 
   async function onMuteSelect(option: SheetOption) {
     setMuteOpen(false);
@@ -640,19 +614,8 @@ export default function ChatScreen() {
         </View>
       )}
 
-      {/* Zona de mensajes: fondo de pantalla (si hay) + velo de legibilidad del tema */}
+      {/* Zona de mensajes (fondo del tema; los wallpapers antiguos se retiraron) */}
       <View style={styles.flex}>
-        {bgSource && (
-          <>
-            <Image source={bgSource} style={StyleSheet.absoluteFill} contentFit="cover" />
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: dark ? "rgba(20,20,19,0.45)" : "rgba(250,250,247,0.30)" },
-              ]}
-            />
-          </>
-        )}
       {loading && !latest ? (
         <View style={styles.center}>
           <ActivityIndicator color={th.primary} />
@@ -784,13 +747,6 @@ export default function ChatScreen() {
         options={muteOptions}
         onSelect={(o) => void onMuteSelect(o)}
         onClose={() => setMuteOpen(false)}
-      />
-
-      <WallpaperSheet
-        visible={wallpaperOpen}
-        current={wallpaper}
-        onSelect={(wid, all) => void onWallpaperSelect(wid, all)}
-        onClose={() => setWallpaperOpen(false)}
       />
 
       <ActionsSheet

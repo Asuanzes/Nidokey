@@ -11,7 +11,6 @@ import { useQuery } from "@/lib/hooks/useQuery";
 import { listConversations, type ConversationDto } from "@/lib/chat/api";
 import { chatSocket } from "@/lib/chat/socket";
 import { useSocketOpen } from "@/lib/chat/use-socket-open";
-import { homeBackground } from "@/lib/chat/home-bg";
 import { categoryColor } from "@/lib/records/config";
 import type { RecordType } from "@nidokey/shared";
 import { AdBannerSlot, EmptyState } from "@/components/ui";
@@ -115,21 +114,10 @@ export function ConversationList() {
     );
   }
 
-  // Fondo fijo de la landing del chat + velo de legibilidad por tema (mismo
-  // patrón que el wallpaper de la conversación). Las cards de surface y los
-  // FABs quedan por encima, legibles en claro y oscuro.
-  return (
-    <View style={styles.fill}>
-      <Image source={homeBackground(dark)} style={StyleSheet.absoluteFill} contentFit="cover" />
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundColor: dark ? "rgba(20,20,19,0.45)" : "rgba(250,250,247,0.30)" },
-        ]}
-      />
-      {content}
-    </View>
-  );
+  // Sin fondo propio: el <Screen background> padre pinta el fondo dinámico
+  // (dunas/ondas con movimiento). Esta vista es transparente para que se vea
+  // (antes un wallpaper estático rotativo lo tapaba).
+  return <View style={styles.fill}>{content}</View>;
 }
 
 /**
