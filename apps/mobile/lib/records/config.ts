@@ -57,7 +57,7 @@ export const RECORD_TYPE_CONFIG: Record<RecordType, RecordTypeConfig> = {
   workout:  { color: "#A23E3E", colorDark: "#CF7059", icon: "barbell-outline",     enabled: false, addMode: "soon" },
   chat:     { color: "#6C5A9C", colorDark: "#8B79C4", icon: "chatbubbles-outline", enabled: true,  addMode: "soon" },
   book:     { color: "#8C4A52", colorDark: "#B86575", icon: "book-outline",        enabled: true,  addMode: "search", searchOnSubmit: true },
-  trends:   { color: "#E0732B", colorDark: "#EE9A5A", icon: "rss-outline",         enabled: true,  addMode: "none" },
+  trends:   { color: "#E0732B", colorDark: "#EE9A5A", icon: "logo-rss",            enabled: true,  addMode: "none" },
 };
 
 export function recordTypeConfig(type: RecordType): RecordTypeConfig {
