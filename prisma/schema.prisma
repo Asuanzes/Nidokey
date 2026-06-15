@@ -85,6 +85,17 @@ enum ListingStatus {
   UNKNOWN
 }
 
+enum TrendSource {
+  twitter
+  reddit
+  linkedin
+  xiaohongshu
+  xueqiu
+  instagram
+  tiktok
+  youtube
+}
+
 enum MediaKind {
   PHOTO
   FLOORPLAN
@@ -631,6 +642,39 @@ model RecordDuplicateDismissal {
 
   @@unique([ownerId, pairKey])
   @@index([ownerId, recordType])
+}
+
+// Tendencias globales (sin ownerId): caché persistente refrescada por cron.
+model Trend {
+  id         String      @id @default(cuid())
+  source     TrendSource
+  name       String
+  query      String
+  locale     String      @default("ES")
+  rank       Int         @default(0)
+  volume     Int?
+  url        String?
+  meta       Json?
+  lastSeenAt DateTime    @default(now())
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  snapshots TrendSnapshot[]
+
+  @@unique([source, locale, name])
+  @@index([source, locale, rank])
+  @@index([lastSeenAt])
+}
+
+model TrendSnapshot {
+  id         String   @id @default(cuid())
+  trendId    String
+  trend      Trend    @relation(fields: [trendId], references: [id], onDelete: Cascade)
+  rank       Int
+  volume     Int?
+  observedAt DateTime @default(now())
+
+  @@index([trendId, observedAt])
 }
 
 // ─────────────────────────────────────────────────────────────────────────
