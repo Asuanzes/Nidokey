@@ -14,7 +14,7 @@ import { ShareIntentProvider, useShareIntentContext } from "expo-share-intent";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
-import { ThemeContext, T, TD, useTheme, type ThemeMode } from "@/lib/theme";
+import { ThemeContext, T, TD, T2100, TD2100, useTheme, type ThemeMode } from "@/lib/theme";
 import { useFonts } from "expo-font";
 import { fontAssets, fonts } from "@/lib/fonts";
 import { isPortalUrl, extractSharedText } from "@/lib/portal-url";
@@ -28,7 +28,7 @@ import { useChatNotificationTap } from "@/lib/chat/push";
 import "@/lib/i18n"; // inicializa i18next (debe importarse antes de usar t())
 import { useTranslation } from "react-i18next";
 import { LanguageProvider } from "@/lib/i18n/language-context";
-import { AppStyleProvider } from "@/lib/app-style-context";
+import { AppStyleProvider, useAppStyle } from "@/lib/app-style-context";
 
 // Mantener el splash nativo hasta que la sesión esté resuelta: evita el
 // "cuadrado blanco" y el flash blanco entre el splash y el primer render.
@@ -79,7 +79,7 @@ export default function RootLayout() {
   const dark = themeMode === "auto" ? systemDark : themeMode === "dark";
   const toggleTheme = () => setThemeMode(dark ? "light" : "dark");
 
-  const th = dark ? TD : T;
+  // El tema (incl. estilo 2100) se resuelve en <ThemedShell>, bajo <AppStyleProvider>.
 
   // Barra de navegación de Android (edge-to-edge): por defecto sus botones siguen
   // al SISTEMA, no a la app → en tema claro con el sistema en oscuro quedaban
@@ -95,29 +95,62 @@ export default function RootLayout() {
     // ShareIntentProvider entrega el contenido compartido al hook (un solo root)
     // en vez de montar una 2ª instancia como react-native-share-menu.
     <ShareIntentProvider options={{ resetOnBackground: true }}>
+      <AppStyleProvider>
+        <ThemedShell
+          dark={dark}
+          colorScheme={colorScheme}
+          themeMode={themeMode}
+          setThemeMode={setThemeMode}
+          toggleTheme={toggleTheme}
+        />
+      </AppStyleProvider>
+    </ShareIntentProvider>
+  );
+}
+
+/**
+ * Resuelve el TEMA aplicando el ESTILO visual (vintage / 2100). Vive bajo
+ * <AppStyleProvider> para poder leer `appStyle`: cuando es "2100" entrega las
+ * paletas T2100/TD2100; si no, T/TD. (Antes ThemeContext quedaba por ENCIMA de
+ * AppStyleProvider y `th` nunca conmutaba → el picker guardaba "2100" pero no
+ * tenía efecto visual en colores/superficies/texto.)
+ */
+function ThemedShell({
+  dark,
+  colorScheme,
+  themeMode,
+  setThemeMode,
+  toggleTheme,
+}: {
+  dark: boolean;
+  colorScheme: ReturnType<typeof useColorScheme>;
+  themeMode: ThemeMode;
+  setThemeMode: (m: ThemeMode) => void;
+  toggleTheme: () => void;
+}) {
+  const { appStyle } = useAppStyle();
+  const th = appStyle === "2100" ? (dark ? TD2100 : T2100) : dark ? TD : T;
+  return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: th.bg }}>
       <LanguageProvider>
-      <AuthProvider>
-        <ThemeContext.Provider value={{ dark, th, themeMode, setThemeMode, toggleTheme }}>
-          <AppStyleProvider>
-          <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-            <PendingImportProvider>
-              <BootProvider>
-                <CategoryPrefsProvider>
-                  <FoodCartProvider>
-                    <AuthGate />
-                  </FoodCartProvider>
-                </CategoryPrefsProvider>
-              </BootProvider>
-              <StatusBar style="auto" />
-            </PendingImportProvider>
-          </ThemeProvider>
-          </AppStyleProvider>
-        </ThemeContext.Provider>
-      </AuthProvider>
+        <AuthProvider>
+          <ThemeContext.Provider value={{ dark, th, themeMode, setThemeMode, toggleTheme }}>
+            <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+              <PendingImportProvider>
+                <BootProvider>
+                  <CategoryPrefsProvider>
+                    <FoodCartProvider>
+                      <AuthGate />
+                    </FoodCartProvider>
+                  </CategoryPrefsProvider>
+                </BootProvider>
+                <StatusBar style="auto" />
+              </PendingImportProvider>
+            </ThemeProvider>
+          </ThemeContext.Provider>
+        </AuthProvider>
       </LanguageProvider>
     </GestureHandlerRootView>
-    </ShareIntentProvider>
   );
 }
 

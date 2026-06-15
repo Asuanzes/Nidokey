@@ -271,6 +271,9 @@ export default function RecordsScreen() {
               </Pressable>
             );
           })}
+          {/* Espaciador flexible: empuja "Tendencias" al fondo del rail (a la
+              altura del FAB de nuevo chat). Se colapsa si hay muchas categorías. */}
+          <View style={styles.railSpacer} />
           <View style={styles.railDivider} />
           <Pressable
             onPress={() => router.navigate("/trends" as never)}
@@ -373,11 +376,12 @@ const styles = StyleSheet.create({
   },
   railContent: {
     flexGrow: 1,
-    justifyContent: "center",
+    justifyContent: "flex-start",
     paddingVertical: 8,
     gap: 7,
     alignItems: "center",
   },
+  railSpacer: { flex: 1, minHeight: 16 },
   railItem: {
     width: 46,
     height: 46,
