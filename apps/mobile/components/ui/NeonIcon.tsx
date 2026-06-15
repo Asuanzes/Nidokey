@@ -3,6 +3,7 @@ import { Platform, StyleSheet, View } from "react-native";
 import { SvgXml } from "react-native-svg";
 
 import { useAppStyle } from "@/lib/app-style-context";
+import { useNeon } from "@/lib/neon-context";
 import { useTheme } from "@/lib/theme";
 
 type Props = {
@@ -27,6 +28,7 @@ function outlineName(name: keyof typeof Ionicons.glyphMap): keyof typeof Ionicon
 export function NeonIcon({ name, svgXml, size, color, active = false, disabled = false, framed = true }: Props) {
   const { th } = useTheme();
   const { appStyle } = useAppStyle();
+  const { intensity } = useNeon();
   const effectiveColor = disabled ? th.textSubtle : color;
   const opacity = disabled ? 0.5 : 1;
   const iconName = name ? outlineName(name) : undefined;
@@ -44,7 +46,9 @@ export function NeonIcon({ name, svgXml, size, color, active = false, disabled =
   }
 
   const glowEnabled = !disabled;
-  const haloOpacity = active ? 0.28 : 0.16;
+  const glowScale = intensity / 0.6;
+  const opacityScale = (value: number) => Math.min(1, value * glowScale);
+  const haloOpacity = (active ? 0.28 : 0.16) * glowScale;
   // Con marco (tabs): pastilla más ancha + fondo activo. Sin marco (iconos inline de
   // categoría): footprint natural size×size para no descuadrar chips/listas/cabeceras.
   const box = framed
@@ -65,8 +69,8 @@ export function NeonIcon({ name, svgXml, size, color, active = false, disabled =
           ? {
               shadowColor: effectiveColor,
               shadowOffset: { width: 0, height: 0 },
-              shadowOpacity: active ? 0.9 : 0.55,
-              shadowRadius: active ? 8 : 5,
+              shadowOpacity: opacityScale(active ? 0.9 : 0.55),
+              shadowRadius: (active ? 8 : 5) * glowScale,
             }
           : null,
       ]}
@@ -92,7 +96,7 @@ export function NeonIcon({ name, svgXml, size, color, active = false, disabled =
               width={size + 8}
               height={size + 8}
               color={effectiveColor}
-              opacity={active ? 0.24 : 0.14}
+              opacity={opacityScale(active ? 0.24 : 0.14)}
               style={styles.svgGlow}
             />
           ) : null}
@@ -105,7 +109,7 @@ export function NeonIcon({ name, svgXml, size, color, active = false, disabled =
               name={iconName}
               size={size + 5}
               color={effectiveColor}
-              style={[styles.ionGlow, { opacity: active ? 0.22 : 0.12 }]}
+              style={[styles.ionGlow, { opacity: opacityScale(active ? 0.22 : 0.12) }]}
             />
           ) : null}
           <Ionicons name={iconName} size={size} color={effectiveColor} />

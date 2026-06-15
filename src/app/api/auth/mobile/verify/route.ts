@@ -107,7 +107,16 @@ export async function POST(req: NextRequest) {
 
   const token = await issueMobileJwt(user.id, user.email);
   return NextResponse.json(
-    { token, user: { id: user.id, email: user.email, name: user.name } },
+    {
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        username: user.username,
+        needsOnboarding: user.onboardingCompletedAt == null,
+      },
+    },
     { headers: CORS_HEADERS }
   );
 }

@@ -15,6 +15,8 @@ import { ShareIntentProvider, useShareIntentContext } from "expo-share-intent";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { ThemeContext, T, TD, T2100, TD2100, useTheme, type ThemeMode } from "@/lib/theme";
+import { applyNeonAccent } from "@/lib/neon-accents";
+import { NeonProvider, useNeon } from "@/lib/neon-context";
 import { useFonts } from "expo-font";
 import { fontAssets, fonts } from "@/lib/fonts";
 import { isPortalUrl, extractSharedText } from "@/lib/portal-url";
@@ -29,6 +31,7 @@ import "@/lib/i18n"; // inicializa i18next (debe importarse antes de usar t())
 import { useTranslation } from "react-i18next";
 import { LanguageProvider } from "@/lib/i18n/language-context";
 import { AppStyleProvider, useAppStyle } from "@/lib/app-style-context";
+import { getOnboardingDone, setOnboardingDone } from "@/lib/onboarding";
 
 // Mantener el splash nativo hasta que la sesión esté resuelta: evita el
 // "cuadrado blanco" y el flash blanco entre el splash y el primer render.
@@ -96,13 +99,15 @@ export default function RootLayout() {
     // en vez de montar una 2ª instancia como react-native-share-menu.
     <ShareIntentProvider options={{ resetOnBackground: true }}>
       <AppStyleProvider>
-        <ThemedShell
-          dark={dark}
-          colorScheme={colorScheme}
-          themeMode={themeMode}
-          setThemeMode={setThemeMode}
-          toggleTheme={toggleTheme}
-        />
+        <NeonProvider>
+          <ThemedShell
+            dark={dark}
+            colorScheme={colorScheme}
+            themeMode={themeMode}
+            setThemeMode={setThemeMode}
+            toggleTheme={toggleTheme}
+          />
+        </NeonProvider>
       </AppStyleProvider>
     </ShareIntentProvider>
   );
@@ -129,7 +134,9 @@ function ThemedShell({
   toggleTheme: () => void;
 }) {
   const { appStyle } = useAppStyle();
-  const th = appStyle === "2100" ? (dark ? TD2100 : T2100) : dark ? TD : T;
+  const { accent } = useNeon();
+  const base = appStyle === "2100" ? (dark ? TD2100 : T2100) : dark ? TD : T;
+  const th = appStyle === "2100" ? applyNeonAccent(base, accent, dark) : base;
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: th.bg }}>
       <LanguageProvider>
@@ -165,6 +172,7 @@ function AuthGate() {
   const rootNavState = useRootNavigationState();
   const { setUrl, setBookShare } = usePendingImport();
   const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
+  const [localOnboardingDone, setLocalOnboardingDone] = useState<boolean | null>(null);
 
   // El loader (bolitas) se queda hasta que: la sesión está resuelta + (si está
   // logueado) los REGISTROS de la primera pantalla (Inmuebles) ya cargaron + un
@@ -191,8 +199,33 @@ function AuthGate() {
     return () => clearTimeout(t);
   }, []);
 
-  const dataReady = state.kind !== "authed" || firstScreenReady || bootTimedOut;
-  const showLoader = !(authResolved && dataReady && minElapsed);
+  const onOnboarding = segments[0] === "onboarding";
+  const readyForCurrentRoute =
+    state.kind !== "authed" || onOnboarding || firstScreenReady || bootTimedOut;
+  const showLoader = !(authResolved && readyForCurrentRoute && minElapsed);
+
+  useEffect(() => {
+    if (state.kind !== "authed") {
+      setLocalOnboardingDone(null);
+      return;
+    }
+    let alive = true;
+    getOnboardingDone()
+      .then(async (done) => {
+        if (!state.user.needsOnboarding && !done) {
+          await setOnboardingDone();
+          if (alive) setLocalOnboardingDone(true);
+          return;
+        }
+        if (alive) setLocalOnboardingDone(done);
+      })
+      .catch(() => {
+        if (alive) setLocalOnboardingDone(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [state]);
 
   // El redirect se dispara en cuanto la sesión resuelve (el Stack ya está montado
   // debajo del overlay), así la pantalla de registros monta y empieza a cargar.
@@ -204,12 +237,28 @@ function AuthGate() {
     // montado, router.replace puede lanzar "navigate before mounting" en frío.
     if (!rootNavState?.key) return;
     const onLogin = segments[0] === "login";
+    const effectiveOnboardingDone =
+      state.kind === "authed" && !state.user.needsOnboarding ? true : localOnboardingDone;
+    const onboardingKnown = state.kind !== "authed" || effectiveOnboardingDone !== null;
+    const requiresOnboarding =
+      state.kind === "authed" &&
+      onboardingKnown &&
+      (state.user.needsOnboarding || !effectiveOnboardingDone);
     if (state.kind === "unauthed" && !onLogin) {
       router.replace("/login");
-    } else if (state.kind === "authed" && onLogin) {
+    } else if (state.kind === "authed" && requiresOnboarding && !onOnboarding) {
+      router.replace("/onboarding");
+    } else if (state.kind === "authed" && onboardingKnown && !requiresOnboarding && onOnboarding) {
+      router.replace("/(tabs)");
+    } else if (state.kind === "authed" && onLogin && onboardingKnown && !requiresOnboarding) {
+      // Solo saltar a tabs cuando YA conocemos el estado de onboarding y no se
+      // requiere. Para un usuario NUEVO recién verificado, onboardingKnown es
+      // false hasta que localOnboardingDone resuelve: en esa ventana NO navegamos
+      // (el loader del AuthGate tapa la pantalla) y, al resolver, la rama
+      // requiresOnboarding lo lleva a /onboarding — sin parpadeo previo a tabs.
       router.replace("/(tabs)");
     }
-  }, [authResolved, rootNavState?.key, state, segments, router]);
+  }, [authResolved, rootNavState?.key, state, segments, router, localOnboardingDone, onOnboarding]);
 
   // Ocultar el splash nativo en cuanto monta el JS, para que SÍ se vea la
   // pantalla de carga (BrandLoading) mientras se resuelve la sesión, en vez de
@@ -273,6 +322,7 @@ function AuthGate() {
           que no fallan por montar antes de que el AuthProvider resuelva. */}
       <Stack>
         <Stack.Screen name="login" options={{ headerShown: false }} />
+          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen
             name="property/[id]"
@@ -415,6 +465,17 @@ function AuthGate() {
               headerStyle: { backgroundColor: th.surface },
               headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
               title: t("account.categories"),
+            }}
+          />
+          <Stack.Screen
+            name="theme-settings"
+            options={{
+              headerShown: true,
+              headerBackTitle: t("common.back"),
+              headerTintColor: th.primary,
+              headerStyle: { backgroundColor: th.surface },
+              headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
+              title: t("account.theme"),
             }}
           />
           <Stack.Screen

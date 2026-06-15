@@ -120,6 +120,7 @@ model User {
   // Alias público para el chat (@handle, estilo Telegram). Normalizado a
   // minúsculas; único. Opcional: sin alias, sigues localizable por email exacto.
   username      String?    @unique
+  onboardingCompletedAt DateTime?
   image         String?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt

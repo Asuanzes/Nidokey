@@ -11,7 +11,12 @@ export type Account = {
 
 export const getAccount = () => api<Account>("/api/account");
 
-export const updateAccount = (input: { name?: string | null; username?: string | null; image?: string | null }) =>
+export const updateAccount = (input: {
+  name?: string | null;
+  username?: string | null;
+  image?: string | null;
+  onboardingCompleted?: boolean;
+}) =>
   api<Account>("/api/account", { method: "PATCH", body: JSON.stringify(input) });
 
 /**
