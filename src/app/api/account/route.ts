@@ -8,7 +8,14 @@ import { deleteObject } from "@/lib/chat/r2";
 import { normalizeUsername, usernameError } from "@nidokey/shared";
 
 /** En BBDD `image` es una key de R2; hacia el cliente siempre va como URL. */
-function profileDto(user: { id: string; email: string; name: string | null; username: string | null; image: string | null }) {
+function profileDto(user: {
+  id: string;
+  email: string;
+  name: string | null;
+  username: string | null;
+  image: string | null;
+  onboardingCompletedAt: Date | null;
+}) {
   return { ...user, image: avatarUrl(user) };
 }
 
@@ -17,7 +24,7 @@ export async function GET() {
   const userId = await requireUserId();
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, email: true, name: true, username: true, image: true },
+    select: { id: true, email: true, name: true, username: true, image: true, onboardingCompletedAt: true },
   });
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(profileDto(user));
@@ -26,6 +33,7 @@ export async function GET() {
 const PatchInput = z.object({
   name: z.string().trim().min(1).max(60).optional().nullable(),
   username: z.string().optional().nullable(),
+  onboardingCompleted: z.boolean().optional(),
   /** Key de R2 devuelta por POST /api/account/avatar; null = quitar foto. */
   image: z.string().max(300).optional().nullable(),
 });
@@ -39,8 +47,14 @@ export async function PATCH(req: NextRequest) {
   const parsed = PatchInput.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const data: { name?: string | null; username?: string | null; image?: string | null } = {};
+  const data: {
+    name?: string | null;
+    username?: string | null;
+    image?: string | null;
+    onboardingCompletedAt?: Date;
+  } = {};
   if (parsed.data.name !== undefined) data.name = parsed.data.name;
+  if (parsed.data.onboardingCompleted === true) data.onboardingCompletedAt = new Date();
 
   if (parsed.data.image !== undefined) {
     if (parsed.data.image === null || parsed.data.image === "") {
@@ -75,7 +89,7 @@ export async function PATCH(req: NextRequest) {
     const user = await prisma.user.update({
       where: { id: userId },
       data,
-      select: { id: true, email: true, name: true, username: true, image: true },
+      select: { id: true, email: true, name: true, username: true, image: true, onboardingCompletedAt: true },
     });
     if (oldImage && oldImage.startsWith(`avatars/${userId}/`) && oldImage !== user.image) {
       const stale = oldImage;
