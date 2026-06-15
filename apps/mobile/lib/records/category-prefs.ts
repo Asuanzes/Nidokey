@@ -15,7 +15,9 @@ const ORDER_KEY = "nidokey.categories.order";
 const HIDDEN_KEY = "nidokey.categories.hidden";
 const START_KEY = "nidokey.categories.start";
 
-const RECORD_TYPE_SET = new Set<string>(RECORD_TYPES);
+export const MANAGED_RECORD_TYPES: RecordType[] = RECORD_TYPES.filter((t) => t !== "trends");
+
+const RECORD_TYPE_SET = new Set<string>(MANAGED_RECORD_TYPES);
 function isRecordType(x: unknown): x is RecordType {
   return typeof x === "string" && RECORD_TYPE_SET.has(x);
 }
@@ -73,7 +75,7 @@ export function saveStartCategory(type: RecordType): Promise<void> {
  * final, visible. Garantiza que el menú nunca pierde una categoría real.
  */
 export function applyCategoryOrder(savedOrder: RecordType[]): RecordType[] {
-  if (savedOrder.length === 0) return [...RECORD_TYPES];
+  if (savedOrder.length === 0) return [...MANAGED_RECORD_TYPES];
   const seen = new Set<RecordType>();
   const out: RecordType[] = [];
   for (const t of savedOrder) {
@@ -82,7 +84,7 @@ export function applyCategoryOrder(savedOrder: RecordType[]): RecordType[] {
       seen.add(t);
     }
   }
-  for (const t of RECORD_TYPES) {
+  for (const t of MANAGED_RECORD_TYPES) {
     if (!seen.has(t)) out.push(t);
   }
   return out;
@@ -95,7 +97,7 @@ export async function resetAllPreferences(): Promise<void> {
     ORDER_KEY,
     HIDDEN_KEY,
     START_KEY,
-    ...RECORD_TYPES.map((t) => `nidokey.order.${t}`),
+    ...MANAGED_RECORD_TYPES.map((t) => `nidokey.order.${t}`),
   ];
   await Promise.all(
     keys.map((k) =>

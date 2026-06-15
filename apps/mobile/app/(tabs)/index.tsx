@@ -18,7 +18,8 @@ import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
 import { useRecords } from "@/lib/hooks/useRecords";
 import { useBoot } from "@/lib/boot-context";
-import { RECORD_TYPE_CONFIG } from "@/lib/records/config";
+import { categoryColor, RECORD_TYPE_CONFIG } from "@/lib/records/config";
+import { useAppStyle } from "@/lib/app-style-context";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { BooksByAuthor } from "@/components/BooksByAuthor";
 import { ConversationList } from "@/components/chat/ConversationList";
@@ -37,7 +38,8 @@ import { FoodHome } from "@/components/food/FoodHome";
  */
 export default function RecordsScreen() {
   const { state } = useAuth();
-  const { th } = useTheme();
+  const { th, dark } = useTheme();
+  const { appStyle } = useAppStyle();
   const { t } = useTranslation();
   const { label: typeLabel } = useTypeI18n();
   // Categoría activa COMPARTIDA con Importar (contexto), no estado local: así
@@ -107,6 +109,7 @@ export default function RecordsScreen() {
   if (state.kind !== "authed") return null;
 
   const cfg = RECORD_TYPE_CONFIG[type];
+  const trendsColor = categoryColor("trends", dark, appStyle);
   const ordered = items ?? records;
   // Solo Inmuebles ofrece el segmento de operación. RENT cubre alquiler y
   // alquiler con opción a compra (todo lo que no sea venta pura).
@@ -268,6 +271,18 @@ export default function RecordsScreen() {
               </Pressable>
             );
           })}
+          <View style={styles.railDivider} />
+          <Pressable
+            onPress={() => router.navigate("/trends" as never)}
+            accessibilityRole="button"
+            accessibilityLabel={typeLabel("trends")}
+            style={[
+              styles.railItem,
+              { borderColor: "transparent" },
+            ]}
+          >
+            <CategoryIcon type="trends" size={26} color={trendsColor} />
+          </Pressable>
         </ScrollView>
       </View>
 
@@ -370,5 +385,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+  railDivider: {
+    width: 34,
+    height: 1,
+    backgroundColor: "#e0e0e0",
+    marginVertical: 8,
   },
 });

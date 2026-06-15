@@ -157,6 +157,11 @@
       "label": "Books",
       "singular": "Book",
       "placeholder": "Search: sapiens, the little prince, rich dad…"
+    },
+    "trends": {
+      "label": "RSS Trends",
+      "singular": "Trend",
+      "placeholder": ""
     }
   },
   "status": {
@@ -316,6 +321,19 @@
     "load_error_desc": "Check your connection and try again.",
     "open_full": "Open full article",
     "article_title": "News"
+  },
+  "trends": {
+    "title": "Trends",
+    "filter_all": "All",
+    "source_twitter": "Twitter",
+    "source_reddit": "Reddit",
+    "source_linkedin": "LinkedIn",
+    "source_xiaohongshu": "Xiaohongshu",
+    "source_xueqiu": "Xueqiu",
+    "empty": "No trends available",
+    "load_error": "Error loading trends",
+    "volume_label": "Volume",
+    "related_news": "Related news"
   },
   "asset": {
     "load_error": "Couldn't load",

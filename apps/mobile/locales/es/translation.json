@@ -157,6 +157,11 @@
       "label": "Libros",
       "singular": "Libro",
       "placeholder": "Busca: sapiens, el principito, padre rico…"
+    },
+    "trends": {
+      "label": "Tendencias RSS",
+      "singular": "Tendencia",
+      "placeholder": ""
     }
   },
   "status": {
@@ -316,6 +321,19 @@
     "load_error_desc": "Comprueba tu conexión e inténtalo de nuevo.",
     "open_full": "Abrir artículo completo",
     "article_title": "Noticia"
+  },
+  "trends": {
+    "title": "Tendencias",
+    "filter_all": "Todas",
+    "source_twitter": "Twitter",
+    "source_reddit": "Reddit",
+    "source_linkedin": "LinkedIn",
+    "source_xiaohongshu": "Xiaohongshu",
+    "source_xueqiu": "Xueqiu",
+    "empty": "No hay tendencias disponibles",
+    "load_error": "Error al cargar tendencias",
+    "volume_label": "Volumen",
+    "related_news": "Noticias relacionadas"
   },
   "asset": {
     "load_error": "No se pudo cargar",

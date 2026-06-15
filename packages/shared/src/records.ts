@@ -23,7 +23,8 @@ export type RecordType =
   | "market"
   | "job"
   | "workout"
-  | "book";
+  | "book"
+  | "trends";
 
 export const RECORD_TYPES: RecordType[] = [
   "chat",
@@ -35,6 +36,7 @@ export const RECORD_TYPES: RecordType[] = [
   "job",
   "workout",
   "book",
+  "trends",
 ];
 
 /**

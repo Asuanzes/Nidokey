@@ -1,7 +1,7 @@
 // AUTO-GENERADO por scripts/_icon-build.mjs — NO editar a mano.
 // Iconos de categoría (Iconify), monocromos vía currentColor (SvgXml los tiñe).
 // Licencias: solar=CC BY 4.0, game-icons=CC BY 3.0, mdi=Apache-2.0, phosphor=MIT.
-// Fuentes: property=solar:home-2-bold, holiday=solar:suitcase-tag-bold, crypto=mdi:bitcoin, market=game-icons:charging-bull, job=mdi:briefcase-search, book=ph:books-fill, workout=mdi:dumbbell, chat=ph:chats-fill.
+// Fuentes: property=solar:home-2-bold, holiday=solar:suitcase-tag-bold, crypto=mdi:bitcoin, market=game-icons:charging-bull, job=mdi:briefcase-search, book=ph:books-fill, workout=mdi:dumbbell, chat=ph:chats-fill, trends=ion:rss.
 import type { RecordType } from "@nidokey/shared";
 
 export const CATEGORY_ICON_SVG: Record<RecordType, string> = {
@@ -14,4 +14,5 @@ export const CATEGORY_ICON_SVG: Record<RecordType, string> = {
   book: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path fill="currentColor" d="m231.65 194.55l-33.19-157.8a16 16 0 0 0-19-12.39l-46.81 10.06a16.08 16.08 0 0 0-12.3 19l33.19 157.8A16 16 0 0 0 169.16 224a16.3 16.3 0 0 0 3.38-.36l46.81-10.06a16.09 16.09 0 0 0 12.3-19.03M136 50.15v-.09l46.8-10l3.33 15.87L139.33 66Zm10 47.38l-3.35-15.9l46.82-10.06l3.34 15.9Zm70 100.41l-46.8 10l-3.33-15.87l46.8-10.07l3.33 15.85zM104 32H56a16 16 0 0 0-16 16v160a16 16 0 0 0 16 16h48a16 16 0 0 0 16-16V48a16 16 0 0 0-16-16M56 48h48v16H56Zm48 160H56v-16h48z"/></svg>`,
   workout: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M20.57 14.86L22 13.43L20.57 12L17 15.57L8.43 7L12 3.43L10.57 2L9.14 3.43L7.71 2L5.57 4.14L4.14 2.71L2.71 4.14l1.43 1.43L2 7.71l1.43 1.43L2 10.57L3.43 12L7 8.43L15.57 17L12 20.57L13.43 22l1.43-1.43L16.29 22l2.14-2.14l1.43 1.43l1.43-1.43l-1.43-1.43L22 16.29z"/></svg>`,
   chat: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path fill="currentColor" d="M232 96a16 16 0 0 0-16-16h-32V48a16 16 0 0 0-16-16H40a16 16 0 0 0-16 16v128a8 8 0 0 0 13 6.22L72 154v30a16 16 0 0 0 16 16h93.59L219 230.22a8 8 0 0 0 5 1.78a8 8 0 0 0 8-8Zm-42.55 89.78a8 8 0 0 0-5-1.78H88v-32h80a16 16 0 0 0 16-16V96h32v111.25Z"/></svg>`,
+  trends: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M128 416a64 64 0 1 1-64-64a64 64 0 0 1 64 64M64 160v64c123.7 0 224 100.3 224 224h64c0-159.1-128.9-288-288-288m0-96v64c176.7 0 320 143.3 320 320h64C448 235.9 276.1 64 64 64"/></svg>`,
 };

@@ -19,8 +19,9 @@ import type { AppStyle } from "@/lib/app-style-context";
  *  - "search": teclear nombre/ticker → buscar y elegir de una lista (mercados).
  *  - "wizard": asistente multi-paso en pantalla propia (viajes).
  *  - "soon":   aún no disponible (se muestra "Próximamente").
+ *  - "none":   feed de solo lectura, sin alta de registro.
  */
-export type AddMode = "url" | "symbol" | "search" | "soon" | "wizard";
+export type AddMode = "url" | "symbol" | "search" | "soon" | "wizard" | "none";
 
 export type RecordTypeConfig = {
   /** Color de acento del tipo (sobre fondo claro). */
@@ -29,7 +30,7 @@ export type RecordTypeConfig = {
    *  (#262320). Si falta, se usa `color`. Resuélvelo con `categoryColor(type, dark)`.
    *  Para FONDOS rellenos con texto blanco usa `color` (no esta variante). */
   colorDark?: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: keyof typeof Ionicons.glyphMap | "rss-outline";
   /** Si el tipo está implementado de extremo a extremo (lectura/lista). */
   enabled: boolean;
   /** Cómo se añade un registro de este tipo. */
@@ -56,6 +57,7 @@ export const RECORD_TYPE_CONFIG: Record<RecordType, RecordTypeConfig> = {
   workout:  { color: "#A23E3E", colorDark: "#CF7059", icon: "barbell-outline",     enabled: false, addMode: "soon" },
   chat:     { color: "#6C5A9C", colorDark: "#8B79C4", icon: "chatbubbles-outline", enabled: true,  addMode: "soon" },
   book:     { color: "#8C4A52", colorDark: "#B86575", icon: "book-outline",        enabled: true,  addMode: "search", searchOnSubmit: true },
+  trends:   { color: "#E0732B", colorDark: "#EE9A5A", icon: "rss-outline",         enabled: true,  addMode: "none" },
 };
 
 export function recordTypeConfig(type: RecordType): RecordTypeConfig {
@@ -78,6 +80,7 @@ const RECORD_TYPE_2100: Record<RecordType, { color: string; colorDark: string }>
   workout:  { color: "#B24A65", colorDark: "#D66C84" }, // rosa carmesí
   chat:     { color: "#9A56C2", colorDark: "#BD86E0" }, // violeta luminoso
   book:     { color: "#C45670", colorDark: "#E8788B" }, // coral rosa
+  trends:   { color: "#F08A4B", colorDark: "#FFB07A" }, // melocotón RSS
 };
 
 /**

@@ -8,11 +8,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { RECORD_TYPES, type RecordType } from "@nidokey/shared";
+import { type RecordType } from "@nidokey/shared";
 
 import {
   applyCategoryOrder,
   getHiddenCategories,
+  MANAGED_RECORD_TYPES,
   getSavedCategoryOrder,
   getStartCategory,
   resetAllPreferences,
@@ -62,7 +63,7 @@ type Ctx = {
 const CategoryPrefsContext = createContext<Ctx | null>(null);
 
 export function CategoryPrefsProvider({ children }: { children: ReactNode }) {
-  const [order, setOrder] = useState<RecordType[]>(() => [...RECORD_TYPES]);
+  const [order, setOrder] = useState<RecordType[]>(() => [...MANAGED_RECORD_TYPES]);
   const [hidden, setHidden] = useState<Set<RecordType>>(() => new Set());
   const [startCategory, setStartCategoryState] = useState<RecordType | null>(null);
   const [category, setCategory] = useState<RecordType>(DEFAULT_CATEGORY);
@@ -144,7 +145,7 @@ export function CategoryPrefsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const reset = useCallback(() => {
-    setOrder([...RECORD_TYPES]);
+    setOrder([...MANAGED_RECORD_TYPES]);
     setHidden(new Set());
     setStartCategoryState(null);
     setCategory(DEFAULT_CATEGORY);

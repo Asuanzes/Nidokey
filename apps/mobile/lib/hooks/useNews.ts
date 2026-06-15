@@ -15,13 +15,20 @@ export type NewsItem = {
  * (cripto/mercado). Carga al montar y cuando cambia el tipo. `reload` para
  * pull-to-refresh del sheet. Si `type` no es financiero, no pide nada.
  */
-export function useNews(type: "crypto" | "market" | null) {
+export type NewsQuery =
+  | "crypto"
+  | "market"
+  | { kind: "trend"; trendId: string | null | undefined }
+  | null;
+
+export function useNews(query: NewsQuery) {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (type !== "crypto" && type !== "market") {
+    const path = newsPath(query);
+    if (!path) {
       setItems([]);
       setError(null);
       return;
@@ -29,18 +36,28 @@ export function useNews(type: "crypto" | "market" | null) {
     setLoading(true);
     setError(null);
     try {
-      const r = await api<{ items: NewsItem[] }>(`/api/news?type=${type}`);
+      const r = await api<{ items: NewsItem[] }>(path);
       setItems(r.items ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudieron cargar las noticias");
     } finally {
       setLoading(false);
     }
-  }, [type]);
+  }, [query]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   return { items, loading, error, reload: load };
+}
+
+function newsPath(query: NewsQuery): string | null {
+  if (query === "crypto" || query === "market") {
+    return `/api/news?type=${query}`;
+  }
+  if (query?.kind === "trend" && query.trendId) {
+    return `/api/trends/${encodeURIComponent(query.trendId)}/news`;
+  }
+  return null;
 }

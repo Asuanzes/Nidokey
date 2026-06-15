@@ -330,6 +330,28 @@ function AuthGate() {
               title: t("news.article_title"),
             }}
           />
+          <Stack.Screen
+            name="trends/index"
+            options={{
+              headerShown: true,
+              headerBackTitle: t("common.back"),
+              headerTintColor: th.primary,
+              headerStyle: { backgroundColor: th.surface },
+              headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
+              title: t("trends.title"),
+            }}
+          />
+          <Stack.Screen
+            name="trends/[id]"
+            options={{
+              headerShown: true,
+              headerBackTitle: t("common.back"),
+              headerTintColor: th.primary,
+              headerStyle: { backgroundColor: th.surface },
+              headerTitleStyle: { color: th.text, fontFamily: fonts.heading },
+              title: t("types.trends.singular"),
+            }}
+          />
           <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
           <Stack.Screen
             name="tools/mortgage"

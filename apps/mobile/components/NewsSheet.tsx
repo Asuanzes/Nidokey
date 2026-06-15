@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 
 import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
-import { useNews } from "@/lib/hooks/useNews";
+import { useNews, type NewsItem } from "@/lib/hooks/useNews";
 import { newsItemToArticle } from "@/lib/article";
 
 export type NewsAsset = { symbol: string; name: string };
@@ -61,55 +61,60 @@ export function NewsSheet({ type, assets }: { type: "crypto" | "market"; assets:
         {!loading && !error && items.length === 0 && (
           <Text style={[styles.empty, { color: th.textSubtle }]}>
             {t("news.empty")}
-          </Text>
-        )}
+        </Text>
+      )}
 
-        {ordered.map(({ it, matched }) => {
-          const highlighted = matched.length > 0;
-          return (
-            <Pressable
-              key={it.url}
-              onPress={() =>
-                router.push({
-                  pathname: "/article",
-                  params: { article: JSON.stringify(newsItemToArticle(it)) },
-                } as never)
-              }
-              style={({ pressed }) => [
-                styles.item,
-                { borderBottomColor: th.border },
-                highlighted && [styles.itemHighlighted, { borderLeftColor: th.accent, backgroundColor: th.accentSoft }],
-                pressed && { opacity: 0.6 },
-              ]}
-            >
-              <View style={styles.itemTop}>
-                {it.source ? (
-                  <Text style={[styles.itemSource, { color: th.textSubtle }]} numberOfLines={1}>
-                    {it.source}
-                  </Text>
-                ) : (
-                  <View style={styles.flex} />
-                )}
-                {matched.map((m) => (
-                  <View key={m} style={[styles.chip, { backgroundColor: th.accent }]}>
-                    <Text style={styles.chipText}>{m}</Text>
-                  </View>
-                ))}
-              </View>
-              <Text style={[styles.itemTitle, { color: th.text }]} numberOfLines={3}>
-                {it.title}
-              </Text>
-              {it.summary && (
-                <Text style={[styles.itemSummary, { color: th.textMuted }]} numberOfLines={2}>
-                  {it.summary}
-                </Text>
-              )}
-              <Text style={[styles.itemTime, { color: th.textSubtle }]}>{timeAgo(it.publishedAt, t)}</Text>
-            </Pressable>
-          );
-        })}
+        {ordered.map(({ it, matched }) => (
+          <NewsRow key={it.url} item={it} matched={matched} />
+        ))}
       </BottomSheetScrollView>
     </BottomSheet>
+  );
+}
+
+export function NewsRow({ item, matched = [] }: { item: NewsItem; matched?: string[] }) {
+  const { th } = useTheme();
+  const { t } = useTranslation();
+  const highlighted = matched.length > 0;
+  return (
+    <Pressable
+      onPress={() =>
+        router.push({
+          pathname: "/article",
+          params: { article: JSON.stringify(newsItemToArticle(item)) },
+        } as never)
+      }
+      style={({ pressed }) => [
+        styles.item,
+        { borderBottomColor: th.border },
+        highlighted && [styles.itemHighlighted, { borderLeftColor: th.accent, backgroundColor: th.accentSoft }],
+        pressed && { opacity: 0.6 },
+      ]}
+    >
+      <View style={styles.itemTop}>
+        {item.source ? (
+          <Text style={[styles.itemSource, { color: th.textSubtle }]} numberOfLines={1}>
+            {item.source}
+          </Text>
+        ) : (
+          <View style={styles.flex} />
+        )}
+        {matched.map((m) => (
+          <View key={m} style={[styles.chip, { backgroundColor: th.accent }]}>
+            <Text style={styles.chipText}>{m}</Text>
+          </View>
+        ))}
+      </View>
+      <Text style={[styles.itemTitle, { color: th.text }]} numberOfLines={3}>
+        {item.title}
+      </Text>
+      {item.summary && (
+        <Text style={[styles.itemSummary, { color: th.textMuted }]} numberOfLines={2}>
+          {item.summary}
+        </Text>
+      )}
+      <Text style={[styles.itemTime, { color: th.textSubtle }]}>{newsTimeAgo(item.publishedAt, t)}</Text>
+    </Pressable>
   );
 }
 
@@ -153,7 +158,7 @@ type TFn = ReturnType<typeof useTranslation>["t"];
 
 /** "hace X" relativo. Recibe `t` como parámetro (patrón TFn): así re-renderiza
  *  al cambiar el idioma (no usar i18n.t directo). */
-function timeAgo(iso: string | null, t: TFn): string {
+export function newsTimeAgo(iso: string | null, t: TFn): string {
   if (!iso) return "";
   const ts = Date.parse(iso);
   if (Number.isNaN(ts)) return "";

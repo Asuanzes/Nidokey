@@ -77,7 +77,7 @@ function AssetLogo({
   square = false,
 }: {
   uri: string | null;
-  icon: ComponentProps<typeof Ionicons>["name"];
+  icon: ComponentProps<typeof Ionicons>["name"] | "rss-outline";
   iconColor: string;
   placeholderBg: string;
   borderColor: string;
@@ -88,9 +88,10 @@ function AssetLogo({
   const [failed, setFailed] = useState(false);
   const shape = square ? styles.logoSquare : null;
   if (!uri || failed) {
+    const iconName = icon === "rss-outline" ? "logo-rss" : icon;
     return (
       <View style={[styles.logo, shape, { backgroundColor: placeholderBg }]}>
-        <Ionicons name={icon} size={20} color={iconColor} />
+        <Ionicons name={iconName} size={20} color={iconColor} />
       </View>
     );
   }
