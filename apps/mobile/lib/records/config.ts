@@ -30,7 +30,7 @@ export type RecordTypeConfig = {
    *  (#262320). Si falta, se usa `color`. Resuélvelo con `categoryColor(type, dark)`.
    *  Para FONDOS rellenos con texto blanco usa `color` (no esta variante). */
   colorDark?: string;
-  icon: keyof typeof Ionicons.glyphMap | "rss-outline";
+  icon: keyof typeof Ionicons.glyphMap;
   /** Si el tipo está implementado de extremo a extremo (lectura/lista). */
   enabled: boolean;
   /** Cómo se añade un registro de este tipo. */
