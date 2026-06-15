@@ -9,6 +9,7 @@ import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
 import { Button, Card, Screen } from "@/components/ui";
 import { categoryColor } from "@/lib/records/config";
+import { useAppStyle } from "@/lib/app-style-context";
 
 type MenuItem = { id: string; name: string; description: string | null; imageUrl: string | null; priceCents: number; available: boolean };
 type MenuCategory = { id: string; name: string; items: MenuItem[] };
@@ -23,7 +24,8 @@ function money(cents: number) {
 export default function RestaurantScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { th, dark } = useTheme();
-  const foodAccent = categoryColor("food", dark);
+  const { appStyle } = useAppStyle();
+  const foodAccent = categoryColor("food", dark, appStyle);
   const cart = useFoodCart();
   const q = useQuery(() => api<Resp>(`/api/food/restaurants/${id}`), [id], { resetOnDepsChange: true });
   const [refreshing, setRefreshing] = useState(false);
@@ -98,7 +100,7 @@ export default function RestaurantScreen() {
                   <Text style={[styles.price, { color: foodAccent }]}>{money(item.priceCents)}</Text>
                 </View>
                 <Pressable disabled={!restaurant.isOpen} onPress={() => add(item)} style={[styles.add, th.elevation.sm, { backgroundColor: foodAccent, opacity: restaurant.isOpen ? 1 : 0.4 }]}>
-                  <Text style={styles.addText}>+</Text>
+                  <Text style={[styles.addText, { color: th.primaryFg }]}>+</Text>
                 </Pressable>
               </Card>
             ))}
@@ -154,7 +156,7 @@ const styles = StyleSheet.create({
   desc: { fontSize: 13, lineHeight: 18 },
   price: { fontSize: 14, fontFamily: fonts.bodyBold },
   add: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
-  addText: { color: "#fff", fontSize: 24, lineHeight: 26 },
+  addText: { fontSize: 24, lineHeight: 26 },
   menuState: { alignItems: "center", justifyContent: "center", paddingVertical: 40, gap: 12 },
   menuStateText: { fontSize: 14 },
   skeleton: { gap: 8 },

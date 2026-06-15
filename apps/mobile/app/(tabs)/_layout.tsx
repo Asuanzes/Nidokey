@@ -11,7 +11,10 @@ import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
 import { useDuplicatesChanged } from "@/lib/dup-signal";
 import { TAB_ICON_SVG, type TabIconKey } from "@/lib/ui-icons";
+import { TAB_ICON_SVG_2100 } from "@/lib/ui-icons-2100";
 import { useCategoryPrefs } from "@/lib/records/category-prefs-context";
+import { useAppStyle } from "@/lib/app-style-context";
+import { NeonIcon } from "@/components/ui/NeonIcon";
 
 /**
  * Navegación principal: una sola barra de pestañas con los 5 destinos clave.
@@ -33,6 +36,7 @@ export default function TabsLayout() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const { th } = useTheme();
+  const { appStyle } = useAppStyle();
   const { t } = useTranslation();
   const { category } = useCategoryPrefs();
   const [dupCount, setDupCount] = useState(0);
@@ -44,6 +48,9 @@ export default function TabsLayout() {
   // entera, para no dejar al usuario sin salida. Cuenta vive arriba en FoodHome.
   // Quitar esta línea (y el !hideBar de abajo) restaura la barra siempre.
   const hideBar = isFoodCategory && pathname === "/";
+  const is2100 = appStyle === "2100";
+  const fabBg = is2100 ? th.primary : FAB_BG;
+  const fabFg = is2100 ? th.primaryFg : FAB_FG;
 
   // Recalcula el badge al cambiar de pestaña Y tras fusionar/descartar (dupChanged).
   useEffect(() => {
@@ -107,13 +114,15 @@ export default function TabsLayout() {
                       style={[
                         styles.fab,
                         th.elevation.lg,
-                        // Azul fijo (steel-blue del modo claro) en ambos temas:
-                        // el primary de modo oscuro aclara demasiado y desentona.
-                        { backgroundColor: FAB_BG, borderColor: th.surfaceRaised, opacity: pressed ? 0.9 : 1 },
+                        { backgroundColor: fabBg, borderColor: th.surfaceRaised, opacity: pressed ? 0.9 : 1 },
                         pressed && { transform: [{ translateY: 1 }] },
                       ]}
                     >
-                      <Ionicons name={tab.icon ?? "add"} size={30} color={FAB_FG} />
+                      {is2100 ? (
+                        <NeonIcon name={tab.icon ?? "add"} size={30} color={fabFg} active />
+                      ) : (
+                        <Ionicons name={tab.icon ?? "add"} size={30} color={fabFg} />
+                      )}
                     </View>
                   )}
                 </Pressable>
@@ -128,11 +137,20 @@ export default function TabsLayout() {
                 <View
                   style={[
                     styles.iconWrap,
-                    { borderColor: active ? th.accent : "transparent" },
-                    active && { backgroundColor: th.accentSoft },
+                    { borderColor: !is2100 && active ? th.accent : "transparent" },
+                    !is2100 && active && { backgroundColor: th.accentSoft },
                   ]}
                 >
-                  <SvgXml xml={TAB_ICON_SVG[tab.svg!]} width={24} height={24} color={color} />
+                  {is2100 ? (
+                    <NeonIcon
+                      svgXml={TAB_ICON_SVG_2100[tab.svg!]}
+                      size={24}
+                      color={color}
+                      active={active}
+                    />
+                  ) : (
+                    <SvgXml xml={TAB_ICON_SVG[tab.svg!]} width={24} height={24} color={color} />
+                  )}
                   {tab.badge ? (
                     <View style={[styles.badge, { backgroundColor: th.dangerFg }]}>
                       <Text style={styles.badgeText}>{tab.badge}</Text>
