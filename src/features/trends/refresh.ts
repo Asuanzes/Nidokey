@@ -1,4 +1,4 @@
-import type { TrendSource } from "@prisma/client";
+import { Prisma, type TrendSource } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { TREND_PROVIDERS } from "@/features/trends/registry";
 import type { NormalizedTrend, TrendProvider } from "@/features/trends/types";
@@ -116,7 +116,7 @@ export async function refreshTrends(opts: {
             rank: t.rank,
             volume: t.volume ?? null,
             url: t.url ?? null,
-            meta: t.meta ?? null,
+            meta: (t.meta as Prisma.JsonObject | undefined) ?? Prisma.JsonNull,
             lastSeenAt: now,
           },
           create: {
@@ -127,7 +127,7 @@ export async function refreshTrends(opts: {
             rank: t.rank,
             volume: t.volume ?? null,
             url: t.url ?? null,
-            meta: t.meta ?? null,
+            meta: (t.meta as Prisma.JsonObject | undefined) ?? Prisma.JsonNull,
             lastSeenAt: now,
           },
         });
