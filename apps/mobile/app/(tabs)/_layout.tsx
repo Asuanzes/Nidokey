@@ -28,10 +28,11 @@ import { NeonIcon } from "@/components/ui/NeonIcon";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
-/** Color del botón central "Importar": fijo en ambos temas (el primary de
- * modo oscuro aclara demasiado). Steel-blue del modo claro + icono casi blanco. */
+/** Color del botón central "Importar". El FONDO es steel-blue en vintage / el
+ * acento neón en 2100; el "+" (FAB_FG) es SIEMPRE blanco puro, en cualquier
+ * tema, modo (claro/oscuro) o acento de color. */
 const FAB_BG = "#3A5F8A";
-const FAB_FG = "#FAFAF7";
+const FAB_FG = "#FFFFFF";
 
 export default function TabsLayout() {
   const pathname = usePathname();
@@ -52,7 +53,7 @@ export default function TabsLayout() {
   const hideBar = isFoodCategory && pathname === "/";
   const is2100 = appStyle === "2100";
   const fabBg = is2100 ? th.primary : FAB_BG;
-  const fabFg = is2100 ? th.primaryFg : FAB_FG;
+  const fabFg = FAB_FG; // el "+" SIEMPRE blanco puro (vintage/2100, claro/oscuro, cualquier acento)
   const fabGlow =
     is2100 && dark
       ? {
