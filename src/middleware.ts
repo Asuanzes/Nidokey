@@ -29,6 +29,10 @@ const PUBLIC_PATHS = [
   /^\/_next(\/.*)?$/,
   /^\/favicon\./,
   /^\/icon\./,
+  // Estáticos servidos desde public/ (p.ej. /brand/nidokey-logo.png): cualquier
+  // ruta NO-API que acabe en extensión de fichero. Sin esto el middleware
+  // redirigía /brand/*.png a "/" (307) y la imagen del logo no cargaba.
+  /^\/(?!api\/).*\.[a-zA-Z0-9]+$/,
 ];
 
 function isPublic(pathname: string): boolean {
