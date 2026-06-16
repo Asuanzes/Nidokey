@@ -50,7 +50,10 @@ export default function RootLayout() {
   // Tema: "auto" sigue el sistema (default); "light"/"dark" lo fijan. Sembramos el
   // estado del SO de forma SÍNCRONA en el primer frame (evita el "cuadrado claro"
   // al arrancar en oscuro). SecureStore (async) carga luego la preferencia guardada.
-  const [themeMode, setThemeModeState] = useState<ThemeMode>("auto");
+  // Default = "light": el primer inicio (sin preferencia guardada) arranca en
+  // vintage CLARO (appStyle también es "vintage" por defecto). Si el usuario ya
+  // guardó una preferencia, SecureStore la carga abajo y manda.
+  const [themeMode, setThemeModeState] = useState<ThemeMode>("light");
   const [systemDark, setSystemDark] = useState(() => Appearance.getColorScheme() === "dark");
 
   useEffect(() => {

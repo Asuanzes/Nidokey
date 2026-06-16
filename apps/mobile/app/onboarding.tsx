@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  BackHandler,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -42,6 +43,20 @@ export default function OnboardingScreen() {
   const [saving, setSaving] = useState(false);
   const [usernameDone, setUsernameDone] = useState(false);
   const step = STEPS[stepIndex]!;
+
+  // Android: el botón/gesto "atrás" del sistema retrocede UN paso del onboarding.
+  // Antes no hacía nada útil (AuthGate revierte cualquier salida del flujo). En el
+  // primer paso se deja el comportamiento por defecto del SO (minimizar la app).
+  useEffect(() => {
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (stepIndex > 0 && !saving) {
+        setStepIndex((i) => Math.max(0, i - 1));
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [stepIndex, saving]);
 
   if (state.kind !== "authed") return null;
 
