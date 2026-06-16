@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { fonts } from "@/lib/fonts";
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -63,9 +64,12 @@ export default function LoginScreen() {
         style={styles.flex}
       >
         <View style={styles.brand}>
-          <View style={[styles.iconBox, { backgroundColor: th.primarySoft, borderRadius: th.radii.md }]}>
-            <Text style={styles.iconText}>🔑</Text>
-          </View>
+          {/* Logo de marca (monograma NK). El PNG ya trae su fondo crema redondeado. */}
+          <Image
+            source={require("../assets/images/brand-logo.png")}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={[styles.title, { color: th.text }]}>Nidokey</Text>
         </View>
 
@@ -155,13 +159,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   flex: { flex: 1, padding: 24, justifyContent: "center" },
   brand: { alignItems: "center", gap: 8, marginBottom: 32 },
-  iconBox: {
-    width: 56,
-    height: 56,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  iconText: { fontSize: 28 },
+  logo: { width: 64, height: 64 },
   title: { fontSize: 18, fontFamily: fonts.bodySemibold },
   card: {
     padding: 24,

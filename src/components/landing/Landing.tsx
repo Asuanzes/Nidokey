@@ -11,7 +11,6 @@ import {
   BellRing,
   SlidersHorizontal,
 } from "lucide-react";
-import { IconKey } from "@/components/brand/icons";
 
 /**
  * Landing pública (raíz `/`). UNA sola página: presentación de Nidokey + enlaces
@@ -97,9 +96,8 @@ export function Landing() {
       {/* ===== Top bar (solo logo) ===== */}
       <header className="mx-auto flex max-w-5xl items-center px-6 py-5">
         <div className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-soft text-primary ring-1 ring-inset ring-primary/15">
-            <IconKey size={22} />
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/nidokey-logo.png" alt="Nidokey" width={36} height={36} className="h-9 w-9 rounded-lg" />
           <div className="text-md font-semibold text-accent">{APP_NAME}</div>
         </div>
       </header>
@@ -237,9 +235,8 @@ export function Landing() {
       {/* ===== Descarga ===== */}
       <section className="mx-auto max-w-5xl px-6 py-16">
         <div className="overflow-hidden rounded-2xl border border-border bg-surface p-8 text-center shadow-sm sm:p-12">
-          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary-soft text-primary ring-1 ring-inset ring-primary/15">
-            <IconKey size={26} />
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/nidokey-logo.png" alt="Nidokey" width={48} height={48} className="mx-auto h-12 w-12 rounded-xl" />
           <h2 className="mt-5 text-2xl font-semibold tracking-tight text-text">
             Llévatela en el móvil
           </h2>
@@ -258,7 +255,8 @@ export function Landing() {
       <footer className="border-t border-border">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-8">
           <div className="flex items-center gap-2 text-sm text-text-muted">
-            <IconKey size={18} className="text-primary" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/nidokey-logo.png" alt="Nidokey" width={18} height={18} className="h-[18px] w-[18px] rounded" />
             <span className="font-semibold text-accent">{APP_NAME}</span>
           </div>
           <span className="text-sm text-text-subtle">© {new Date().getFullYear()}</span>

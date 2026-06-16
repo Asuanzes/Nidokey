@@ -1,3 +1,7 @@
+// ⚠️ LEGACY / SUPERSEDED por scripts/apply-brand-logo.mjs (logo NK sobre crema,
+// 2026-06-16). Este script aplicaba el brillo ACERO a la LLAVE dorada (diseño
+// viejo). NO ejecutar: rehornearía el icono antiguo. Se conserva como referencia.
+//
 // Genera el icono de la app con una LÍNEA finísima y brillante que recorre todo
 // el contorno exterior, consistente en iOS y Android. Reproducible e idempotente:
 // lee de los *.base.png (originales pre-brillo) y escribe los PNG de app.json.

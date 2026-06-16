@@ -1,4 +1,3 @@
-import { IconKey } from "@/components/brand/icons";
 import {
   BRAND_PHRASES_LEFT,
   BRAND_PHRASES_RIGHT,
@@ -98,9 +97,8 @@ export function ComingSoon() {
 
         {/* Contenido central */}
         <div className="order-1 flex flex-col items-center lg:order-2">
-          <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-soft text-primary ring-1 ring-inset ring-primary/15">
-            <IconKey size={36} />
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/nidokey-logo.png" alt="Nidokey" width={64} height={64} className="h-16 w-16 rounded-2xl" />
           <div className="mt-4 text-lg font-semibold text-accent">{APP_NAME}</div>
 
           <h1
