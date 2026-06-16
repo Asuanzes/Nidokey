@@ -1,5 +1,6 @@
 import { router } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useFoodCart } from "@/lib/food-cart-context";
 import { useTheme } from "@/lib/theme";
@@ -17,6 +18,7 @@ export default function FoodCartScreen() {
   const { th, dark } = useTheme();
   const { appStyle } = useAppStyle();
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const foodAccent = categoryColor("food", dark, appStyle);
   if (!cart.items.length) {
     return (
@@ -27,7 +29,9 @@ export default function FoodCartScreen() {
   }
   return (
     <Screen title={t("food.cart")} subtitle={cart.restaurantName ?? undefined} background backgroundCategory="food">
-      <ScrollView contentContainerStyle={[styles.content, { padding: th.space.lg, gap: th.space.md }]}>
+      {/* paddingBottom + insets.bottom: el CTA "Continuar" es el último del scroll →
+          en Android quedaría bajo la barra de navegación. insets=0 cuando no aplica. */}
+      <ScrollView contentContainerStyle={[styles.content, { padding: th.space.lg, gap: th.space.md, paddingBottom: 28 + insets.bottom }]}>
         {cart.items.map((item) => (
           <Card key={item.menuItemId} style={styles.line}>
             <View style={styles.lineTop}>

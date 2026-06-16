@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { useQuery } from "@/lib/hooks/useQuery";
@@ -24,6 +25,7 @@ export default function FoodCheckoutScreen() {
   const { th, dark } = useTheme();
   const { appStyle } = useAppStyle();
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const foodAccent = categoryColor("food", dark, appStyle);
   const addressesQ = useQuery(() => api<{ addresses: FoodAddress[] }>("/api/food/addresses"), []);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -66,7 +68,9 @@ export default function FoodCheckoutScreen() {
 
   return (
     <Screen title={t("food.checkout")} background backgroundCategory="food">
-      <ScrollView contentContainerStyle={[styles.content, { padding: th.space.lg, gap: th.space.md }]}>
+      {/* paddingBottom + insets.bottom: el CTA "Pagar" es el último del scroll →
+          en Android quedaría bajo la barra de navegación. insets=0 cuando no aplica. */}
+      <ScrollView contentContainerStyle={[styles.content, { padding: th.space.lg, gap: th.space.md, paddingBottom: 28 + insets.bottom }]}>
         <Card>
           <Text style={[styles.title, { color: th.text }]}>Entrega</Text>
           {addressesQ.loading && !addressesQ.data ? <ActivityIndicator color={th.primary} /> : addressesQ.data?.addresses.map((a) => {

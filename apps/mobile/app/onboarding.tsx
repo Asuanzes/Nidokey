@@ -8,6 +8,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -36,6 +37,7 @@ export default function OnboardingScreen() {
   const { state, markOnboardingComplete } = useAuth();
   const { th } = useTheme();
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const [stepIndex, setStepIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const [usernameDone, setUsernameDone] = useState(false);
@@ -89,7 +91,19 @@ export default function OnboardingScreen() {
         {step === "language" ? <LanguageStep /> : null}
       </ScrollView>
 
-      <View style={[styles.footer, { borderTopColor: th.border, backgroundColor: th.surfaceRaised }]}>
+      {/* paddingBottom dinámico: el footer va pegado al borde y Screen solo
+          protege el top → sin esto los botones quedan bajo la barra de navegación
+          de Android (o el home indicator de iOS). insets.bottom=0 cuando no aplica. */}
+      <View
+        style={[
+          styles.footer,
+          {
+            borderTopColor: th.border,
+            backgroundColor: th.surfaceRaised,
+            paddingBottom: Math.max(insets.bottom, 16),
+          },
+        ]}
+      >
         <Button
           label={t("common.back")}
           variant="secondary"

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { api } from "@/lib/api";
 import { useQuery } from "@/lib/hooks/useQuery";
@@ -17,6 +18,7 @@ function money(cents: number) {
 
 export default function RestaurantPanelScreen() {
   const { th } = useTheme();
+  const insets = useSafeAreaInsets();
   const [busy, setBusy] = useState<string | null>(null);
   const me = useQuery(() => api<Me>("/api/food/me"), []);
   const q = useQuery(() => api<{ orders: Order[] }>("/api/food/orders?role=restaurant&active=1"), [], { refreshInterval: 10_000 });
@@ -36,7 +38,8 @@ export default function RestaurantPanelScreen() {
 
   return (
     <Screen title="Restaurante">
-      <ScrollView contentContainerStyle={styles.content}>
+      {/* paddingBottom + insets.bottom: botones de acción al final del scroll. */}
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 16 + insets.bottom }]}>
         {me.loading && !me.data ? <ActivityIndicator color={th.primary} /> : !hasStaff ? (
           <EmptyState icon="lock-closed-outline" title="Sin restaurante" description="Tu usuario no tiene un restaurante asignado." />
         ) : q.data?.orders.length ? q.data.orders.map((o) => (

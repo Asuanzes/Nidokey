@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Linking, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { api } from "@/lib/api";
 import { useQuery } from "@/lib/hooks/useQuery";
@@ -21,6 +22,7 @@ type Me = { isCourier: boolean };
 
 export default function CourierScreen() {
   const { th } = useTheme();
+  const insets = useSafeAreaInsets();
   const [busy, setBusy] = useState<string | null>(null);
   const me = useQuery(() => api<Me>("/api/food/me"), []);
   const mine = useQuery(() => api<{ orders: Order[] }>("/api/food/orders?role=courier&active=1"), [], { refreshInterval: 10_000 });
@@ -44,7 +46,8 @@ export default function CourierScreen() {
 
   return (
     <Screen title="Repartidor">
-      <ScrollView contentContainerStyle={styles.content}>
+      {/* paddingBottom + insets.bottom: botones de acción al final del scroll. */}
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 16 + insets.bottom }]}>
         {!me.data?.isCourier ? (
           <EmptyState icon="lock-closed-outline" title="Modo no disponible" description="Tu usuario no tiene perfil de repartidor activo." />
         ) : (

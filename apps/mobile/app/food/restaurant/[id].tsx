@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocalSearchParams, router } from "expo-router";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { api } from "@/lib/api";
 import { useQuery } from "@/lib/hooks/useQuery";
@@ -25,6 +26,7 @@ export default function RestaurantScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { th, dark } = useTheme();
   const { appStyle } = useAppStyle();
+  const insets = useSafeAreaInsets();
   const foodAccent = categoryColor("food", dark, appStyle);
   const cart = useFoodCart();
   const q = useQuery(() => api<Resp>(`/api/food/restaurants/${id}`), [id], { resetOnDepsChange: true });
@@ -76,7 +78,7 @@ export default function RestaurantScreen() {
 
   return (
     <Screen title={restaurant.name} subtitle={restaurant.isOpen ? restaurant.description ?? "Carta" : "Cerrado"} background backgroundCategory="food">
-      <ScrollView contentContainerStyle={[styles.content, { paddingHorizontal: th.space.lg, gap: th.space.lg }]}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingHorizontal: th.space.lg, gap: th.space.lg, paddingBottom: 96 + insets.bottom }]}>
         <Image
           source={restaurant.imageUrl ? { uri: restaurant.imageUrl } : undefined}
           style={[
@@ -135,8 +137,10 @@ export default function RestaurantScreen() {
           </Pressable>
         )}
       </ScrollView>
+      {/* Barra "Ver carrito": fija al borde; paddingBottom dinámico para no quedar
+          bajo la barra de navegación de Android. insets.bottom=0 cuando no aplica. */}
       {cart.restaurantId === restaurant.id && cart.count > 0 && (
-        <View style={[styles.bar, th.elevation.lg, { backgroundColor: th.surfaceRaised, borderTopColor: th.border }]}>
+        <View style={[styles.bar, th.elevation.lg, { backgroundColor: th.surfaceRaised, borderTopColor: th.border, paddingBottom: Math.max(insets.bottom, 12) }]}>
           <Button label={`Ver carrito · ${cart.count} · ${money(cart.totalCents)}`} onPress={() => router.push("/food/cart")} />
         </View>
       )}

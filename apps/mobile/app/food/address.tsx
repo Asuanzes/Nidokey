@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/lib/api";
 import { useQuery } from "@/lib/hooks/useQuery";
 import { useTheme } from "@/lib/theme";
@@ -40,6 +41,7 @@ function cityFromAddress(address: string, fallback: string): string {
 
 export default function FoodAddressScreen() {
   const { th } = useTheme();
+  const insets = useSafeAreaInsets();
   const q = useQuery(() => api<{ addresses: FoodAddress[] }>("/api/food/addresses"), []);
   const [label, setLabel] = useState("Casa");
   const [line, setLine] = useState("");
@@ -176,7 +178,9 @@ export default function FoodAddressScreen() {
 
   return (
     <Screen title="Direccion de entrega">
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      {/* paddingBottom + insets.bottom: el botón "Guardar dirección" y la lista van
+          al final del scroll → en Android, bajo la barra de navegación. */}
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 16 + insets.bottom }]} keyboardShouldPersistTaps="handled">
         <Card style={styles.form}>
           <Pressable onPress={useMyLocation} disabled={locating} style={[styles.locBtn, { borderColor: th.primary, opacity: locating ? 0.6 : 1 }]}>
             {locating ? <ActivityIndicator color={th.primary} size="small" /> : <Text style={[styles.locBtnText, { color: th.primary }]}>📍 Usar mi ubicación</Text>}
