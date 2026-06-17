@@ -61,7 +61,7 @@ export function BrandLoading() {
           />
         ))}
       </Animated.View>
-      <Text style={[styles.title, { color: th.textMuted }]}>Nidokey</Text>
+      <Text style={[styles.title, { color: th.textMuted }]}>NIDOKEY</Text>
     </View>
   );
 }
@@ -70,8 +70,10 @@ const styles = StyleSheet.create({
   root: { flex: 1, alignItems: "center", justifyContent: "center", gap: 20 },
   ring: { width: SIZE, height: SIZE },
   dot: { position: "absolute", width: DOT, height: DOT, borderRadius: DOT / 2 },
-  // paddingHorizontal generoso: en Android el `letterSpacing` positivo dibuja el
-  // último glifo fuera del ancho medido del Text y se recortaba ("NIDOKE"). El
-  // padding amplía los límites de la vista para que entre la última letra.
-  title: { fontSize: 13, fontFamily: fonts.bodyBold, letterSpacing: 3, textTransform: "uppercase", paddingHorizontal: 12, textAlign: "center" },
+  // El texto ya va en MAYÚSCULAS en el literal (no `textTransform`): en Android,
+  // `textTransform:"uppercase"` mide el ancho de la versión minúscula (más
+  // estrecha) pero pinta la mayúscula (más ancha) → la última letra se salía y
+  // se recortaba ("NIDOKE"). Con el literal ya en mayúsculas, medida = render.
+  // El paddingHorizontal cubre además la cola del `letterSpacing`.
+  title: { fontSize: 13, fontFamily: fonts.bodyBold, letterSpacing: 3, paddingHorizontal: 16, textAlign: "center" },
 });
