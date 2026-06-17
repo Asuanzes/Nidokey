@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 
 import { type BaseRecord, metaField, compactNumber } from "@nidokey/shared";
 import { useTheme } from "@/lib/theme";
+import { useAppStyle } from "@/lib/app-style-context";
 
 type TFn = ReturnType<typeof useTranslation>["t"];
 import { recordTypeConfig } from "@/lib/records/config";
@@ -111,6 +112,8 @@ function AssetLogo({
 // ── Cripto (estilo finanzas, con logo del activo) ─────────────────────────
 function CryptoCard({ record, editing, onLongPress, onDelete }: CardProps) {
   const { th } = useTheme();
+  const { appStyle } = useAppStyle();
+  const compact = appStyle === "operativo";
   const { t } = useTranslation();
   const cfg = recordTypeConfig(record.type);
   const symbol = metaField<string>(record, "symbol", record.title);
@@ -142,6 +145,7 @@ function CryptoCard({ record, editing, onLongPress, onDelete }: CardProps) {
         styles.cryptoCard,
         th.elevation.sm,
         { backgroundColor: th.surfaceRaised, borderColor: th.border },
+        compact && { borderRadius: th.radii.lg, padding: 10, marginBottom: 7 },
         pressed && !editing && { opacity: 0.82, transform: [{ translateY: 1 }] },
       ]}
     >
@@ -340,6 +344,8 @@ const PORTAL_LABEL: Record<string, string> = {
 
 function DefaultCard({ record, editing, onLongPress, onDelete }: CardProps) {
   const { th, dark } = useTheme();
+  const { appStyle } = useAppStyle();
+  const compact = appStyle === "operativo";
   const { t } = useTranslation();
   const status = record.status ? STATUS_STYLE[record.status] : undefined;
   const footnote = metaField<string | null>(record, "footnote", null);
@@ -358,6 +364,7 @@ function DefaultCard({ record, editing, onLongPress, onDelete }: CardProps) {
         styles.propCard,
         th.elevation.sm,
         { backgroundColor: th.surfaceRaised, borderColor: th.border },
+        compact && { borderRadius: th.radii.lg, padding: 8, gap: 10, marginBottom: 7 },
         pressed && !editing && { opacity: 0.82, transform: [{ translateY: 1 }] },
       ]}
     >
@@ -365,12 +372,12 @@ function DefaultCard({ record, editing, onLongPress, onDelete }: CardProps) {
         {record.imageUrl ? (
           <Image
             source={{ uri: record.imageUrl }}
-            style={[styles.thumb, { backgroundColor: th.imagePlaceholder }]}
+            style={[styles.thumb, compact && { width: 56, height: 56, borderRadius: th.radii.md }, { backgroundColor: th.imagePlaceholder }]}
             contentFit="cover"
             transition={150}
           />
         ) : (
-          <View style={[styles.thumb, styles.thumbPlaceholder, { backgroundColor: th.imagePlaceholder }]}>
+          <View style={[styles.thumb, styles.thumbPlaceholder, compact && { width: 56, height: 56, borderRadius: th.radii.md }, { backgroundColor: th.imagePlaceholder }]}>
             <CategoryIcon type={record.type} size={26} />
           </View>
         )}
@@ -407,6 +414,8 @@ function DefaultCard({ record, editing, onLongPress, onDelete }: CardProps) {
 // ── Empleo (miniatura = capital de la provincia; estilo inmuebles, compacto) ─
 function JobCard({ record, editing, onLongPress, onDelete }: CardProps) {
   const { th } = useTheme();
+  const { appStyle } = useAppStyle();
+  const compact = appStyle === "operativo";
   const { t } = useTranslation();
   const company = metaField<string | null>(record, "company", null);
   const location = metaField<string | null>(record, "location", null);
@@ -437,6 +446,7 @@ function JobCard({ record, editing, onLongPress, onDelete }: CardProps) {
         styles.narrowCard,
         th.elevation.sm,
         { backgroundColor: th.surfaceRaised, borderColor: th.border },
+        compact && { borderRadius: th.radii.lg, padding: 8, gap: 10, marginBottom: 7 },
         pressed && !editing && { opacity: 0.82, transform: [{ translateY: 1 }] },
       ]}
     >

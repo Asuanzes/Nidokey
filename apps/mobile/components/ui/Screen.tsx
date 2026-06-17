@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import type { RecordType } from "@nidokey/shared";
 
 import { useTheme } from "@/lib/theme";
+import { useAppStyle } from "@/lib/app-style-context";
 import { fonts } from "@/lib/fonts";
 import { ScreenBackground } from "./ScreenBackground";
 
@@ -39,6 +40,8 @@ export function Screen({
   backgroundColor,
 }: Props) {
   const { th } = useTheme();
+  const { appStyle } = useAppStyle();
+  const compact = appStyle === "operativo";
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: th.bg }]} edges={["top"]}>
       {background && <ScreenBackground category={backgroundCategory} color={backgroundColor} />}
@@ -50,7 +53,15 @@ export function Screen({
           ]}
         >
           <View style={styles.headerText}>
-            <Text style={[styles.title, { color: th.text }]}>{title}</Text>
+            <Text
+              style={[
+                styles.title,
+                { color: th.text },
+                compact && { fontSize: th.type.title, lineHeight: Math.round(th.type.title * 1.25) },
+              ]}
+            >
+              {title}
+            </Text>
             {subtitle && (
               <Text style={[styles.subtitle, { color: th.textMuted }]}>{subtitle}</Text>
             )}
