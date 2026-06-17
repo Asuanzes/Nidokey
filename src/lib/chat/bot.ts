@@ -117,11 +117,12 @@ export function echoReply(userText: string | null): string {
   return `🪺 Recibí: «${t.slice(0, 200)}». (No tengo el modelo configurado ahora mismo.)`;
 }
 
-// ── Fase 4: respuesta con Gemini (mismo patrón keyless de llm-extract.ts) ──
-// El free tier de Gemini no va en EU → usar la GEMINI_API_KEY del proyecto con
-// billing (nidokey-llm) hace que el chat consuma el crédito de Google. Sin Vertex.
-const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-const BOT_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-2.0-flash";
+// ── Fase 4: respuesta con LLM. Usamos Groq (gratis, funciona en EU, sin billing),
+// el mismo proveedor principal de la extracción de menús. Nota: los €258 de GCP
+// NO pagan el Gemini API de AI Studio (lleva prepago aparte); para gastar ese
+// crédito habría que ir por Vertex AI. API de Groq compatible con OpenAI.
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_MODEL = process.env.GROQ_MODEL?.trim() || "llama-3.3-70b-versatile";
 const HISTORY_TURNS = 15; // ponytail: ventana fija; subir si hace falta más contexto
 
 const BOT_SYSTEM_PROMPT = [
@@ -134,62 +135,50 @@ const BOT_SYSTEM_PROMPT = [
 
 type Turn = { role: "user" | "model"; text: string };
 
-async function callGemini(history: Turn[]): Promise<string | null> {
-  const key = process.env.GEMINI_API_KEY?.trim();
+async function callGroq(history: Turn[]): Promise<string | null> {
+  const key = process.env.GROQ_API_KEY?.trim();
   if (!key) {
-    console.warn("[chat-bot] sin GEMINI_API_KEY en el entorno del deploy (¿env en Production + redeploy?)");
+    console.warn("[chat-bot] sin GROQ_API_KEY en el entorno del deploy (¿env en Production + redeploy?)");
     return null;
   }
   if (history.length === 0) {
-    console.warn("[chat-bot] historial vacío, no llamo a Gemini");
+    console.warn("[chat-bot] historial vacío, no llamo al LLM");
     return null;
   }
-  const contents = history.map((t) => ({ role: t.role, parts: [{ text: t.text.slice(0, 2000) }] }));
+  const messages = [
+    { role: "system", content: BOT_SYSTEM_PROMPT },
+    ...history.map((t) => ({ role: t.role === "model" ? "assistant" : "user", content: t.text.slice(0, 2000) })),
+  ];
   try {
-    const res = await fetch(`${GEMINI_BASE}/${BOT_MODEL}:generateContent?key=${encodeURIComponent(key)}`, {
+    const res = await fetch(GROQ_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: BOT_SYSTEM_PROMPT }] },
-        contents,
-        generationConfig: { temperature: 0.6, maxOutputTokens: 500 },
-      }),
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: GROQ_MODEL, messages, temperature: 0.6, max_tokens: 500 }),
       cache: "no-store",
       signal: AbortSignal.timeout(30000),
     });
     if (!res.ok) {
-      console.error("[chat-bot] gemini HTTP", res.status, (await res.text()).slice(0, 300));
+      console.error("[chat-bot] groq HTTP", res.status, (await res.text()).slice(0, 300));
       return null;
     }
-    const body = (await res.json()) as {
-      candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
-      promptFeedback?: { blockReason?: string };
-    };
-    const cand = body.candidates?.[0];
-    const out = cand?.content?.parts?.map((p) => p.text ?? "").join("").trim();
+    const body = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+    const out = body.choices?.[0]?.message?.content?.trim();
     if (!out) {
-      console.warn(
-        "[chat-bot] gemini 200 sin texto; finishReason=",
-        cand?.finishReason ?? "?",
-        "blockReason=",
-        body.promptFeedback?.blockReason ?? "-",
-        "model=",
-        BOT_MODEL,
-      );
+      console.warn("[chat-bot] groq 200 sin texto, model=", GROQ_MODEL);
       return null;
     }
-    console.log("[chat-bot] gemini OK", out.length, "chars, model=", BOT_MODEL);
+    console.log("[chat-bot] groq OK", out.length, "chars, model=", GROQ_MODEL);
     return out;
   } catch (e) {
-    console.error("[chat-bot] gemini error:", e instanceof Error ? e.message : e);
+    console.error("[chat-bot] groq error:", e instanceof Error ? e.message : e);
     return null;
   }
 }
 
 /**
  * Genera y publica la respuesta del bot a partir del historial reciente del DM.
- * Gemini si hay key (consume crédito en EU); si no o si falla, eco. Pensado para
- * correr en after() → no bloquea el envío del usuario.
+ * LLM (Groq) si hay key; si no o si falla, eco. Pensado para correr en after()
+ * → no bloquea el envío del usuario.
  */
 export async function respondAsBot(conversationId: string): Promise<void> {
   const rows = await prisma.chatMessage.findMany({
@@ -205,9 +194,7 @@ export async function respondAsBot(conversationId: string): Promise<void> {
       text: m.body ?? (m.kind === "TEXT" ? "" : "(adjunto)"),
     }))
     .filter((t) => t.text);
-  // Gemini exige que el historial empiece por un turno "user".
-  while (history.length && history[0].role === "model") history.shift();
   const lastUser = [...history].reverse().find((t) => t.role === "user")?.text ?? null;
-  const text = (await callGemini(history)) ?? echoReply(lastUser);
+  const text = (await callGroq(history)) ?? echoReply(lastUser);
   await replyAsBot(conversationId, text);
 }
