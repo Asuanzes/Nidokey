@@ -13,6 +13,7 @@ import { chatSocket } from "@/lib/chat/socket";
 import { useSocketOpen } from "@/lib/chat/use-socket-open";
 import { categoryColor } from "@/lib/records/config";
 import type { RecordType } from "@nidokey/shared";
+import { stripRecordLinks } from "@nidokey/shared";
 import { AdBannerSlot, EmptyState } from "@/components/ui";
 
 /**
@@ -169,7 +170,7 @@ function RowInner({ c, dark }: { c: ConversationDto; dark: boolean }) {
         </View>
         <View style={styles.rowBottom}>
           <Text style={[styles.rowPreview, { color: th.textMuted }]} numberOfLines={1}>
-            {c.lastMessagePreview ?? t("chat.no_messages")}
+            {c.lastMessagePreview ? stripRecordLinks(c.lastMessagePreview) : t("chat.no_messages")}
           </Text>
           {c.unreadCount > 0 && (
             <View style={[styles.unread, { backgroundColor: th.accent }]}>

@@ -71,3 +71,15 @@ export function compactNumber(n: number | null, suffix = ""): string {
   if (abs >= 1e3) return `${fmt(n / 1e3)} k${sym}`;
   return `${Math.round(n)}${sym}`;
 }
+
+/**
+ * Quita los tokens de enlace a registros ([[tipo:id|Título]]) que el asistente
+ * Nidokey inserta en sus mensajes, dejando solo el Título. Para previews de la
+ * lista de chats y notificaciones push, donde NO se linkifica: nunca debe verse
+ * el código. En el chat abierto sí se renderiza como enlace pulsable.
+ */
+export function stripRecordLinks(text: string): string {
+  return text
+    .replace(/\[\[[a-z]+:[^\]|]+\|([^\]]+)\]\]/g, "$1")
+    .replace(/\[\[[a-z]+:[^\]]+\]\]/g, "");
+}

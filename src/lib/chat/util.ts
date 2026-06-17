@@ -1,6 +1,7 @@
 /**
  * Utilidades puras del chat (testeables sin BBDD).
  */
+import { stripRecordLinks } from "@nidokey/shared";
 
 /**
  * Clave de dedupe para conversaciones DIRECT: las mismas dos personas solo
@@ -16,7 +17,7 @@ export function messagePreview(kind: string, body: string | null | undefined): s
   if (kind === "IMAGE") return "📷 Foto";
   if (kind === "FILE") return "📎 Archivo";
   if (kind === "AUDIO") return "🎤 Audio";
-  const t = (body ?? "").replace(/\s+/g, " ").trim();
+  const t = stripRecordLinks(body ?? "").replace(/\s+/g, " ").trim();
   return t.length > 140 ? t.slice(0, 139) + "…" : t;
 }
 
