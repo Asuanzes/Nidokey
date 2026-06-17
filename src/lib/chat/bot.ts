@@ -3,6 +3,7 @@ import { directKey, messagePreview } from "@/lib/chat/util";
 import { sendChatPush } from "@/lib/chat/push";
 import { notifyMessage } from "@/lib/chat/gateway";
 import { BOT_TOOLS, BOT_TOOLS_ANTHROPIC, runTool, mintUserToken } from "@/lib/chat/bot-tools";
+import { APP_GUIDE } from "@/lib/chat/app-guide";
 
 const MAX_REPLY_CHARS = 800;
 const MAX_TOOL_ITERS = 4; // ponytail: tope de vueltas tool→modelo (anti-bucle/coste)
@@ -141,7 +142,7 @@ const BOT_SYSTEM_PROMPT = [
   "⚠️ CONFIRMACIÓN OBLIGATORIA: antes de crear, borrar o fusionar, NO ejecutes la herramienta. Primero resume en 1 frase qué vas a hacer y pregunta '¿Confirmo?'. Llama la herramienta SOLO después de que el usuario confirme (sí/confirmo/adelante) en su SIGUIENTE mensaje. Borrar es irreversible: nunca borres sin un 'sí' explícito.",
   "Aún NO puedes pagar ni editar campos sueltos de un registro; si lo piden, dilo.",
   "No inventes datos: si una herramienta no devuelve nada, dilo con naturalidad.",
-].join("\n");
+].join("\n") + "\n\n" + APP_GUIDE;
 
 type Turn = { role: "user" | "model"; text: string };
 
