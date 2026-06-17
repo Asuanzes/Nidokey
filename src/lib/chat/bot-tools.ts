@@ -99,6 +99,53 @@ export const BOT_TOOLS = [
       parameters: { type: "object", properties: { restaurant_id: { type: "string" } }, required: ["restaurant_id"] },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "crear_registro",
+      description:
+        "Crea/importa un registro para el usuario. modo: 'url' (pegar enlace de un anuncio/portal/web), 'symbol' (ticker de cripto o acción: BTC, AAPL…), 'query' (buscar por título/texto, p.ej. un libro). ⚠️ REQUIERE que el usuario confirme antes de llamar.",
+      parameters: {
+        type: "object",
+        properties: {
+          type: { type: "string", enum: [...RECORD_TYPES] },
+          modo: { type: "string", enum: ["url", "symbol", "query"] },
+          valor: { type: "string", description: "La URL, el símbolo, o el texto a buscar" },
+        },
+        required: ["type", "modo", "valor"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "borrar_registro",
+      description:
+        "BORRA un registro del usuario. Es IRREVERSIBLE. ⚠️ REQUIERE confirmación explícita del usuario antes de llamar. El id sale de listar_registros/ver_registro.",
+      parameters: {
+        type: "object",
+        properties: { type: { type: "string", enum: [...RECORD_TYPES] }, id: { type: "string" } },
+        required: ["type", "id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "fusionar_registros",
+      description:
+        "Fusiona duplicados del mismo tipo: conserva keep_id y elimina drop_ids. ⚠️ REQUIERE confirmación. Ids de listar_registros.",
+      parameters: {
+        type: "object",
+        properties: {
+          type: { type: "string", enum: [...RECORD_TYPES] },
+          keep_id: { type: "string" },
+          drop_ids: { type: "array", items: { type: "string" } },
+        },
+        required: ["type", "keep_id", "drop_ids"],
+      },
+    },
+  },
 ];
 
 /** Las mismas tools en formato Anthropic (Claude): {name, description, input_schema}. */
@@ -127,6 +174,29 @@ async function apiGet(path: string, token: string): Promise<unknown> {
     });
     if (!res.ok) return { error: `HTTP ${res.status}` };
     return await res.json();
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "fallo de red" };
+  }
+}
+
+/** Escritura (POST/DELETE/PATCH) contra los propios endpoints, con el JWT del usuario. */
+async function apiSend(path: string, method: string, body: unknown, token: string): Promise<unknown> {
+  if (!BASE) return { error: "config: NEXTAUTH_URL ausente" };
+  try {
+    const res = await fetch(`${BASE}${path}`, {
+      method,
+      headers: { Authorization: `Bearer ${token}`, ...(body != null ? { "Content-Type": "application/json" } : {}) },
+      body: body != null ? JSON.stringify(body) : undefined,
+      cache: "no-store",
+      signal: AbortSignal.timeout(30000),
+    });
+    const text = await res.text();
+    if (!res.ok) return { error: `HTTP ${res.status}`, detail: text.slice(0, 200) };
+    try {
+      return text ? JSON.parse(text) : { ok: true };
+    } catch {
+      return { ok: true };
+    }
   } catch (e) {
     return { error: e instanceof Error ? e.message : "fallo de red" };
   }
@@ -246,6 +316,40 @@ export async function runTool(name: string | undefined, argsJson: string | undef
           .slice(0, 50);
         // menuStatus: si está "PENDING"/vacío, la carta se está scrapeando aún.
         return cap(JSON.stringify({ restaurante: r?.name ?? null, menuStatus: data?.menuStatus ?? null, platos }), 4000);
+      }
+      case "crear_registro": {
+        const type = String(args.type || "");
+        const modo = String(args.modo || "");
+        const valor = String(args.valor || "").trim();
+        if (!RECORD_TYPES.includes(type as RecordType)) return JSON.stringify({ error: "categoría no válida" });
+        if (!["url", "symbol", "query"].includes(modo) || !valor) return JSON.stringify({ error: "modo/valor no válidos" });
+        const input =
+          modo === "url" ? { kind: "url", url: valor } : modo === "symbol" ? { kind: "symbol", symbol: valor } : { kind: "query", query: valor };
+        const data = await apiSend("/api/records/import", "POST", { type, input, source: "nidokey-chat" }, token);
+        return cap(JSON.stringify(data), 2000);
+      }
+      case "borrar_registro": {
+        const type = String(args.type || "");
+        const id = String(args.id || "");
+        if (!RECORD_TYPES.includes(type as RecordType) || !id) return JSON.stringify({ error: "type/id no válidos" });
+        const data = await apiSend(`/api/records/${encodeURIComponent(id)}?type=${encodeURIComponent(type)}`, "DELETE", null, token);
+        return JSON.stringify(data);
+      }
+      case "fusionar_registros": {
+        const type = String(args.type || "");
+        const keepId = String(args.keep_id || "");
+        const dropIds = Array.isArray(args.drop_ids) ? args.drop_ids.map((x: any) => String(x)).filter(Boolean) : [];
+        if (!RECORD_TYPES.includes(type as RecordType) || !keepId || dropIds.length === 0) {
+          return JSON.stringify({ error: "type/keep_id/drop_ids no válidos" });
+        }
+        if (type === "property") {
+          // Inmuebles: merge per-vertical (cada drop → keep).
+          const results = [];
+          for (const d of dropIds) results.push(await apiSend(`/api/properties/${encodeURIComponent(d)}/merge`, "POST", { intoId: keepId }, token));
+          return cap(JSON.stringify(results), 2000);
+        }
+        const data = await apiSend("/api/records/duplicates/merge", "POST", { type, keepId, dropIds }, token);
+        return cap(JSON.stringify(data), 2000);
       }
       default:
         return JSON.stringify({ error: "herramienta desconocida" });
