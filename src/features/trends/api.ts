@@ -12,6 +12,9 @@ export const TREND_SOURCE_VALUES = [
   "instagram",
   "tiktok",
   "youtube",
+  "googletrends",
+  "hackernews",
+  "twitch",
 ] as const satisfies readonly TrendSource[];
 
 export type TrendDbRead = {
@@ -86,7 +89,9 @@ export async function getTrendRelatedNews(
   db: TrendDbRead = prisma,
   news = trendNews,
 ) {
-  const limit = parseLimit(params.get("limit"), 20, 100);
+  // Tope duro a 7: son las noticias que entran en la pantalla de detalle sin
+  // hacer scroll. default y máx = 7 (ignora ?limit mayor del cliente).
+  const limit = parseLimit(params.get("limit"), 7, 7);
   if (!limit) return { status: 400 as const, body: { error: "limit inválido" } };
   const offsetRaw = params.get("cursor");
   const offset = offsetRaw ? Number(offsetRaw) : 0;

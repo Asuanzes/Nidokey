@@ -362,7 +362,11 @@
   "trends": {
     "title": "Tendencias",
     "filter_all": "Todas",
-    "source_twitter": "Twitter",
+    "source_twitter": "X",
+    "source_googletrends": "Google Trends",
+    "source_instagram": "Instagram",
+    "source_hackernews": "Hacker News",
+    "source_twitch": "Twitch",
     "source_reddit": "Reddit",
     "source_linkedin": "LinkedIn",
     "source_xiaohongshu": "Xiaohongshu",

@@ -19,18 +19,13 @@ import { useAppStyle } from "@/lib/app-style-context";
 import { fonts } from "@/lib/fonts";
 import { categoryColor } from "@/lib/records/config";
 import { useTheme } from "@/lib/theme";
-
-type TrendSource =
-  | "twitter"
-  | "reddit"
-  | "linkedin"
-  | "xiaohongshu"
-  | "xueqiu"
-  | "instagram"
-  | "tiktok"
-  | "youtube";
-
-type TrendFilter = "all" | Extract<TrendSource, "twitter" | "reddit" | "linkedin" | "xiaohongshu" | "xueqiu">;
+import {
+  TREND_FILTERS,
+  trendSourceLabel,
+  trendSourceMeta,
+  type TrendFilter,
+  type TrendSource,
+} from "@/lib/trends/sources";
 
 export type TrendDTO = {
   id: string;
@@ -46,8 +41,6 @@ export type TrendDTO = {
 
 type TrendsResponse = { items: TrendDTO[]; nextCursor: string | null };
 
-const FILTERS: TrendFilter[] = ["all", "twitter", "reddit", "linkedin", "xiaohongshu", "xueqiu"];
-
 export default function TrendsScreen() {
   const { th, dark } = useTheme();
   const { appStyle } = useAppStyle();
@@ -61,11 +54,20 @@ export default function TrendsScreen() {
 
   const volumeFmt = useMemo(() => new Intl.NumberFormat(i18n.language), [i18n.language]);
 
-  const load = useCallback(async (mode: "initial" | "refresh" = "initial") => {
-    if (mode === "refresh") setRefreshing(true);
-    else setLoading(true);
+  const load = useCallback(async (mode: "initial" | "refresh" | "force" = "initial") => {
+    if (mode === "initial") setLoading(true);
+    else setRefreshing(true);
     setError(null);
     try {
+      // "force": empuja un re-scrape en el servidor (respeta su cooldown) y
+      // luego recarga. Sin esto, tirar para refrescar solo re-lee la BD.
+      if (mode === "force") {
+        try {
+          await api("/api/trends/refresh", { method: "POST" });
+        } catch {
+          /* cooldown / sin sesión: seguimos y recargamos lo que haya */
+        }
+      }
       const qs = new URLSearchParams({ source });
       const r = await api<TrendsResponse>(`/api/trends?${qs.toString()}`);
       setItems(r.items ?? []);
@@ -91,14 +93,14 @@ export default function TrendsScreen() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => void load("refresh")}
+              onRefresh={() => void load("force")}
               tintColor={accent}
               colors={[accent]}
             />
           }
           ListHeaderComponent={
             <View style={styles.filters}>
-              {FILTERS.map((f) => {
+              {TREND_FILTERS.map((f) => {
                 const active = source === f;
                 return (
                   <Pressable
@@ -134,55 +136,49 @@ export default function TrendsScreen() {
               <EmptyState icon="logo-rss" title={t("trends.empty")} />
             )
           }
-          renderItem={({ item }) => (
-            <Pressable
-              onPress={() =>
-                router.push({
-                  pathname: "/trends/[id]",
-                  params: { id: item.id },
-                } as never)
-              }
-              style={({ pressed }) => [
-                styles.row,
-                { backgroundColor: th.surfaceRaised, borderColor: th.border },
-                pressed && { opacity: 0.65 },
-              ]}
-            >
-              <View style={styles.rowMain}>
-                <Text style={[styles.name, { color: th.text }]} numberOfLines={2}>
-                  {item.name}
-                </Text>
-                <View style={styles.meta}>
-                  <View style={[styles.sourceChip, { backgroundColor: accent }]}>
-                    <Text style={styles.sourceChipText}>{trendSourceLabel(item.source, t)}</Text>
-                  </View>
-                  {item.volume != null && (
-                    <Text style={[styles.metaText, { color: th.textMuted }]} numberOfLines={1}>
-                      {t("trends.volume_label")}: {volumeFmt.format(item.volume)}
-                    </Text>
-                  )}
-                  <Text style={[styles.metaText, { color: th.textSubtle }]} numberOfLines={1}>
-                    {newsTimeAgo(item.updatedAt, t)}
+          renderItem={({ item }) => {
+            const meta = trendSourceMeta(item.source);
+            return (
+              <Pressable
+                onPress={() =>
+                  router.push({
+                    pathname: "/trends/[id]",
+                    params: { id: item.id },
+                  } as never)
+                }
+                style={({ pressed }) => [
+                  styles.row,
+                  { backgroundColor: th.surfaceRaised, borderColor: th.border },
+                  pressed && { opacity: 0.65 },
+                ]}
+              >
+                <View style={styles.rowMain}>
+                  <Text style={[styles.name, { color: th.text }]} numberOfLines={2}>
+                    {item.name}
                   </Text>
+                  <View style={styles.meta}>
+                    <View style={[styles.sourceChip, { backgroundColor: meta.color }]}>
+                      <Ionicons name={meta.icon} size={11} color="#fff" />
+                      <Text style={styles.sourceChipText}>{trendSourceLabel(item.source, t)}</Text>
+                    </View>
+                    {item.volume != null && (
+                      <Text style={[styles.metaText, { color: th.textMuted }]} numberOfLines={1}>
+                        {t("trends.volume_label")}: {volumeFmt.format(item.volume)}
+                      </Text>
+                    )}
+                    <Text style={[styles.metaText, { color: th.textSubtle }]} numberOfLines={1}>
+                      {newsTimeAgo(item.updatedAt, t)}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={th.textSubtle} />
-            </Pressable>
-          )}
+                <Ionicons name="chevron-forward" size={18} color={th.textSubtle} />
+              </Pressable>
+            );
+          }}
         />
       </View>
     </Screen>
   );
-}
-
-export function trendSourceLabel(source: TrendFilter | TrendSource, t: ReturnType<typeof useTranslation>["t"]): string {
-  if (source === "all") return t("trends.filter_all");
-  if (source === "twitter") return t("trends.source_twitter");
-  if (source === "reddit") return t("trends.source_reddit");
-  if (source === "linkedin") return t("trends.source_linkedin");
-  if (source === "xiaohongshu") return t("trends.source_xiaohongshu");
-  if (source === "xueqiu") return t("trends.source_xueqiu");
-  return source;
 }
 
 const styles = StyleSheet.create({
@@ -210,7 +206,14 @@ const styles = StyleSheet.create({
   rowMain: { flex: 1, gap: 8 },
   name: { fontSize: 16, lineHeight: 21, fontFamily: fonts.bodyBold },
   meta: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 7 },
-  sourceChip: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
+  sourceChip: {
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
   sourceChipText: { color: "#fff", fontSize: 10, fontFamily: fonts.bodyBold },
   metaText: { fontSize: 11, fontFamily: fonts.bodyMedium },
 });

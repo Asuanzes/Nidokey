@@ -94,6 +94,9 @@ enum TrendSource {
   instagram
   tiktok
   youtube
+  googletrends
+  hackernews
+  twitch
 }
 
 enum MediaKind {

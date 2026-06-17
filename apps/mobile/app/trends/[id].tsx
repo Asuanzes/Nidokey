@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { useTranslation } from "react-i18next";
 
@@ -18,16 +19,7 @@ import { fonts } from "@/lib/fonts";
 import { useNews, type NewsItem } from "@/lib/hooks/useNews";
 import { categoryColor } from "@/lib/records/config";
 import { useTheme } from "@/lib/theme";
-
-type TrendSource =
-  | "twitter"
-  | "reddit"
-  | "linkedin"
-  | "xiaohongshu"
-  | "xueqiu"
-  | "instagram"
-  | "tiktok"
-  | "youtube";
+import { trendSourceLabel, trendSourceMeta, type TrendSource } from "@/lib/trends/sources";
 
 type TrendDTO = {
   id: string;
@@ -40,6 +32,11 @@ type TrendDTO = {
   url: string | null;
   updatedAt: string;
 };
+
+// Noticias visibles: las que entran en la pantalla de entrada. El backend ya
+// limita a 7; este tope frontal lo refuerza por si una build OTA va por delante
+// del deploy del API.
+const MAX_NEWS = 7;
 
 export default function TrendDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -54,6 +51,7 @@ export default function TrendDetailScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const newsQuery = useMemo(() => ({ kind: "trend" as const, trendId }), [trendId]);
   const { items: news, loading: newsLoading, error: newsError, reload: reloadNews } = useNews(newsQuery);
+  const visibleNews = useMemo(() => news.slice(0, MAX_NEWS), [news]);
   const volumeFmt = useMemo(() => new Intl.NumberFormat(i18n.language), [i18n.language]);
 
   const loadTrend = useCallback(async () => {
@@ -102,7 +100,8 @@ export default function TrendDetailScreen() {
       ) : trend ? (
         <View style={[styles.hero, { backgroundColor: th.surfaceRaised, borderColor: th.border }]}>
           <View style={styles.heroTop}>
-            <View style={[styles.sourceChip, { backgroundColor: accent }]}>
+            <View style={[styles.sourceChip, { backgroundColor: trendSourceMeta(trend.source).color }]}>
+              <Ionicons name={trendSourceMeta(trend.source).icon} size={11} color="#fff" />
               <Text style={styles.sourceChipText}>{trendSourceLabel(trend.source, t)}</Text>
             </View>
             <Text style={[styles.updated, { color: th.textSubtle }]}>{newsTimeAgo(trend.updatedAt, t)}</Text>
@@ -125,9 +124,9 @@ export default function TrendDetailScreen() {
   return (
     <Screen background backgroundCategory="trends">
       <FlatList<NewsItem>
-        data={news}
+        data={visibleNews}
         keyExtractor={(item) => item.url}
-        contentContainerStyle={[styles.list, news.length === 0 && styles.emptyList]}
+        contentContainerStyle={[styles.list, visibleNews.length === 0 && styles.emptyList]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -158,15 +157,6 @@ export default function TrendDetailScreen() {
   );
 }
 
-function trendSourceLabel(source: TrendSource, t: ReturnType<typeof useTranslation>["t"]): string {
-  if (source === "twitter") return t("trends.source_twitter");
-  if (source === "reddit") return t("trends.source_reddit");
-  if (source === "linkedin") return t("trends.source_linkedin");
-  if (source === "xiaohongshu") return t("trends.source_xiaohongshu");
-  if (source === "xueqiu") return t("trends.source_xueqiu");
-  return source;
-}
-
 const styles = StyleSheet.create({
   list: { paddingHorizontal: 16, paddingBottom: 32 },
   emptyList: { flexGrow: 1 },
@@ -174,7 +164,14 @@ const styles = StyleSheet.create({
   headerLoader: { marginVertical: 18 },
   hero: { borderWidth: 1, borderRadius: 16, padding: 16, gap: 10 },
   heroTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
-  sourceChip: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  sourceChip: {
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
   sourceChipText: { color: "#fff", fontSize: 10, fontFamily: fonts.bodyBold },
   updated: { fontSize: 11, fontFamily: fonts.bodyMedium },
   name: { fontSize: 24, lineHeight: 30, fontFamily: fonts.headingBold },
