@@ -961,9 +961,10 @@ function reactionsEq(a: MessageDto["reactions"], b: MessageDto["reactions"]): bo
  * idéntico) y compara adjuntos por id (sus URLs firmadas cambian en cada
  * respuesta, pero el render usa stableAttachmentUrl).
  */
-// Enlaces pulsables a registros: el bot escribe [[tipo:id|Título]] (ver system
-// prompt en src/lib/chat/bot.ts). Aquí los convertimos en texto pulsable inline
-// que abre la ficha (/tipo/id, ya owner-scoped). Sin token = texto normal.
+// Enlaces pulsables del bot (ver system prompt en src/lib/chat/bot.ts):
+//  - [[tipo:id|Título]]  → abre la ficha del registro (/tipo/id, owner-scoped)
+//  - [[ir:/ruta|Etiqueta]] → navega a una pantalla (lista blanca NAV_ALLOW)
+// Aquí se convierten en texto pulsable inline. Sin token = texto normal.
 const RECORD_LINK_RE = /\[\[([a-z]+):([^\]|]+)\|([^\]]+)\]\]/g;
 const RECORD_ROUTES: Record<string, string> = {
   property: "property",
@@ -975,6 +976,24 @@ const RECORD_ROUTES: Record<string, string> = {
   trends: "trends",
 };
 
+// Lista blanca de navegación: el bot solo debe usar estas rutas; validar aquí
+// evita empujar rutas arbitrarias o peligrosas desde un mensaje.
+const NAV_ALLOW = new Set([
+  "/", "/search", "/importar", "/matches", "/account",
+  "/theme-settings", "/category-settings",
+  "/food/address", "/food/cart", "/food/checkout", "/food/orders",
+  "/chat/contacts", "/chat/new", "/chat/blocked",
+  "/viajes/nuevo",
+  "/tools/mortgage", "/tools/catastro", "/tools/registro", "/tools/ine",
+]);
+
+/** Ruta destino de un token [[kind:target|label]], o null si no es válido. */
+function linkDest(kind: string, target: string): string | null {
+  if (kind === "ir") return NAV_ALLOW.has(target) ? target : null;
+  const route = RECORD_ROUTES[kind];
+  return route ? `/${route}/${target}` : null;
+}
+
 function MessageBody({ body, color, linkColor }: { body: string; color: string; linkColor: string }) {
   if (!body.includes("[[")) return <Text style={[styles.bubbleText, { color }]}>{body}</Text>;
   const parts: ReactNode[] = [];
@@ -984,15 +1003,14 @@ function MessageBody({ body, color, linkColor }: { body: string; color: string; 
   let m: RegExpExecArray | null;
   while ((m = re.exec(body)) !== null) {
     if (m.index > last) parts.push(body.slice(last, m.index));
-    const route = RECORD_ROUTES[m[1]];
-    const id = m[2];
+    const dest = linkDest(m[1], m[2]);
     const label = m[3];
-    if (route) {
+    if (dest) {
       parts.push(
         <Text
           key={`lnk${i++}`}
           style={{ color: linkColor, textDecorationLine: "underline" }}
-          onPress={() => router.push(`/${route}/${id}` as never)}
+          onPress={() => router.push(dest as never)}
         >
           {label}
         </Text>,

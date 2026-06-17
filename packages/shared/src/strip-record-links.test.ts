@@ -19,3 +19,7 @@ test("token sin título se elimina; texto normal intacto", () => {
   assert.equal(stripRecordLinks("antes [[crypto:abc]] después"), "antes  después");
   assert.equal(stripRecordLinks("sin tokens aquí"), "sin tokens aquí");
 });
+
+test("token de navegación [[ir:/ruta|Etiqueta]] -> Etiqueta", () => {
+  assert.equal(stripRecordLinks("Abre [[ir:/food/cart|el carrito]]"), "Abre el carrito");
+});
