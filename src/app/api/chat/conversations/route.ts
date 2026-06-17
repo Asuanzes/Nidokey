@@ -7,6 +7,7 @@ import { anyBlockBetween } from "@/lib/chat/guard";
 import { directKey } from "@/lib/chat/util";
 import { conversationDto } from "@/lib/chat/serialize";
 import { unreadByConversation } from "@/lib/chat/unread";
+import { ensureBotDm } from "@/lib/chat/bot";
 
 const PARTICIPANT_INCLUDE = {
   participants: { include: { user: { select: { id: true, name: true, username: true, email: true, image: true } } } },
@@ -19,6 +20,15 @@ const PARTICIPANT_INCLUDE = {
 export async function GET() {
   const userId = await requireUserId();
   if (!CHAT_FLAGS.enabled) return NextResponse.json({ conversations: [] });
+
+  // El chat con Nidokey siempre presente, lo asegura cualquier cliente al listar
+  // (no solo bootstrap) → así aparece en iOS aunque su bundle no llame a bootstrap.
+  // Idempotente y barato (findUnique salvo la 1ª vez). No bloqueante.
+  try {
+    await ensureBotDm(userId);
+  } catch (e) {
+    console.error("[chat-bot] ensureBotDm (list):", e);
+  }
 
   const conversations = await prisma.conversation.findMany({
     where: { participants: { some: { userId, leftAt: null } } },

@@ -38,7 +38,6 @@ export async function ensureNidokeyBot(): Promise<void> {
  */
 export async function ensureBotDm(userId: string): Promise<string | null> {
   if (userId === NIDOKEY_BOT_ID) return null;
-  await ensureNidokeyBot();
   const key = directKey(userId, NIDOKEY_BOT_ID);
   const existing = await prisma.conversation.findUnique({
     where: { directKey: key },
@@ -49,6 +48,7 @@ export async function ensureBotDm(userId: string): Promise<string | null> {
     if (existing.lastMessageAt === null) await seedWelcome(existing.id);
     return existing.id;
   }
+  await ensureNidokeyBot(); // solo al crear el DM (no un upsert en cada poll de la lista)
   const created = await prisma.conversation.create({
     data: {
       kind: "DIRECT",
@@ -149,30 +149,34 @@ async function callGroq(history: Turn[]): Promise<string | null> {
     { role: "system", content: BOT_SYSTEM_PROMPT },
     ...history.map((t) => ({ role: t.role === "model" ? "assistant" : "user", content: t.text.slice(0, 2000) })),
   ];
-  try {
-    const res = await fetch(GROQ_URL, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: GROQ_MODEL, messages, temperature: 0.6, max_tokens: 500 }),
-      cache: "no-store",
-      signal: AbortSignal.timeout(30000),
-    });
-    if (!res.ok) {
-      console.error("[chat-bot] groq HTTP", res.status, (await res.text()).slice(0, 300));
-      return null;
+  // Resiliencia barata: si el modelo principal falla o topa el límite por minuto
+  // (429), probamos uno más ligero (mayor cuota/min). Si todos fallan → eco.
+  const models = [...new Set([GROQ_MODEL, "llama-3.1-8b-instant"])];
+  for (const model of models) {
+    try {
+      const res = await fetch(GROQ_URL, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, messages, temperature: 0.6, max_tokens: 500 }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(25000),
+      });
+      if (!res.ok) {
+        console.error("[chat-bot] groq HTTP", res.status, model, (await res.text()).slice(0, 200));
+        continue;
+      }
+      const body = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+      const out = body.choices?.[0]?.message?.content?.trim();
+      if (out) {
+        console.log("[chat-bot] groq OK", out.length, "chars, model=", model);
+        return out;
+      }
+      console.warn("[chat-bot] groq 200 sin texto, model=", model);
+    } catch (e) {
+      console.error("[chat-bot] groq error", model, e instanceof Error ? e.message : e);
     }
-    const body = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-    const out = body.choices?.[0]?.message?.content?.trim();
-    if (!out) {
-      console.warn("[chat-bot] groq 200 sin texto, model=", GROQ_MODEL);
-      return null;
-    }
-    console.log("[chat-bot] groq OK", out.length, "chars, model=", GROQ_MODEL);
-    return out;
-  } catch (e) {
-    console.error("[chat-bot] groq error:", e instanceof Error ? e.message : e);
-    return null;
   }
+  return null;
 }
 
 /**
