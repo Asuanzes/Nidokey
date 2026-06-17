@@ -136,7 +136,14 @@ type Turn = { role: "user" | "model"; text: string };
 
 async function callGemini(history: Turn[]): Promise<string | null> {
   const key = process.env.GEMINI_API_KEY?.trim();
-  if (!key || history.length === 0) return null;
+  if (!key) {
+    console.warn("[chat-bot] sin GEMINI_API_KEY en el entorno del deploy (¿env en Production + redeploy?)");
+    return null;
+  }
+  if (history.length === 0) {
+    console.warn("[chat-bot] historial vacío, no llamo a Gemini");
+    return null;
+  }
   const contents = history.map((t) => ({ role: t.role, parts: [{ text: t.text.slice(0, 2000) }] }));
   try {
     const res = await fetch(`${GEMINI_BASE}/${BOT_MODEL}:generateContent?key=${encodeURIComponent(key)}`, {
@@ -151,12 +158,28 @@ async function callGemini(history: Turn[]): Promise<string | null> {
       signal: AbortSignal.timeout(30000),
     });
     if (!res.ok) {
-      console.error("[chat-bot] gemini HTTP", res.status, (await res.text()).slice(0, 200));
+      console.error("[chat-bot] gemini HTTP", res.status, (await res.text()).slice(0, 300));
       return null;
     }
-    const body = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-    const out = body.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("").trim();
-    return out || null;
+    const body = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
+      promptFeedback?: { blockReason?: string };
+    };
+    const cand = body.candidates?.[0];
+    const out = cand?.content?.parts?.map((p) => p.text ?? "").join("").trim();
+    if (!out) {
+      console.warn(
+        "[chat-bot] gemini 200 sin texto; finishReason=",
+        cand?.finishReason ?? "?",
+        "blockReason=",
+        body.promptFeedback?.blockReason ?? "-",
+        "model=",
+        BOT_MODEL,
+      );
+      return null;
+    }
+    console.log("[chat-bot] gemini OK", out.length, "chars, model=", BOT_MODEL);
+    return out;
   } catch (e) {
     console.error("[chat-bot] gemini error:", e instanceof Error ? e.message : e);
     return null;
