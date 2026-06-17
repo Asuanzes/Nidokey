@@ -99,6 +99,10 @@ export function categoryColor(type: RecordType, dark: boolean, style: AppStyle =
     const c = RECORD_TYPE_2100[type];
     return dark ? c.colorDark : c.color;
   }
+  if (style === "operativo") {
+    const cfg = RECORD_TYPE_CONFIG[type];
+    return dark && cfg.colorDark ? cfg.colorDark : cfg.color;
+  }
   const cfg = RECORD_TYPE_CONFIG[type];
   return dark && cfg.colorDark ? cfg.colorDark : cfg.color;
 }

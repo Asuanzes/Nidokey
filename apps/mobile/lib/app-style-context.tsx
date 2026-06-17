@@ -10,8 +10,10 @@ import {
 import { getItem, setItem } from "@/lib/secure-store";
 
 /**
- * Estilo VISUAL de la app: "vintage" (look actual: acero y latón envejecido)
- * o "2100" (futurista: fondos oscuros, degradados melocotón/magenta).
+ * Estilo VISUAL de la app:
+ * - "vintage": look actual, acero y latón envejecido.
+ * - "operativo": más compacto, sobrio y de lectura rápida.
+ * - "2100": futurista, fondos oscuros y acentos neón.
  *
  * Replica el patrón de `lib/theme.tsx` y `lib/i18n/language-context.tsx`:
  * persistido en SecureStore (Keychain / EncryptedSharedPreferences), con
@@ -25,7 +27,7 @@ import { getItem, setItem } from "@/lib/secure-store";
 
 const KEY = "nidokey.appStyle";
 
-export type AppStyle = "vintage" | "2100";
+export type AppStyle = "vintage" | "operativo" | "2100";
 
 type Ctx = {
   appStyle: AppStyle;
@@ -38,7 +40,9 @@ const AppStyleContext = createContext<Ctx>({
 });
 
 function parse(value: string | null | undefined): AppStyle {
-  return value === "2100" || value === "vintage" ? value : "vintage";
+  return value === "2100" || value === "operativo" || value === "vintage"
+    ? value
+    : "vintage";
 }
 
 export function AppStyleProvider({ children }: { children: ReactNode }) {

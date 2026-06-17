@@ -14,7 +14,17 @@ import { ShareIntentProvider, useShareIntentContext } from "expo-share-intent";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
-import { ThemeContext, T, TD, T2100, TD2100, useTheme, type ThemeMode } from "@/lib/theme";
+import {
+  ThemeContext,
+  T,
+  TD,
+  T2100,
+  TD2100,
+  TOperativo,
+  TDOperativo,
+  useTheme,
+  type ThemeMode,
+} from "@/lib/theme";
 import { applyNeonAccent } from "@/lib/neon-accents";
 import { NeonProvider, useNeon } from "@/lib/neon-context";
 import { useFonts } from "expo-font";
@@ -138,7 +148,18 @@ function ThemedShell({
 }) {
   const { appStyle } = useAppStyle();
   const { accent } = useNeon();
-  const base = appStyle === "2100" ? (dark ? TD2100 : T2100) : dark ? TD : T;
+  const base =
+    appStyle === "2100"
+      ? dark
+        ? TD2100
+        : T2100
+      : appStyle === "operativo"
+        ? dark
+          ? TDOperativo
+          : TOperativo
+        : dark
+          ? TD
+          : T;
   const th = appStyle === "2100" ? applyNeonAccent(base, accent, dark) : base;
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: th.bg }}>

@@ -171,6 +171,146 @@ export const TD = {
 export type Theme = typeof T;
 
 /**
+ * Paleta "operativo": variante más densa y utilitaria del acero/latón.
+ * Mantiene la identidad de Nidokey, pero reduce radios, elevación y contraste
+ * decorativo para que listas, formularios y tablas respiren mejor.
+ */
+export const TOperativo: Theme = {
+  bg: "#FAFAF7",
+  surface: "#FFFFFF",
+  border: "#E8E6E1",
+  text: "#1A1A18",
+  textMuted: "#6B6862",
+  textSubtle: "#9A9690",
+  primary: "#3A5F8A",
+  primarySoft: "#EAEFF6",
+  primaryFg: "#FAFAF7",
+  sourceBlue: "#3A5F8A",
+  accent: "#C49A4D",
+  accentSoft: "#F4ECD8",
+  dangerFg: "#A23E3E",
+  dangerSoft: "#F6E5E5",
+  imagePlaceholder: "#F4F3EE",
+  scoreBg: "#EFEEE8",
+  surfaceSoft: "#F7F6F1",
+  surfaceRaised: "#FFFFFF",
+  bgTop: "#FCFBF8",
+  bgBottom: "#F1EFE8",
+  overlay: "rgba(26,26,24,0.38)",
+  space: {
+    xs: 4,
+    sm: 8,
+    md: 12,
+    lg: 14,
+    xl: 18,
+    "2xl": 22,
+    "3xl": 28,
+  },
+  radii: {
+    sm: 6,
+    md: 8,
+    lg: 10,
+    xl: 14,
+    pill: 999,
+  },
+  type: {
+    eyebrow: 11,
+    caption: 12,
+    body: 14,
+    bodyLg: 16,
+    title: 23,
+    hero: 28,
+  },
+  elevation: {
+    none: {
+      shadowColor: "#000000",
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      elevation: 0,
+    },
+    sm: {
+      shadowColor: "#141412",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.04,
+      shadowRadius: 2,
+      elevation: 1,
+    },
+    md: {
+      shadowColor: "#141412",
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    lg: {
+      shadowColor: "#141412",
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.1,
+      shadowRadius: 14,
+      elevation: 6,
+    },
+  },
+};
+
+export const TDOperativo: Theme = {
+  bg: "#171614",
+  surface: "#211F1C",
+  border: "#34312C",
+  text: "#F1EEE7",
+  textMuted: "#B2ABA0",
+  textSubtle: "#777067",
+  primary: "#7EA7CC",
+  primarySoft: "#202D38",
+  primaryFg: "#F6F3EC",
+  sourceBlue: "#8FB3D0",
+  accent: "#D0A65A",
+  accentSoft: "#302817",
+  dangerFg: "#D06868",
+  dangerSoft: "#2E1818",
+  imagePlaceholder: "#2A2824",
+  scoreBg: "#2A2824",
+  surfaceSoft: "#1D1B18",
+  surfaceRaised: "#25221F",
+  bgTop: "#1C1A17",
+  bgBottom: "#12110F",
+  overlay: "rgba(0,0,0,0.58)",
+  space: { ...TOperativo.space },
+  radii: { ...TOperativo.radii },
+  type: { ...TOperativo.type },
+  elevation: {
+    none: {
+      shadowColor: "#000000",
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      elevation: 0,
+    },
+    sm: {
+      shadowColor: "#000000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.18,
+      shadowRadius: 3,
+      elevation: 1,
+    },
+    md: {
+      shadowColor: "#000000",
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.24,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    lg: {
+      shadowColor: "#000000",
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.3,
+      shadowRadius: 14,
+      elevation: 6,
+    },
+  },
+};
+
+/**
  * Paleta "2100" (visual alternativo). Mismo SHAPE que `T` para que el
  * `useTheme()` y todas las primitivas (Card, Chip, Section, …) sigan funcionando
  * sin condicionales en el sitio de uso. La rama del estilo vive en el
@@ -249,6 +389,7 @@ export const TD2100: Theme = {
 
 export function pickTheme(appStyle: AppStyle, dark: boolean): Theme {
   if (appStyle === "2100") return dark ? TD2100 : T2100;
+  if (appStyle === "operativo") return dark ? TDOperativo : TOperativo;
   return dark ? TD : T;
 }
 

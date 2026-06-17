@@ -7,10 +7,11 @@ import { useAppStyle, type AppStyle } from "@/lib/app-style-context";
 
 const STYLES: {
   value: AppStyle;
-  labelKey: "account.style_vintage" | "account.style_2100";
+  labelKey: "account.style_vintage" | "account.style_operativo" | "account.style_2100";
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
   { value: "vintage", labelKey: "account.style_vintage", icon: "library-outline" },
+  { value: "operativo", labelKey: "account.style_operativo", icon: "business-outline" },
   { value: "2100", labelKey: "account.style_2100", icon: "sparkles-outline" },
 ];
 

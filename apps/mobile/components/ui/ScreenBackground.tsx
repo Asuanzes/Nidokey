@@ -66,6 +66,17 @@ export function ScreenBackground({ category, color }: Props) {
       />
     );
   }
+  if (appStyle === "operativo") {
+    return (
+      <FlatOperativo
+        category={category}
+        color={color}
+        th={th}
+        dark={dark}
+        reduceMotion={reduceMotion}
+      />
+    );
+  }
   return (
     <DuneVintage
       category={category}
@@ -113,6 +124,58 @@ type LayerProps = {
   dark: boolean;
   reduceMotion: boolean;
 };
+
+/* -------------------------------------------------------------------------- */
+/* Operativo: fondo casi plano, con gradiente vertical suave y guías finas.    */
+/* -------------------------------------------------------------------------- */
+
+function FlatOperativo({ category, color, th, dark }: LayerProps) {
+  const { width, height } = useWindowDimensions();
+  const accent = color ?? (category ? categoryColor(category, dark, "operativo") : th.primary);
+  const h = Math.max(height, 640);
+  const w = Math.max(width, 320);
+  const top = mixHex(th.bgTop, accent, dark ? 0.05 : 0.025);
+  const mid = mixHex(th.bg, th.surfaceSoft, dark ? 0.16 : 0.32);
+  const bottom = mixHex(th.bgBottom, accent, dark ? 0.07 : 0.035);
+  const line = mixHex(accent, th.text, dark ? 0.26 : 0.34);
+
+  return (
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: th.bg }]}>
+      <Svg width={w} height={h} style={StyleSheet.absoluteFill}>
+        <Defs>
+          <LinearGradient id="screenBgOperativo" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={top} stopOpacity="1" />
+            <Stop offset="0.55" stopColor={mid} stopOpacity="1" />
+            <Stop offset="1" stopColor={bottom} stopOpacity="1" />
+          </LinearGradient>
+        </Defs>
+        <Rect x="0" y="0" width={w} height={h} fill="url(#screenBgOperativo)" />
+        <Rect
+          x="0"
+          y="0"
+          width={w}
+          height={Math.round(h * 0.18)}
+          fill={th.surfaceSoft}
+          opacity={dark ? 0.1 : 0.18}
+        />
+        <Path
+          d={`M 0 ${Math.round(h * 0.24)} L ${w} ${Math.round(h * 0.2)}`}
+          fill="none"
+          stroke={line}
+          strokeOpacity={dark ? 0.08 : 0.1}
+          strokeWidth={1}
+        />
+        <Path
+          d={`M 0 ${Math.round(h * 0.66)} L ${w} ${Math.round(h * 0.62)}`}
+          fill="none"
+          stroke={line}
+          strokeOpacity={dark ? 0.06 : 0.08}
+          strokeWidth={1}
+        />
+      </Svg>
+    </View>
+  );
+}
 
 function DuneVintage({ category, color, th, dark, reduceMotion }: LayerProps) {
   const { width, height } = useWindowDimensions();
