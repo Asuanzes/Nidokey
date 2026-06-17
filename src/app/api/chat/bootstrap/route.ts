@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth-helpers";
 import { CHAT_FLAGS, CHAT_LIMITS } from "@/lib/chat/config";
 import { unreadByConversation } from "@/lib/chat/unread";
+import { ensureBotDm } from "@/lib/chat/bot";
 
 /**
  * GET /api/chat/bootstrap — flags + límites + total de no-leídos (badge).
@@ -10,6 +11,18 @@ import { unreadByConversation } from "@/lib/chat/unread";
  */
 export async function GET() {
   const userId = await requireUserId();
+
+  // El chat con el asistente "Nidokey" siempre presente: lo aseguramos aquí
+  // (idempotente). No bloqueante — si fallara, el bootstrap sigue dando el badge.
+  // ponytail: write dentro de un GET, pero ocurre una sola vez por usuario
+  // (luego es findUnique); mover a un job si bootstrap se vuelve caliente.
+  if (CHAT_FLAGS.enabled) {
+    try {
+      await ensureBotDm(userId);
+    } catch (e) {
+      console.error("[chat-bot] ensureBotDm:", e);
+    }
+  }
 
   // Total de no-leídos: una query de membresías + una agregada (antes: un
   // count por conversación = N+1).
