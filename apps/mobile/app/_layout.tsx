@@ -459,7 +459,6 @@ function AuthGate() {
               title: t("types.trends.singular"),
             }}
           />
-          <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
           <Stack.Screen
             name="tools/mortgage"
             options={{
