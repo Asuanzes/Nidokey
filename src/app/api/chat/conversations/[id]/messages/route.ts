@@ -207,7 +207,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     Promise.allSettled([
       sendChatPush(message),
       notifyMessage(message),
-      ...(botDM ? [respondAsBot(id)] : []),
+      ...(botDM ? [respondAsBot(id, userId)] : []),
     ])
   );
 

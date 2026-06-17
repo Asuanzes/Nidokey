@@ -2,8 +2,10 @@ import { prisma } from "@/lib/db";
 import { directKey, messagePreview } from "@/lib/chat/util";
 import { sendChatPush } from "@/lib/chat/push";
 import { notifyMessage } from "@/lib/chat/gateway";
+import { BOT_TOOLS, runTool, mintUserToken } from "@/lib/chat/bot-tools";
 
 const MAX_REPLY_CHARS = 800;
+const MAX_TOOL_ITERS = 4; // ponytail: tope de vueltas tool→modelo (anti-bucle/coste)
 
 /**
  * El asistente "Nidokey" es un participante de chat normal (una fila User), no
@@ -128,14 +130,53 @@ const HISTORY_TURNS = 15; // ponytail: ventana fija; subir si hace falta más co
 const BOT_SYSTEM_PROMPT = [
   "Eres «Nidokey», el asistente integrado en la app Nidokey: un organizador personal con varias categorías (inmuebles, comida, viajes, criptos, mercados, empleos, libros, tendencias y chat).",
   "Hablas en español, cercano y BREVE (2-4 frases). Puedes usar el emoji 🪺 de vez en cuando.",
-  "Ayudas a entender y usar la app: cómo importar un registro pegando/compartiendo una URL, qué es la pestaña Duplicados, cómo buscar, qué hace cada categoría, etc.",
-  "LÍMITES: por ahora NO ejecutas acciones por tu cuenta (no creas, buscas, borras ni fusionas registros, ni accedes a los datos privados del usuario). Si te lo piden, explícale cómo hacerlo él mismo; pronto podrás hacer algunas acciones.",
-  "No inventes funciones ni datos. Si no sabes algo, dilo.",
+  "Tienes HERRAMIENTAS para CONSULTAR los datos reales del usuario y los feeds; úsalas en vez de inventar:",
+  "- listar_registros(type) y ver_registro(type,id): sus inmuebles/criptos/mercados/empleos/libros/viajes (para 'buscar', lista y filtra tú).",
+  "- tendencias(source?), noticias_tendencia(trend_id), noticias_activos(crypto|market): tendencias y noticias.",
+  "Cuando menciones un registro, di su TÍTULO y en qué CATEGORÍA está, para que el usuario lo encuentre.",
+  "LÍMITES: solo LECTURA. NO creas, editas, borras, fusionas ni pagas nada, ni abres pantallas por él; si lo pide, explícale cómo hacerlo. Los menús de comida llegarán pronto.",
+  "No inventes datos: si una herramienta no devuelve nada, dilo con naturalidad.",
 ].join("\n");
 
 type Turn = { role: "user" | "model"; text: string };
 
-async function callGroq(history: Turn[]): Promise<string | null> {
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/** Una "conversación" con el modelo: pregunta → si pide herramientas, las ejecuta
+ *  y vuelve a preguntar con los resultados, hasta MAX_TOOL_ITERS o respuesta final. */
+async function runConversation(baseMessages: any[], model: string, key: string, token: string): Promise<string | null> {
+  const messages: any[] = [...baseMessages];
+  for (let iter = 0; iter < MAX_TOOL_ITERS; iter++) {
+    const res = await fetch(GROQ_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model, messages, tools: BOT_TOOLS, temperature: 0.5, max_tokens: 600 }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(25000),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${(await res.text()).slice(0, 150)}`);
+    const msg = ((await res.json()) as any).choices?.[0]?.message;
+    if (!msg) return null;
+    const calls = msg.tool_calls as { id: string; function?: { name?: string; arguments?: string } }[] | undefined;
+    if (calls?.length) {
+      messages.push(msg); // turno assistant con tool_calls (hay que devolverlo tal cual)
+      for (const tc of calls) {
+        const result = await runTool(tc.function?.name, tc.function?.arguments, token);
+        messages.push({ role: "tool", tool_call_id: tc.id, content: result });
+      }
+      continue; // re-preguntar al modelo con los resultados de las herramientas
+    }
+    const out = (msg.content as string | undefined)?.trim();
+    if (out) {
+      console.log("[chat-bot] groq OK", out.length, "chars, model=", model);
+      return out;
+    }
+    return null;
+  }
+  console.warn("[chat-bot] máx. iteraciones de herramientas, model=", model);
+  return null;
+}
+
+async function callGroq(history: Turn[], token: string): Promise<string | null> {
   const key = process.env.GROQ_API_KEY?.trim();
   if (!key) {
     console.warn("[chat-bot] sin GROQ_API_KEY en el entorno del deploy (¿env en Production + redeploy?)");
@@ -145,52 +186,40 @@ async function callGroq(history: Turn[]): Promise<string | null> {
     console.warn("[chat-bot] historial vacío, no llamo al LLM");
     return null;
   }
-  const messages = [
+  const base: any[] = [
     { role: "system", content: BOT_SYSTEM_PROMPT },
     ...history.map((t) => ({ role: t.role === "model" ? "assistant" : "user", content: t.text.slice(0, 2000) })),
   ];
-  // Resiliencia barata: si el modelo principal falla o topa el límite por minuto
-  // (429), probamos uno más ligero (mayor cuota/min). Si todos fallan → eco.
+  // Resiliencia: modelo principal y, si falla/429, uno más ligero (mayor cuota/min).
   const models = [...new Set([GROQ_MODEL, "llama-3.1-8b-instant"])];
   for (const model of models) {
     try {
-      const res = await fetch(GROQ_URL, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, messages, temperature: 0.6, max_tokens: 500 }),
-        cache: "no-store",
-        signal: AbortSignal.timeout(25000),
-      });
-      if (!res.ok) {
-        console.error("[chat-bot] groq HTTP", res.status, model, (await res.text()).slice(0, 200));
-        continue;
-      }
-      const body = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-      const out = body.choices?.[0]?.message?.content?.trim();
-      if (out) {
-        console.log("[chat-bot] groq OK", out.length, "chars, model=", model);
-        return out;
-      }
-      console.warn("[chat-bot] groq 200 sin texto, model=", model);
+      const out = await runConversation(base, model, key, token);
+      if (out) return out;
     } catch (e) {
       console.error("[chat-bot] groq error", model, e instanceof Error ? e.message : e);
     }
   }
   return null;
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 /**
  * Genera y publica la respuesta del bot a partir del historial reciente del DM.
- * LLM (Groq) si hay key; si no o si falla, eco. Pensado para correr en after()
- * → no bloquea el envío del usuario.
+ * Con herramientas (Groq function calling) acuñando un JWT del usuario para
+ * consultar SUS datos vía los endpoints existentes. Si no hay key o falla → eco.
+ * Pensado para correr en after() → no bloquea el envío del usuario.
  */
-export async function respondAsBot(conversationId: string): Promise<void> {
-  const rows = await prisma.chatMessage.findMany({
-    where: { conversationId, deletedAt: null },
-    orderBy: { createdAt: "desc" },
-    take: HISTORY_TURNS,
-    select: { senderId: true, body: true, kind: true },
-  });
+export async function respondAsBot(conversationId: string, userId: string): Promise<void> {
+  const [rows, user] = await Promise.all([
+    prisma.chatMessage.findMany({
+      where: { conversationId, deletedAt: null },
+      orderBy: { createdAt: "desc" },
+      take: HISTORY_TURNS,
+      select: { senderId: true, body: true, kind: true },
+    }),
+    prisma.user.findUnique({ where: { id: userId }, select: { email: true } }),
+  ]);
   const history: Turn[] = rows
     .reverse()
     .map((m) => ({
@@ -199,6 +228,7 @@ export async function respondAsBot(conversationId: string): Promise<void> {
     }))
     .filter((t) => t.text);
   const lastUser = [...history].reverse().find((t) => t.role === "user")?.text ?? null;
-  const text = (await callGroq(history)) ?? echoReply(lastUser);
+  const token = await mintUserToken(userId, user?.email ?? "");
+  const text = (await callGroq(history, token)) ?? echoReply(lastUser);
   await replyAsBot(conversationId, text);
 }
