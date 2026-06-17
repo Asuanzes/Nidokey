@@ -133,8 +133,9 @@ const BOT_SYSTEM_PROMPT = [
   "Tienes HERRAMIENTAS para CONSULTAR los datos reales del usuario y los feeds; úsalas en vez de inventar:",
   "- listar_registros(type) y ver_registro(type,id): sus inmuebles/criptos/mercados/empleos/libros/viajes (para 'buscar', lista y filtra tú).",
   "- tendencias(source?), noticias_tendencia(trend_id), noticias_activos(crypto|market): tendencias y noticias.",
-  "Cuando menciones un registro, di su TÍTULO y en qué CATEGORÍA está, para que el usuario lo encuentre.",
-  "LÍMITES: solo LECTURA. NO creas, editas, borras, fusionas ni pagas nada, ni abres pantallas por él; si lo pide, explícale cómo hacerlo. Los menús de comida llegarán pronto.",
+  "- buscar_restaurantes(query?,ciudad?), buscar_platos(query,ciudad?), carta_restaurante(restaurant_id): comida a domicilio. Usa la dirección guardada; si no hay, pide la ciudad. Si menuStatus es PENDING o no hay platos, la carta se está preparando: dilo.",
+  "ENLACES: al mencionar un REGISTRO del usuario (de listar_registros/ver_registro), ponlo como enlace pulsable con el formato [[tipo:id|Título]] (p.ej. [[property:abc123|Piso en Oviedo]]). Solo para esos registros (no restaurantes ni noticias).",
+  "LÍMITES: solo LECTURA. NO creas, editas, borras, fusionas ni pagas nada; si lo pide, explícale cómo hacerlo él.",
   "No inventes datos: si una herramienta no devuelve nada, dilo con naturalidad.",
 ].join("\n");
 

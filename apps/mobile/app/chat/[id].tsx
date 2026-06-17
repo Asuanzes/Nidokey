@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -961,6 +961,51 @@ function reactionsEq(a: MessageDto["reactions"], b: MessageDto["reactions"]): bo
  * idéntico) y compara adjuntos por id (sus URLs firmadas cambian en cada
  * respuesta, pero el render usa stableAttachmentUrl).
  */
+// Enlaces pulsables a registros: el bot escribe [[tipo:id|Título]] (ver system
+// prompt en src/lib/chat/bot.ts). Aquí los convertimos en texto pulsable inline
+// que abre la ficha (/tipo/id, ya owner-scoped). Sin token = texto normal.
+const RECORD_LINK_RE = /\[\[([a-z]+):([^\]|]+)\|([^\]]+)\]\]/g;
+const RECORD_ROUTES: Record<string, string> = {
+  property: "property",
+  crypto: "crypto",
+  market: "market",
+  job: "job",
+  book: "book",
+  holiday: "holiday",
+  trends: "trends",
+};
+
+function MessageBody({ body, color, linkColor }: { body: string; color: string; linkColor: string }) {
+  if (!body.includes("[[")) return <Text style={[styles.bubbleText, { color }]}>{body}</Text>;
+  const parts: ReactNode[] = [];
+  const re = new RegExp(RECORD_LINK_RE);
+  let last = 0;
+  let i = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(body)) !== null) {
+    if (m.index > last) parts.push(body.slice(last, m.index));
+    const route = RECORD_ROUTES[m[1]];
+    const id = m[2];
+    const label = m[3];
+    if (route) {
+      parts.push(
+        <Text
+          key={`lnk${i++}`}
+          style={{ color: linkColor, textDecorationLine: "underline" }}
+          onPress={() => router.push(`/${route}/${id}` as never)}
+        >
+          {label}
+        </Text>,
+      );
+    } else {
+      parts.push(label);
+    }
+    last = m.index + m[0].length;
+  }
+  if (last < body.length) parts.push(body.slice(last));
+  return <Text style={[styles.bubbleText, { color }]}>{parts}</Text>;
+}
+
 const Bubble = memo(BubbleInner, (prev, next) => {
   const a = prev.m;
   const b = next.m;
@@ -1040,7 +1085,7 @@ function BubbleInner({
                 ))}
               </View>
             )}
-            {!!m.body && <Text style={[styles.bubbleText, { color: th.text }]}>{m.body}</Text>}
+            {!!m.body && <MessageBody body={m.body} color={th.text} linkColor={th.primary} />}
           </>
         )}
         <View style={styles.bubbleMeta}>
