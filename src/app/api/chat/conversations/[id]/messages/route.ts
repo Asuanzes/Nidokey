@@ -9,6 +9,7 @@ import { messageDto } from "@/lib/chat/serialize";
 import { signMessageAttachments } from "@/lib/chat/r2";
 import { sendChatPush } from "@/lib/chat/push";
 import { notifyMessage } from "@/lib/chat/gateway";
+import { NIDOKEY_BOT_ID, isBotDirect, replyAsBot, echoReply } from "@/lib/chat/bot";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -196,7 +197,19 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   // (Expo, respeta mute) + tiempo real (gateway WS del VPS, no respeta mute → la
   // pantalla abierta se actualiza igual). El receptor sigue recibiendo al instante
   // porque after() corre nada más enviar la respuesta.
-  after(() => Promise.allSettled([sendChatPush(message), notifyMessage(message)]));
+  // Si es el DM con el asistente, Nidokey responde por el MISMO camino (eco en
+  // fase 3; Gemini en fase 4). Va dentro de after() → no retrasa el 201, y el
+  // bot nunca re-entra por esta ruta (no usa requireUserId) → sin bucle.
+  const botDM =
+    userId !== NIDOKEY_BOT_ID &&
+    isBotDirect(conversation.kind, conversation.participants.map((p) => p.userId));
+  after(() =>
+    Promise.allSettled([
+      sendChatPush(message),
+      notifyMessage(message),
+      ...(botDM ? [replyAsBot(id, echoReply(body))] : []),
+    ])
+  );
 
   return NextResponse.json(await signMessageAttachments(messageDto(message, userId)), { status: 201 });
 }

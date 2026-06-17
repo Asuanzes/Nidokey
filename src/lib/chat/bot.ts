@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/db";
-import { directKey } from "@/lib/chat/util";
+import { directKey, messagePreview } from "@/lib/chat/util";
+import { sendChatPush } from "@/lib/chat/push";
+import { notifyMessage } from "@/lib/chat/gateway";
+
+const MAX_REPLY_CHARS = 800;
 
 /**
  * El asistente "Nidokey" es un participante de chat normal (una fila User), no
@@ -53,4 +57,36 @@ export async function ensureBotDm(userId: string): Promise<string | null> {
     select: { id: true },
   });
   return created.id;
+}
+
+/** ¿La conversación es un DM 1:1 con el bot? (participantes activos = userIds). */
+export function isBotDirect(kind: string, participantUserIds: string[]): boolean {
+  return kind === "DIRECT" && participantUserIds.includes(NIDOKEY_BOT_ID);
+}
+
+/**
+ * Responde como Nidokey en la conversación, por el MISMO camino que un humano:
+ * crea el mensaje, actualiza el preview y avisa (push + gateway WS). Fase 3 =
+ * eco; en la fase 4 el `text` lo generará Gemini. Pensado para correr dentro de
+ * `after()` (post-respuesta), así que cualquier fallo es no-bloqueante.
+ */
+export async function replyAsBot(conversationId: string, text: string): Promise<void> {
+  const body = text.slice(0, MAX_REPLY_CHARS);
+  const now = new Date();
+  const message = await prisma.chatMessage.create({
+    data: { conversationId, senderId: NIDOKEY_BOT_ID, kind: "TEXT", body },
+    include: { attachments: true },
+  });
+  await prisma.conversation.update({
+    where: { id: conversationId },
+    data: { lastMessageAt: now, lastMessagePreview: messagePreview("TEXT", body) },
+  });
+  await Promise.allSettled([sendChatPush(message), notifyMessage(message)]);
+}
+
+/** Fase 3: eco simple (sin IA). Reemplazado por Gemini en la fase 4. */
+export function echoReply(userText: string | null): string {
+  const t = (userText ?? "").trim();
+  if (!t) return "🪺 Recibí tu mensaje. Pronto podré ayudarte con la app.";
+  return `🪺 Recibí: «${t.slice(0, 200)}». Pronto sabré ayudarte de verdad con la app.`;
 }
