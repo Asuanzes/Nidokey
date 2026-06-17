@@ -61,7 +61,11 @@ export function BrandLoading() {
           />
         ))}
       </Animated.View>
-      <Text style={[styles.title, { color: th.textMuted }]}>NIDOKEY</Text>
+      {/* Espacios a ambos lados A PROPÓSITO: en Android el `letterSpacing`
+          recorta el último glifo (y el padding no lo arregla fiable). Con un
+          espacio final, el recorte cae en el espacio, no en la "Y"; el espacio
+          inicial mantiene el wordmark centrado. NO quitar los espacios. */}
+      <Text style={[styles.title, { color: th.textMuted }]}>{" NIDOKEY "}</Text>
     </View>
   );
 }
