@@ -33,3 +33,14 @@ test("usernameError distingue formato vs reservado", () => {
   assert.equal(usernameError("x"), "format");
   assert.equal(usernameError("soporte"), "reserved");
 });
+
+test("marca @Nidokey protegida contra suplantación", () => {
+  // exacta + homoglifos + separadores → 'reserved'
+  for (const u of ["nidokey", "@Nidokey", "nidokey1", "nidokeyy", "n1dok3y", "n1d0key", "real_nidokey", "nidokey_app"]) {
+    assert.equal(usernameError(u), "reserved", u);
+  }
+  // cercanos pero legítimos siguen valiendo
+  for (const u of ["nido", "nidia_92", "keynote"]) {
+    assert.equal(isValidUsername(u), true, u);
+  }
+});
