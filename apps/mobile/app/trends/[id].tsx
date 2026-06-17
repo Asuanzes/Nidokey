@@ -102,7 +102,9 @@ export default function TrendDetailScreen() {
           <View style={styles.heroTop}>
             <View style={[styles.sourceChip, { backgroundColor: trendSourceMeta(trend.source).color }]}>
               <Ionicons name={trendSourceMeta(trend.source).icon} size={11} color="#fff" />
-              <Text style={styles.sourceChipText}>{trendSourceLabel(trend.source, t)}</Text>
+              {trend.source !== "twitter" && (
+                <Text style={styles.sourceChipText}>{trendSourceLabel(trend.source, t)}</Text>
+              )}
             </View>
             <Text style={[styles.updated, { color: th.textSubtle }]}>{newsTimeAgo(trend.updatedAt, t)}</Text>
           </View>

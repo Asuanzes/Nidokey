@@ -102,6 +102,10 @@ export default function TrendsScreen() {
             <View style={styles.filters}>
               {TREND_FILTERS.map((f) => {
                 const active = source === f;
+                const meta = f === "all" ? null : trendSourceMeta(f);
+                // El icono va en el color de marca; X (#000) sería invisible
+                // sobre el chip neutro en oscuro → para "twitter" usa th.text.
+                const iconColor = f === "twitter" ? th.text : meta?.color;
                 return (
                   <Pressable
                     key={f}
@@ -113,9 +117,12 @@ export default function TrendsScreen() {
                       { borderColor: active ? accent : th.border, backgroundColor: active ? th.accentSoft : th.surfaceRaised },
                     ]}
                   >
-                    <Text style={[styles.filterText, { color: active ? accent : th.textMuted }]}>
-                      {trendSourceLabel(f, t)}
-                    </Text>
+                    {meta && <Ionicons name={meta.icon} size={13} color={iconColor} />}
+                    {f !== "twitter" && (
+                      <Text style={[styles.filterText, { color: active ? accent : th.textMuted }]}>
+                        {trendSourceLabel(f, t)}
+                      </Text>
+                    )}
                   </Pressable>
                 );
               })}
@@ -159,7 +166,9 @@ export default function TrendsScreen() {
                   <View style={styles.meta}>
                     <View style={[styles.sourceChip, { backgroundColor: meta.color }]}>
                       <Ionicons name={meta.icon} size={11} color="#fff" />
-                      <Text style={styles.sourceChipText}>{trendSourceLabel(item.source, t)}</Text>
+                      {item.source !== "twitter" && (
+                        <Text style={styles.sourceChipText}>{trendSourceLabel(item.source, t)}</Text>
+                      )}
                     </View>
                     {item.volume != null && (
                       <Text style={[styles.metaText, { color: th.textMuted }]} numberOfLines={1}>
@@ -191,6 +200,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 7,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
   filterText: { fontSize: 12, fontFamily: fonts.bodySemibold },
   loader: { marginTop: 28 },
