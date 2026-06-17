@@ -34,6 +34,13 @@ type IconName = keyof typeof Ionicons.glyphMap;
 const FAB_BG = "#3A5F8A";
 const FAB_FG = "#FFFFFF";
 
+const TAB_ICON_OPERATIVO: Record<TabIconKey, IconName> = {
+  records: "albums-outline",
+  search: "search-outline",
+  duplicates: "layers-outline",
+  account: "person-circle-outline",
+};
+
 export default function TabsLayout() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
@@ -52,6 +59,7 @@ export default function TabsLayout() {
   // Quitar esta línea (y el !hideBar de abajo) restaura la barra siempre.
   const hideBar = isFoodCategory && pathname === "/";
   const is2100 = appStyle === "2100";
+  const isOperativo = appStyle === "operativo";
   const fabBg = is2100 ? th.primary : FAB_BG;
   const fabFg = FAB_FG; // el "+" SIEMPRE blanco puro (vintage/2100, claro/oscuro, cualquier acento)
   const fabGlow =
@@ -165,6 +173,8 @@ export default function TabsLayout() {
                       active={active}
                       framed={false}
                     />
+                  ) : isOperativo ? (
+                    <Ionicons name={TAB_ICON_OPERATIVO[tab.svg!]} size={24} color={color} />
                   ) : (
                     <SvgXml xml={TAB_ICON_SVG[tab.svg!]} width={24} height={24} color={color} />
                   )}

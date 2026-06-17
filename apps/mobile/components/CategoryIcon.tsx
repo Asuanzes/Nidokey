@@ -1,5 +1,6 @@
 import { SvgXml } from "react-native-svg";
 import { View, type StyleProp, type ViewStyle } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import type { RecordType } from "@nidokey/shared";
 
 import { useTheme } from "@/lib/theme";
@@ -32,6 +33,13 @@ export function CategoryIcon({ type, size = 24, color, style }: Props) {
     return (
       <View style={style}>
         <NeonIcon name={recordTypeConfig(type).icon} size={size} color={c} framed={false} />
+      </View>
+    );
+  }
+  if (appStyle === "operativo") {
+    return (
+      <View style={style}>
+        <Ionicons name={recordTypeConfig(type).icon} size={size} color={c} />
       </View>
     );
   }
