@@ -101,6 +101,13 @@ export const BOT_TOOLS = [
   },
 ];
 
+/** Las mismas tools en formato Anthropic (Claude): {name, description, input_schema}. */
+export const BOT_TOOLS_ANTHROPIC = BOT_TOOLS.map((t) => ({
+  name: t.function.name,
+  description: t.function.description,
+  input_schema: t.function.parameters,
+}));
+
 /** JWT efímero del usuario para que el bot llame a sus propios endpoints. */
 export async function mintUserToken(userId: string, email: string): Promise<string> {
   return issueMobileJwt(userId, email || `${userId}@nidokey.local`);

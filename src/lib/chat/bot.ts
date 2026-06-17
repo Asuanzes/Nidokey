@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import { directKey, messagePreview } from "@/lib/chat/util";
 import { sendChatPush } from "@/lib/chat/push";
 import { notifyMessage } from "@/lib/chat/gateway";
-import { BOT_TOOLS, runTool, mintUserToken } from "@/lib/chat/bot-tools";
+import { BOT_TOOLS, BOT_TOOLS_ANTHROPIC, runTool, mintUserToken } from "@/lib/chat/bot-tools";
 
 const MAX_REPLY_CHARS = 800;
 const MAX_TOOL_ITERS = 4; // ponytail: tope de vueltas tool→modelo (anti-bucle/coste)
@@ -205,6 +205,73 @@ async function callGroq(history: Turn[], token: string): Promise<string | null> 
   }
   return null;
 }
+
+const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL?.trim() || "claude-haiku-4-5-20251001";
+
+/**
+ * Claude (Anthropic) con herramientas — mucho más fiable con tool-use que el
+ * llama gratis de Groq (no se inventa las llamadas ni las escribe como texto).
+ * Devuelve null si no hay key (→ cae a Groq) o si la respuesta viene vacía.
+ */
+async function callClaude(history: Turn[], token: string): Promise<string | null> {
+  const key = process.env.ANTHROPIC_API_KEY?.trim();
+  if (!key || history.length === 0) return null;
+  // Anthropic: el system va aparte; los messages empiezan por "user".
+  const msgs: any[] = history.map((t) => ({ role: t.role === "model" ? "assistant" : "user", content: t.text.slice(0, 2000) }));
+  while (msgs.length && msgs[0].role === "assistant") msgs.shift();
+  if (!msgs.length) return null;
+  for (let iter = 0; iter < MAX_TOOL_ITERS; iter++) {
+    const res = await fetch(ANTHROPIC_URL, {
+      method: "POST",
+      headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({
+        model: CLAUDE_MODEL,
+        max_tokens: 700,
+        system: BOT_SYSTEM_PROMPT,
+        tools: BOT_TOOLS_ANTHROPIC,
+        messages: msgs,
+      }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!res.ok) throw new Error(`Anthropic HTTP ${res.status} ${(await res.text()).slice(0, 150)}`);
+    const body = (await res.json()) as any;
+    const blocks: any[] = Array.isArray(body.content) ? body.content : [];
+    const toolUses = blocks.filter((b) => b?.type === "tool_use");
+    if (toolUses.length && body.stop_reason === "tool_use") {
+      msgs.push({ role: "assistant", content: blocks }); // eco del turno con tool_use
+      const results = [];
+      for (const tu of toolUses) {
+        const out = await runTool(tu.name, JSON.stringify(tu.input ?? {}), token);
+        results.push({ type: "tool_result", tool_use_id: tu.id, content: out });
+      }
+      msgs.push({ role: "user", content: results });
+      continue; // re-preguntar con los resultados
+    }
+    const text = blocks.filter((b) => b?.type === "text").map((b) => b.text ?? "").join("").trim();
+    if (text) {
+      console.log("[chat-bot] claude OK", text.length, "chars, model=", CLAUDE_MODEL);
+      return text;
+    }
+    return null;
+  }
+  console.warn("[chat-bot] claude máx. iteraciones de herramientas");
+  return null;
+}
+
+/** Cascada del agente: Claude (fiable con tools) primero; Groq (gratis) de respaldo. */
+async function callLLM(history: Turn[], token: string): Promise<string | null> {
+  if (process.env.ANTHROPIC_API_KEY?.trim()) {
+    try {
+      const out = await callClaude(history, token);
+      if (out) return out;
+    } catch (e) {
+      console.error("[chat-bot] claude error:", e instanceof Error ? e.message : e);
+    }
+  }
+  return callGroq(history, token);
+}
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 /**
@@ -232,6 +299,6 @@ export async function respondAsBot(conversationId: string, userId: string): Prom
     .filter((t) => t.text);
   const lastUser = [...history].reverse().find((t) => t.role === "user")?.text ?? null;
   const token = await mintUserToken(userId, user?.email ?? "");
-  const text = (await callGroq(history, token)) ?? echoReply(lastUser);
+  const text = (await callLLM(history, token)) ?? echoReply(lastUser);
   await replyAsBot(conversationId, text);
 }
