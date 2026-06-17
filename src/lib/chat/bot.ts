@@ -110,9 +110,81 @@ export async function replyAsBot(conversationId: string, text: string): Promise<
   await Promise.allSettled([sendChatPush(message), notifyMessage(message)]);
 }
 
-/** Fase 3: eco simple (sin IA). Reemplazado por Gemini en la fase 4. */
+/** Eco simple, fallback cuando no hay Gemini configurado o la llamada falla. */
 export function echoReply(userText: string | null): string {
   const t = (userText ?? "").trim();
   if (!t) return "🪺 Recibí tu mensaje. Pronto podré ayudarte con la app.";
-  return `🪺 Recibí: «${t.slice(0, 200)}». Pronto sabré ayudarte de verdad con la app.`;
+  return `🪺 Recibí: «${t.slice(0, 200)}». (No tengo el modelo configurado ahora mismo.)`;
+}
+
+// ── Fase 4: respuesta con Gemini (mismo patrón keyless de llm-extract.ts) ──
+// El free tier de Gemini no va en EU → usar la GEMINI_API_KEY del proyecto con
+// billing (nidokey-llm) hace que el chat consuma el crédito de Google. Sin Vertex.
+const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+const BOT_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-2.0-flash";
+const HISTORY_TURNS = 15; // ponytail: ventana fija; subir si hace falta más contexto
+
+const BOT_SYSTEM_PROMPT = [
+  "Eres «Nidokey», el asistente integrado en la app Nidokey: un organizador personal con varias categorías (inmuebles, comida, viajes, criptos, mercados, empleos, libros, tendencias y chat).",
+  "Hablas en español, cercano y BREVE (2-4 frases). Puedes usar el emoji 🪺 de vez en cuando.",
+  "Ayudas a entender y usar la app: cómo importar un registro pegando/compartiendo una URL, qué es la pestaña Duplicados, cómo buscar, qué hace cada categoría, etc.",
+  "LÍMITES: por ahora NO ejecutas acciones por tu cuenta (no creas, buscas, borras ni fusionas registros, ni accedes a los datos privados del usuario). Si te lo piden, explícale cómo hacerlo él mismo; pronto podrás hacer algunas acciones.",
+  "No inventes funciones ni datos. Si no sabes algo, dilo.",
+].join("\n");
+
+type Turn = { role: "user" | "model"; text: string };
+
+async function callGemini(history: Turn[]): Promise<string | null> {
+  const key = process.env.GEMINI_API_KEY?.trim();
+  if (!key || history.length === 0) return null;
+  const contents = history.map((t) => ({ role: t.role, parts: [{ text: t.text.slice(0, 2000) }] }));
+  try {
+    const res = await fetch(`${GEMINI_BASE}/${BOT_MODEL}:generateContent?key=${encodeURIComponent(key)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: BOT_SYSTEM_PROMPT }] },
+        contents,
+        generationConfig: { temperature: 0.6, maxOutputTokens: 500 },
+      }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!res.ok) {
+      console.error("[chat-bot] gemini HTTP", res.status, (await res.text()).slice(0, 200));
+      return null;
+    }
+    const body = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+    const out = body.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("").trim();
+    return out || null;
+  } catch (e) {
+    console.error("[chat-bot] gemini error:", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+/**
+ * Genera y publica la respuesta del bot a partir del historial reciente del DM.
+ * Gemini si hay key (consume crédito en EU); si no o si falla, eco. Pensado para
+ * correr en after() → no bloquea el envío del usuario.
+ */
+export async function respondAsBot(conversationId: string): Promise<void> {
+  const rows = await prisma.chatMessage.findMany({
+    where: { conversationId, deletedAt: null },
+    orderBy: { createdAt: "desc" },
+    take: HISTORY_TURNS,
+    select: { senderId: true, body: true, kind: true },
+  });
+  const history: Turn[] = rows
+    .reverse()
+    .map((m) => ({
+      role: m.senderId === NIDOKEY_BOT_ID ? ("model" as const) : ("user" as const),
+      text: m.body ?? (m.kind === "TEXT" ? "" : "(adjunto)"),
+    }))
+    .filter((t) => t.text);
+  // Gemini exige que el historial empiece por un turno "user".
+  while (history.length && history[0].role === "model") history.shift();
+  const lastUser = [...history].reverse().find((t) => t.role === "user")?.text ?? null;
+  const text = (await callGemini(history)) ?? echoReply(lastUser);
+  await replyAsBot(conversationId, text);
 }

@@ -9,7 +9,7 @@ import { messageDto } from "@/lib/chat/serialize";
 import { signMessageAttachments } from "@/lib/chat/r2";
 import { sendChatPush } from "@/lib/chat/push";
 import { notifyMessage } from "@/lib/chat/gateway";
-import { NIDOKEY_BOT_ID, isBotDirect, replyAsBot, echoReply } from "@/lib/chat/bot";
+import { NIDOKEY_BOT_ID, isBotDirect, respondAsBot } from "@/lib/chat/bot";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -207,7 +207,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     Promise.allSettled([
       sendChatPush(message),
       notifyMessage(message),
-      ...(botDM ? [replyAsBot(id, echoReply(body))] : []),
+      ...(botDM ? [respondAsBot(id)] : []),
     ])
   );
 
