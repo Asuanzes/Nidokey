@@ -111,14 +111,16 @@ export default function TrendsScreen() {
                     key={f}
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
+                    accessibilityLabel={trendSourceLabel(f, t)}
                     onPress={() => setSource(f)}
                     style={[
                       styles.filterChip,
                       { borderColor: active ? accent : th.border, backgroundColor: active ? th.accentSoft : th.surfaceRaised },
                     ]}
                   >
-                    {meta && <Ionicons name={meta.icon} size={13} color={iconColor} />}
-                    {f !== "twitter" && (
+                    {meta ? (
+                      <Ionicons name={meta.icon} size={16} color={iconColor} />
+                    ) : (
                       <Text style={[styles.filterText, { color: active ? accent : th.textMuted }]}>
                         {trendSourceLabel(f, t)}
                       </Text>
@@ -164,11 +166,11 @@ export default function TrendsScreen() {
                     {item.name}
                   </Text>
                   <View style={styles.meta}>
-                    <View style={[styles.sourceChip, { backgroundColor: meta.color }]}>
-                      <Ionicons name={meta.icon} size={11} color="#fff" />
-                      {item.source !== "twitter" && (
-                        <Text style={styles.sourceChipText}>{trendSourceLabel(item.source, t)}</Text>
-                      )}
+                    <View
+                      style={[styles.sourceChip, { backgroundColor: meta.color }]}
+                      accessibilityLabel={trendSourceLabel(item.source, t)}
+                    >
+                      <Ionicons name={meta.icon} size={13} color="#fff" />
                     </View>
                     {item.volume != null && (
                       <Text style={[styles.metaText, { color: th.textMuted }]} numberOfLines={1}>

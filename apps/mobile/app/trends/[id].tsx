@@ -100,11 +100,11 @@ export default function TrendDetailScreen() {
       ) : trend ? (
         <View style={[styles.hero, { backgroundColor: th.surfaceRaised, borderColor: th.border }]}>
           <View style={styles.heroTop}>
-            <View style={[styles.sourceChip, { backgroundColor: trendSourceMeta(trend.source).color }]}>
-              <Ionicons name={trendSourceMeta(trend.source).icon} size={11} color="#fff" />
-              {trend.source !== "twitter" && (
-                <Text style={styles.sourceChipText}>{trendSourceLabel(trend.source, t)}</Text>
-              )}
+            <View
+              style={[styles.sourceChip, { backgroundColor: trendSourceMeta(trend.source).color }]}
+              accessibilityLabel={trendSourceLabel(trend.source, t)}
+            >
+              <Ionicons name={trendSourceMeta(trend.source).icon} size={13} color="#fff" />
             </View>
             <Text style={[styles.updated, { color: th.textSubtle }]}>{newsTimeAgo(trend.updatedAt, t)}</Text>
           </View>
