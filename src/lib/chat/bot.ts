@@ -40,8 +40,15 @@ export async function ensureBotDm(userId: string): Promise<string | null> {
   if (userId === NIDOKEY_BOT_ID) return null;
   await ensureNidokeyBot();
   const key = directKey(userId, NIDOKEY_BOT_ID);
-  const existing = await prisma.conversation.findUnique({ where: { directKey: key }, select: { id: true } });
-  if (existing) return existing.id;
+  const existing = await prisma.conversation.findUnique({
+    where: { directKey: key },
+    select: { id: true, lastMessageAt: true },
+  });
+  if (existing) {
+    // Sana DMs creados vacíos antes de añadir el saludo (no salían en la lista).
+    if (existing.lastMessageAt === null) await seedWelcome(existing.id);
+    return existing.id;
+  }
   const created = await prisma.conversation.create({
     data: {
       kind: "DIRECT",
@@ -56,7 +63,26 @@ export async function ensureBotDm(userId: string): Promise<string | null> {
     },
     select: { id: true },
   });
+  await seedWelcome(created.id);
   return created.id;
+}
+
+/**
+ * Saludo inicial para que el DM nazca "no vacío" (con lastMessageAt + preview) y
+ * aparezca en la lista. ponytail: sin dedup fuerte — dos bootstraps simultáneos
+ * podrían duplicar el saludo (carrera improbable); subir a lock/upsert si pasa.
+ */
+async function seedWelcome(conversationId: string): Promise<void> {
+  const welcome =
+    "👋 ¡Hola! Soy Nidokey, tu asistente dentro de la app. Aún estoy aprendiendo: " +
+    "pronto podré buscarte registros, importar enlaces y guiarte. Escríbeme lo que necesites.";
+  await prisma.chatMessage.create({
+    data: { conversationId, senderId: NIDOKEY_BOT_ID, kind: "TEXT", body: welcome },
+  });
+  await prisma.conversation.update({
+    where: { id: conversationId },
+    data: { lastMessageAt: new Date(), lastMessagePreview: messagePreview("TEXT", welcome) },
+  });
 }
 
 /** ¿La conversación es un DM 1:1 con el bot? (participantes activos = userIds). */
