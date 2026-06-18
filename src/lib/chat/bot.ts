@@ -113,6 +113,30 @@ export async function replyAsBot(conversationId: string, text: string): Promise<
   await Promise.allSettled([sendChatPush(message), notifyMessage(message)]);
 }
 
+/**
+ * Avisa al destinatario de un registro compartido: publica un mensaje de Nidokey
+ * en su DM con un enlace pulsable [[tipo:id|Título]] (+ push). Pensado para after().
+ */
+export async function notifyShare(
+  toUserId: string,
+  fromLabel: string,
+  recordType: string,
+  recordId: string,
+  title: string,
+): Promise<void> {
+  try {
+    const cid = await ensureBotDm(toUserId);
+    if (!cid) return;
+    const label = (title || "un registro").slice(0, 60);
+    await replyAsBot(
+      cid,
+      `📩 ${fromLabel} te ha compartido [[${recordType}:${recordId}|${label}]]. Dime «guárdalo» y lo añado a tus registros.`,
+    );
+  } catch {
+    /* no-bloqueante */
+  }
+}
+
 /** Eco simple, fallback cuando no hay Gemini configurado o la llamada falla. */
 export function echoReply(userText: string | null): string {
   const t = (userText ?? "").trim();
@@ -134,7 +158,7 @@ const BOT_SYSTEM_PROMPT = [
   "Tienes HERRAMIENTAS para CONSULTAR los datos reales del usuario y los feeds; úsalas en vez de inventar:",
   "- listar_registros(type) y ver_registro(type,id): sus inmuebles/criptos/mercados/empleos/libros/viajes (para 'buscar', lista y filtra tú).",
   "- tendencias(source?), noticias_tendencia(trend_id), noticias_activos(crypto|market): tendencias y noticias.",
-  "- compartidos_conmigo(): registros que OTROS usuarios te han compartido (solo lectura).",
+  "- compartidos_conmigo(): registros que OTROS usuarios te han compartido (solo lectura). guardar_compartido(type,id): guarda una COPIA en TUS registros (additivo; si tras un compartido el usuario dice «guárdalo»/«añádelo a los míos», úsalo directamente, sin pedir confirmación).",
   "- buscar_restaurantes(query?,ciudad?), buscar_platos(query,ciudad?), carta_restaurante(restaurant_id): comida a domicilio. Usa la dirección guardada; si no hay, pide la ciudad. Si menuStatus es PENDING o no hay platos, la carta se está preparando: dilo. Si la búsqueda no devuelve restaurantes, dilo con franqueza; NUNCA afirmes que puedes ver una carta sin haber encontrado antes el restaurante con buscar_restaurantes.",
   "Usa las herramientas por su MECANISMO de tool-calling; NUNCA escribas en el mensaje el nombre de una herramienta, sus argumentos ni JSON crudo: el usuario solo ve tu respuesta en lenguaje natural.",
   "Para 'mis criptos' usa listar_registros('crypto'); para 'mis acciones/mercados/ETFs' listar_registros('market'); noticias_activos es SOLO para noticias de esos activos.",

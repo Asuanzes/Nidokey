@@ -32,7 +32,9 @@
     "contacts": "Tus contactos",
     "done": "Compartido con {{user}}",
     "error": "No se pudo compartir.",
-    "action": "Compartir registro"
+    "action": "Compartir registro",
+    "save_short": "Guardar",
+    "saved": "Guardado en tus registros"
   },
   "shared": {
     "title": "Compartidos conmigo",

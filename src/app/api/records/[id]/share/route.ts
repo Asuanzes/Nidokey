@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { z } from "zod";
 import type { RecordType } from "@nidokey/shared";
 import { normalizeUsername } from "@nidokey/shared";
 
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth-helpers";
+import { notifyShare } from "@/lib/chat/bot";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -32,6 +33,24 @@ async function ownsRecord(type: RecordType, id: string, ownerId: string): Promis
     default:
       return (await prisma.property.count({ where })) > 0;
   }
+}
+
+/** Título del registro (para el aviso en el chat). */
+async function recordTitle(type: RecordType, id: string): Promise<string> {
+  const sel = { where: { id }, select: { title: true } };
+  const r =
+    type === "crypto"
+      ? await prisma.cryptoHolding.findUnique(sel)
+      : type === "market"
+        ? await prisma.marketInstrument.findUnique(sel)
+        : type === "job"
+          ? await prisma.jobListing.findUnique(sel)
+          : type === "book"
+            ? await prisma.bookRecord.findUnique(sel)
+            : type === "holiday"
+              ? await prisma.holiday.findUnique(sel)
+              : await prisma.property.findUnique(sel);
+  return r?.title ?? "";
 }
 
 /**
@@ -71,6 +90,14 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     where: { recordType_recordId_toUserId: { recordType: type, recordId: id, toUserId: target.id } },
     create: { recordType: type, recordId: id, fromUserId, toUserId: target.id },
     update: {},
+  });
+
+  // Aviso al destinatario (mensaje de Nidokey + push) DESPUÉS de responder.
+  const toId = target.id;
+  after(async () => {
+    const me = await prisma.user.findUnique({ where: { id: fromUserId }, select: { username: true, name: true } });
+    const fromLabel = me?.username ? "@" + me.username : me?.name ?? "Alguien";
+    await notifyShare(toId, fromLabel, type, id, await recordTitle(type, id));
   });
 
   return NextResponse.json({ ok: true, sharedWith: { username: target.username, name: target.name } });

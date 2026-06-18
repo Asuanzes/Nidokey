@@ -32,7 +32,9 @@
     "contacts": "Your contacts",
     "done": "Shared with {{user}}",
     "error": "Couldn't share.",
-    "action": "Share record"
+    "action": "Share record",
+    "save_short": "Save",
+    "saved": "Saved to your records"
   },
   "shared": {
     "title": "Shared with me",

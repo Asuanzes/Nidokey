@@ -171,6 +171,19 @@ export const BOT_TOOLS = [
       parameters: { type: "object", properties: {} },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "guardar_compartido",
+      description:
+        "Guarda en TUS registros una copia de un registro que te han compartido (type,id de compartidos_conmigo/ver_registro). Additivo y seguro: úsalo cuando el usuario diga «guárdalo»/«añádelo a los míos».",
+      parameters: {
+        type: "object",
+        properties: { type: { type: "string", enum: [...RECORD_TYPES] }, id: { type: "string" } },
+        required: ["type", "id"],
+      },
+    },
+  },
 ];
 
 /** Las mismas tools en formato Anthropic (Claude): {name, description, input_schema}. */
@@ -388,6 +401,13 @@ export async function runTool(name: string | undefined, argsJson: string | undef
       }
       case "compartidos_conmigo": {
         return cap(JSON.stringify(compactRecords(await apiGet("/api/records/shared", token))));
+      }
+      case "guardar_compartido": {
+        const type = String(args.type || "");
+        const id = String(args.id || "");
+        if (!RECORD_TYPES.includes(type as RecordType) || !id) return JSON.stringify({ error: "type/id no válidos" });
+        const data = await apiSend(`/api/records/${encodeURIComponent(id)}/adopt`, "POST", { type }, token);
+        return JSON.stringify(data);
       }
       default:
         return JSON.stringify({ error: "herramienta desconocida" });
