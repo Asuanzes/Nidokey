@@ -26,6 +26,7 @@ import { fetchPropertyDetail, type PropertyDetail } from "@/lib/records/property
 import { toolsForType, type ToolDef } from "@/lib/records/tools";
 import { CategoryContextSheet } from "@/components/CategoryContextSheet";
 import { ResultModal } from "@/components/ui";
+import { ShareRecordSheet } from "@/components/ShareRecordSheet";
 
 type Notice = { tone: "success" | "error" | "info"; title: string; message?: string };
 
@@ -43,6 +44,7 @@ export default function PropertyDetailScreen() {
   const { th } = useTheme();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const [shareOpen, setShareOpen] = useState(false);
 
   // El tipo viene de la API como string libre → Record construido con t() (no
   // se puede usar template literal tipado sobre un union aquí).
@@ -345,6 +347,7 @@ export default function PropertyDetailScreen() {
 
       <View style={[styles.floatBar, { top: insets.top + 8 }]} pointerEvents="box-none">
         <FloatButton icon="chevron-back" onPress={() => (from === "import" ? router.replace("/") : router.back())} />
+        <FloatButton icon="person-add-outline" onPress={() => setShareOpen(true)} />
         <FloatButton icon="create-outline" onPress={() => router.push(`/property/form?id=${p.id}` as never)} />
       </View>
 
@@ -365,6 +368,8 @@ export default function PropertyDetailScreen() {
         actions={[{ label: t("common.understood"), onPress: () => setNotice(null) }]}
         onRequestClose={() => setNotice(null)}
       />
+
+      <ShareRecordSheet visible={shareOpen} onClose={() => setShareOpen(false)} type="property" id={id} />
     </View>
   );
 }

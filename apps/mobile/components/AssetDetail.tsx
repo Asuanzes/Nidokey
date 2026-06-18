@@ -22,6 +22,7 @@ import { type BaseRecord, metaField, compactNumber } from "@nidokey/shared";
 import { api } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 import { marketLogoUrl } from "@/lib/records/market-logo";
+import { ShareRecordSheet } from "@/components/ShareRecordSheet";
 
 /**
  * Detalle de un activo (cripto o mercado), estilo Yahoo Finanzas:
@@ -58,6 +59,7 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { th } = useTheme();
   const { t } = useTranslation();
+  const [shareOpen, setShareOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const [record, setRecord] = useState<BaseRecord | null>(null);
   const [loading, setLoading] = useState(true);
@@ -370,6 +372,15 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
         </Pressable>
         <View style={styles.fabGroup}>
           <Pressable
+            onPress={() => setShareOpen(true)}
+            hitSlop={10}
+            style={({ pressed }) => [styles.fab, { backgroundColor: th.surface, borderColor: th.border }, pressed && { opacity: 0.85 }]}
+            accessibilityRole="button"
+            accessibilityLabel={t("share.action")}
+          >
+            <Ionicons name="person-add-outline" size={22} color={th.primary} />
+          </Pressable>
+          <Pressable
             onPress={onShare}
             hitSlop={10}
             style={({ pressed }) => [styles.fab, { backgroundColor: th.surface, borderColor: th.border }, pressed && { opacity: 0.85 }]}
@@ -389,6 +400,8 @@ export function AssetDetail({ type }: { type: "crypto" | "market" }) {
           </Pressable>
         </View>
       </View>
+
+      <ShareRecordSheet visible={shareOpen} onClose={() => setShareOpen(false)} type={type} id={id} />
     </View>
   );
 }

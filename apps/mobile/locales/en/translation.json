@@ -24,6 +24,21 @@
     "duplicates": "Dupes",
     "account": "Account"
   },
+  "share": {
+    "title": "Share",
+    "hint": "Give someone read-only access by their username.",
+    "username_placeholder": "username",
+    "send": "Share",
+    "contacts": "Your contacts",
+    "done": "Shared with {{user}}",
+    "error": "Couldn't share.",
+    "action": "Share record"
+  },
+  "shared": {
+    "title": "Shared with me",
+    "empty": "No one has shared records with you yet.",
+    "by": "Shared by {{user}}"
+  },
   "account": {
     "appearance": "Appearance",
     "theme_light": "Light",
@@ -36,6 +51,7 @@
     "theme": "Theme",
     "categories": "Categories",
     "manage_categories": "Manage categories",
+    "shared_with_me": "Shared with me",
     "server": "Server",
     "logout": "Log out",
     "footer": "Nidokey · v0.1.0",

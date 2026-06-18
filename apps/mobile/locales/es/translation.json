@@ -24,6 +24,21 @@
     "duplicates": "Duplic.",
     "account": "Cuenta"
   },
+  "share": {
+    "title": "Compartir",
+    "hint": "Da acceso de solo lectura a otra persona por su nombre de usuario.",
+    "username_placeholder": "usuario",
+    "send": "Compartir",
+    "contacts": "Tus contactos",
+    "done": "Compartido con {{user}}",
+    "error": "No se pudo compartir.",
+    "action": "Compartir registro"
+  },
+  "shared": {
+    "title": "Compartidos conmigo",
+    "empty": "Nadie te ha compartido registros todavía.",
+    "by": "Compartido por {{user}}"
+  },
   "account": {
     "appearance": "Apariencia",
     "theme_light": "Claro",
@@ -36,6 +51,7 @@
     "theme": "Tema",
     "categories": "Categorías",
     "manage_categories": "Gestionar categorías",
+    "shared_with_me": "Compartidos conmigo",
     "server": "Servidor",
     "logout": "Cerrar sesión",
     "footer": "Nidokey · v0.1.0",
