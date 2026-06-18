@@ -28,6 +28,7 @@ import {
 import { applyNeonAccent } from "@/lib/neon-accents";
 import { NeonProvider, useNeon } from "@/lib/neon-context";
 import { useFonts } from "expo-font";
+import { HeaderBack } from "@/components/HeaderBack";
 import { fontAssets, fonts } from "@/lib/fonts";
 import { isPortalUrl, extractSharedText } from "@/lib/portal-url";
 import { isBookShareText } from "@/lib/book-url";
@@ -344,7 +345,7 @@ function AuthGate() {
           botones) revienta. El loader se superpone encima mientras resuelve la
           sesión; las pantallas leen el token de SecureStore en cada llamada, así
           que no fallan por montar antes de que el AuthProvider resuelva. */}
-      <Stack>
+      <Stack screenOptions={{ headerLeft: () => <HeaderBack /> }}>
         <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

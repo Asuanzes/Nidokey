@@ -110,6 +110,14 @@ export default function PropertyDetailScreen() {
     }
   }
 
+  // Compartir nativo (OS): sale ahora como botón propio, fuera del panel de herramientas.
+  function nativeShare() {
+    if (!p) return;
+    void Share.share({
+      message: [p.title, formatPrice(p.currentPrice), p.listings[0]?.url].filter(Boolean).join("\n"),
+    });
+  }
+
   // Dispatch del panel contextual por id de herramienta.
   function handleTool(tool: ToolDef) {
     if (!p) return;
@@ -135,9 +143,7 @@ export default function PropertyDetailScreen() {
         return;
       case "share":
         setSheetOpen(false);
-        void Share.share({
-          message: [p.title, formatPrice(p.currentPrice), p.listings[0]?.url].filter(Boolean).join("\n"),
-        });
+        nativeShare();
         return;
     }
   }
@@ -237,15 +243,14 @@ export default function PropertyDetailScreen() {
               {t("detail.property.rent_gross_yield", { value: grossYield.toFixed(1) })}
             </Text>
           )}
-          <Pressable
-            onPress={() => setSheetOpen(true)}
-            accessibilityRole="button"
-            accessibilityLabel={t("detail.property.tools_title")}
-            hitSlop={8}
-            style={({ pressed }) => [styles.toolsFab, { backgroundColor: th.primary }, pressed && { opacity: 0.85 }]}
-          >
-            <Ionicons name="construct" size={20} color={th.primaryFg} />
-          </Pressable>
+        </View>
+
+        {/* Acciones de la ficha, juntas: herramientas · compartir (OS) · compartir con usuario · editar. */}
+        <View style={styles.actionsRow}>
+          <ActionBtn icon="construct-outline" label={t("detail.property.tools_title")} onPress={() => setSheetOpen(true)} />
+          <ActionBtn icon="share-social-outline" label={t("common.share")} onPress={nativeShare} />
+          <ActionBtn icon="person-add-outline" label={t("share.action")} onPress={() => setShareOpen(true)} />
+          <ActionBtn icon="create-outline" label={t("common.edit")} onPress={() => router.push(`/property/form?id=${p.id}` as never)} />
         </View>
 
         <View style={[styles.section, { backgroundColor: th.surface, borderColor: th.border }]}>
@@ -347,14 +352,12 @@ export default function PropertyDetailScreen() {
 
       <View style={[styles.floatBar, { top: insets.top + 8 }]} pointerEvents="box-none">
         <FloatButton icon="chevron-back" onPress={() => (from === "import" ? router.replace("/") : router.back())} />
-        <FloatButton icon="person-add-outline" onPress={() => setShareOpen(true)} />
-        <FloatButton icon="create-outline" onPress={() => router.push(`/property/form?id=${p.id}` as never)} />
       </View>
 
       <CategoryContextSheet
         visible={sheetOpen}
         title={t("detail.property.tools_title")}
-        tools={toolsForType("property")}
+        tools={toolsForType("property").filter((tl) => tl.id !== "share")}
         busyToolId={busyTool}
         onClose={() => setSheetOpen(false)}
         onSelect={handleTool}
@@ -371,6 +374,19 @@ export default function PropertyDetailScreen() {
 
       <ShareRecordSheet visible={shareOpen} onClose={() => setShareOpen(false)} type="property" id={id} />
     </View>
+  );
+}
+
+function ActionBtn({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
+  const { th } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.actionBtn, { backgroundColor: th.surface, borderColor: th.border }, pressed && { opacity: 0.7 }]}
+    >
+      <Ionicons name={icon} size={20} color={th.primary} />
+      <Text numberOfLines={1} style={[styles.actionLabel, { color: th.text }]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -410,6 +426,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  actionsRow: { flexDirection: "row", gap: 8, marginHorizontal: 12, marginTop: 12 },
+  actionBtn: { flex: 1, alignItems: "center", justifyContent: "center", gap: 4, paddingVertical: 10, borderWidth: 1, borderRadius: 12 },
+  actionLabel: { fontSize: 11 },
   center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
   gallery: { height: SCREEN_WIDTH * 0.66, backgroundColor: "#000" },
   photoCount: {
