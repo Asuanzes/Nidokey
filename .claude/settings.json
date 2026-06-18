@@ -12,6 +12,20 @@
     ]
   },
   "enabledPlugins": {
-    "superpowers@claude-plugins-official": true
+    "superpowers@claude-plugins-official": true,
+    "codex@openai-codex": true
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/block-prisma-migrate.cjs"
+          }
+        ]
+      }
+    ]
   }
 }
