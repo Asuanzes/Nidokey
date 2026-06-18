@@ -382,10 +382,11 @@ function ActionBtn({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyph
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
       style={({ pressed }) => [styles.actionBtn, { backgroundColor: th.surface, borderColor: th.border }, pressed && { opacity: 0.7 }]}
     >
-      <Ionicons name={icon} size={20} color={th.primary} />
-      <Text numberOfLines={1} style={[styles.actionLabel, { color: th.text }]}>{label}</Text>
+      <Ionicons name={icon} size={22} color={th.primary} />
     </Pressable>
   );
 }
