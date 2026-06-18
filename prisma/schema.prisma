@@ -648,6 +648,22 @@ model RecordDuplicateDismissal {
   @@index([ownerId, recordType])
 }
 
+// Compartir un registro con otro usuario: acceso de SOLO LECTURA al registro
+// VIVO del propietario (no es copia). Soft-ref por (recordType, recordId), sin FK
+// al registro concreto; el destinatario lo abre en modo lectura.
+model RecordShare {
+  id         String   @id @default(cuid())
+  recordType String
+  recordId   String
+  fromUserId String   // propietario que comparte
+  toUserId   String   // destinatario con acceso de lectura
+  createdAt  DateTime @default(now())
+
+  @@unique([recordType, recordId, toUserId])
+  @@index([toUserId, createdAt])
+  @@index([recordId])
+}
+
 // Tendencias globales (sin ownerId): caché persistente refrescada por cron.
 model Trend {
   id         String      @id @default(cuid())

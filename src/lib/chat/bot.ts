@@ -134,13 +134,14 @@ const BOT_SYSTEM_PROMPT = [
   "Tienes HERRAMIENTAS para CONSULTAR los datos reales del usuario y los feeds; úsalas en vez de inventar:",
   "- listar_registros(type) y ver_registro(type,id): sus inmuebles/criptos/mercados/empleos/libros/viajes (para 'buscar', lista y filtra tú).",
   "- tendencias(source?), noticias_tendencia(trend_id), noticias_activos(crypto|market): tendencias y noticias.",
+  "- compartidos_conmigo(): registros que OTROS usuarios te han compartido (solo lectura).",
   "- buscar_restaurantes(query?,ciudad?), buscar_platos(query,ciudad?), carta_restaurante(restaurant_id): comida a domicilio. Usa la dirección guardada; si no hay, pide la ciudad. Si menuStatus es PENDING o no hay platos, la carta se está preparando: dilo. Si la búsqueda no devuelve restaurantes, dilo con franqueza; NUNCA afirmes que puedes ver una carta sin haber encontrado antes el restaurante con buscar_restaurantes.",
   "Usa las herramientas por su MECANISMO de tool-calling; NUNCA escribas en el mensaje el nombre de una herramienta, sus argumentos ni JSON crudo: el usuario solo ve tu respuesta en lenguaje natural.",
   "Para 'mis criptos' usa listar_registros('crypto'); para 'mis acciones/mercados/ETFs' listar_registros('market'); noticias_activos es SOLO para noticias de esos activos.",
   "ENLACES: al mencionar un REGISTRO del usuario (de listar_registros/ver_registro), ponlo como enlace pulsable con el formato [[tipo:id|Título]] (p.ej. [[property:abc123|Piso en Oviedo]]). Solo para esos registros (no restaurantes ni noticias).",
   "NAVEGAR: para llevar al usuario a una pantalla, añade un enlace de navegación [[ir:/ruta|Etiqueta]] usando SOLO una de estas rutas: /search (buscar), /importar (añadir), /matches (duplicados), /account (cuenta/ajustes), /theme-settings (tema), /category-settings (categorías), /food/address (dirección de entrega), /food/cart (carrito), /food/orders (pedidos), /chat/contacts (contactos), /chat/new (nuevo chat), /viajes/nuevo (planear viaje), /tools/mortgage (calculadora de hipoteca). Para abrir un registro concreto usa [[tipo:id|Título]], no [[ir:...]].",
-  "- crear_registro(type,modo,valor), borrar_registro(type,id), fusionar_registros(type,keep_id,drop_ids): ACCIONES que ESCRIBEN datos.",
-  "⚠️ CONFIRMACIÓN OBLIGATORIA: antes de crear, borrar o fusionar, NO ejecutes la herramienta. Primero resume en 1 frase qué vas a hacer y pregunta '¿Confirmo?'. Llama la herramienta SOLO después de que el usuario confirme (sí/confirmo/adelante) en su SIGUIENTE mensaje. Borrar es irreversible: nunca borres sin un 'sí' explícito.",
+  "- crear_registro(type,modo,valor), borrar_registro(type,id), fusionar_registros(type,keep_id,drop_ids), compartir_registro(type,id,usuario): ACCIONES que ESCRIBEN datos. compartir da acceso de SOLO LECTURA a otra persona por su @usuario.",
+  "⚠️ CONFIRMACIÓN OBLIGATORIA: antes de crear, borrar, fusionar o compartir, NO ejecutes la herramienta. Primero resume en 1 frase qué vas a hacer (al compartir, con quién) y pregunta '¿Confirmo?'. Llama la herramienta SOLO después de que el usuario confirme (sí/confirmo/adelante) en su SIGUIENTE mensaje. Borrar es irreversible: nunca borres sin un 'sí' explícito.",
   "Aún NO puedes pagar ni editar campos sueltos de un registro; si lo piden, dilo.",
   "No inventes datos: si una herramienta no devuelve nada, dilo con naturalidad.",
 ].join("\n") + "\n\n" + APP_GUIDE;
@@ -232,7 +233,9 @@ async function callClaude(history: Turn[], token: string): Promise<string | null
       body: JSON.stringify({
         model: CLAUDE_MODEL,
         max_tokens: 700,
-        system: BOT_SYSTEM_PROMPT,
+        // Caché explícita: el breakpoint en el bloque system cachea tools+system
+        // (prefijo estático, compartido entre turnos, vueltas del loop y usuarios).
+        system: [{ type: "text", text: BOT_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
         tools: BOT_TOOLS_ANTHROPIC,
         messages: msgs,
       }),
@@ -255,7 +258,9 @@ async function callClaude(history: Turn[], token: string): Promise<string | null
     }
     const text = blocks.filter((b) => b?.type === "text").map((b) => b.text ?? "").join("").trim();
     if (text) {
-      console.log("[chat-bot] claude OK", text.length, "chars, model=", CLAUDE_MODEL);
+      const u = body.usage ?? {};
+      // cache w/r > 0 confirma que la caché engancha (en Haiku el prefijo debe pasar de 4096 tokens).
+      console.log("[chat-bot] claude OK", text.length, "chars; cache w/r:", u.cache_creation_input_tokens ?? 0, "/", u.cache_read_input_tokens ?? 0);
       return text;
     }
     return null;

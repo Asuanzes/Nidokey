@@ -20,55 +20,63 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   const ownerId = await requireUserId();
   const type = (req.nextUrl.searchParams.get("type") ?? "property") as RecordType;
 
+  // ¿Me lo han compartido? Si sí, abro en SOLO LECTURA sin filtrar por ownerId,
+  // pero acotado a ESTE id concreto que el RecordShare me autoriza.
+  const share = await prisma.recordShare.findUnique({
+    where: { recordType_recordId_toUserId: { recordType: type, recordId: id, toUserId: ownerId } },
+  });
+  const where = share ? { id } : { id, ownerId };
+  const extra = share ? { shared: true, readOnly: true } : {};
+
   if (type === "crypto") {
     const holding = await prisma.cryptoHolding.findFirst({
-      where: { id, ownerId },
+      where,
       include: { snapshots: { orderBy: { observedAt: "asc" } } },
     });
     if (!holding) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const record = cryptoToBaseRecord(holding);
-    return NextResponse.json({ ...record, meta: { ...record.meta, detail: holding } });
+    return NextResponse.json({ ...record, meta: { ...record.meta, detail: holding, ...extra } });
   }
 
   if (type === "market") {
     const instrument = await prisma.marketInstrument.findFirst({
-      where: { id, ownerId },
+      where,
       include: { snapshots: { orderBy: { observedAt: "asc" } } },
     });
     if (!instrument) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const record = marketToBaseRecord(instrument);
-    return NextResponse.json({ ...record, meta: { ...record.meta, detail: instrument } });
+    return NextResponse.json({ ...record, meta: { ...record.meta, detail: instrument, ...extra } });
   }
 
   if (type === "job") {
     const job = await prisma.jobListing.findFirst({
-      where: { id, ownerId },
+      where,
       include: { snapshots: { orderBy: { observedAt: "asc" } } },
     });
     if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const record = jobToBaseRecord(job);
-    return NextResponse.json({ ...record, meta: { ...record.meta, detail: job } });
+    return NextResponse.json({ ...record, meta: { ...record.meta, detail: job, ...extra } });
   }
 
   if (type === "book") {
-    const book = await prisma.bookRecord.findFirst({ where: { id, ownerId } });
+    const book = await prisma.bookRecord.findFirst({ where });
     if (!book) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const record = bookToBaseRecord(book);
-    return NextResponse.json({ ...record, meta: { ...record.meta, detail: book } });
+    return NextResponse.json({ ...record, meta: { ...record.meta, detail: book, ...extra } });
   }
 
   if (type === "holiday") {
     const holiday = await prisma.holiday.findFirst({
-      where: { id, ownerId },
+      where,
       include: { snapshots: { orderBy: { observedAt: "asc" } } },
     });
     if (!holiday) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const record = holidayToBaseRecord(holiday);
-    return NextResponse.json({ ...record, meta: { ...record.meta, detail: holiday } });
+    return NextResponse.json({ ...record, meta: { ...record.meta, detail: holiday, ...extra } });
   }
 
   const property = await prisma.property.findFirst({
-    where: { id, ownerId },
+    where,
     include: {
       media: { orderBy: { order: "asc" } },
       listings: true,
@@ -79,7 +87,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   if (!property) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const record = propertyToBaseRecord(property);
-  return NextResponse.json({ ...record, meta: { ...record.meta, detail: property } });
+  return NextResponse.json({ ...record, meta: { ...record.meta, detail: property, ...extra } });
 }
 
 /**

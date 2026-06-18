@@ -9,8 +9,12 @@ type Ctx = { params: Promise<{ id: string }> };
 export async function GET(_req: NextRequest, { params }: Ctx) {
   const { id } = await params;
   const ownerId = await requireUserId();
+  // Si me lo han compartido, lo abro en SOLO LECTURA (acotado a este id).
+  const share = await prisma.recordShare.findUnique({
+    where: { recordType_recordId_toUserId: { recordType: "property", recordId: id, toUserId: ownerId } },
+  });
   const property = await prisma.property.findFirst({
-    where: { id, ownerId },
+    where: share ? { id } : { id, ownerId },
     include: {
       media: { orderBy: { order: "asc" } },
       listings: true,
@@ -18,7 +22,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     },
   });
   if (!property) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(property);
+  return NextResponse.json(share ? { ...property, shared: true, readOnly: true } : property);
 }
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {

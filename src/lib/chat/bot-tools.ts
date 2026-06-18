@@ -146,6 +146,31 @@ export const BOT_TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "compartir_registro",
+      description:
+        "Comparte un registro PROPIO del usuario con otra persona por su nombre de usuario (@handle): le da acceso de SOLO LECTURA al registro vivo. ⚠️ REQUIERE confirmación antes de llamar.",
+      parameters: {
+        type: "object",
+        properties: {
+          type: { type: "string", enum: [...RECORD_TYPES] },
+          id: { type: "string" },
+          usuario: { type: "string", description: "Nombre de usuario del destinatario (@handle), con o sin @" },
+        },
+        required: ["type", "id", "usuario"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "compartidos_conmigo",
+      description: "Lista los registros que OTROS usuarios han compartido conmigo (solo lectura).",
+      parameters: { type: "object", properties: {} },
+    },
+  },
 ];
 
 /** Las mismas tools en formato Anthropic (Claude): {name, description, input_schema}. */
@@ -350,6 +375,19 @@ export async function runTool(name: string | undefined, argsJson: string | undef
         }
         const data = await apiSend("/api/records/duplicates/merge", "POST", { type, keepId, dropIds }, token);
         return cap(JSON.stringify(data), 2000);
+      }
+      case "compartir_registro": {
+        const type = String(args.type || "");
+        const id = String(args.id || "");
+        const usuario = String(args.usuario || "").replace(/^@/, "").trim();
+        if (!RECORD_TYPES.includes(type as RecordType) || !id || !usuario) {
+          return JSON.stringify({ error: "type/id/usuario no válidos" });
+        }
+        const data = await apiSend(`/api/records/${encodeURIComponent(id)}/share`, "POST", { type, username: usuario }, token);
+        return JSON.stringify(data);
+      }
+      case "compartidos_conmigo": {
+        return cap(JSON.stringify(compactRecords(await apiGet("/api/records/shared", token))));
       }
       default:
         return JSON.stringify({ error: "herramienta desconocida" });
