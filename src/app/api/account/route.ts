@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/auth-helpers";
 import { avatarUrl } from "@/lib/chat/serialize";
 import { deleteObject } from "@/lib/chat/r2";
-import { normalizeUsername, usernameError } from "@nidokey/shared";
+import { isProtectedName, normalizeUsername, usernameError } from "@nidokey/shared";
 
 /** En BBDD `image` es una key de R2; hacia el cliente siempre va como URL. */
 function profileDto(user: {
@@ -53,7 +53,14 @@ export async function PATCH(req: NextRequest) {
     image?: string | null;
     onboardingCompletedAt?: Date;
   } = {};
-  if (parsed.data.name !== undefined) data.name = parsed.data.name;
+  if (parsed.data.name !== undefined) {
+    // El @alias ya filtra reservados; el nombre visible es texto libre → mismo
+    // filtro anti-suplantación (que nadie se ponga "NIDOKEY" et al.).
+    if (parsed.data.name && isProtectedName(parsed.data.name)) {
+      return NextResponse.json({ error: "name_reserved" }, { status: 400 });
+    }
+    data.name = parsed.data.name;
+  }
   if (parsed.data.onboardingCompleted === true) data.onboardingCompletedAt = new Date();
 
   if (parsed.data.image !== undefined) {

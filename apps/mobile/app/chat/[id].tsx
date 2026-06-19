@@ -20,6 +20,7 @@ import { useTranslation } from "react-i18next";
 
 import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
+import { VerifiedBadge, isOfficialConversation } from "@/components/chat/VerifiedBadge";
 import { useAuth } from "@/lib/auth-context";
 import { useQuery } from "@/lib/hooks/useQuery";
 import {
@@ -555,6 +556,7 @@ export default function ChatScreen() {
             <Text style={[styles.headerTitle, { color: th.text }]} numberOfLines={1}>
               {conversation?.title ?? t("common.loading")}
             </Text>
+            {isOfficialConversation(conversation) && <VerifiedBadge size={15} />}
             {muted && <Ionicons name="notifications-off-outline" size={14} color={th.textSubtle} />}
           </View>
           {id && (

@@ -15,6 +15,7 @@ import { categoryColor } from "@/lib/records/config";
 import type { RecordType } from "@nidokey/shared";
 import { stripRecordLinks } from "@nidokey/shared";
 import { AdBannerSlot, EmptyState } from "@/components/ui";
+import { VerifiedBadge, isOfficialConversation } from "@/components/chat/VerifiedBadge";
 
 /**
  * Lista de conversaciones (categoría Chat del rail). Polling suave de 20 s +
@@ -148,6 +149,7 @@ function RowInner({ c, dark }: { c: ConversationDto; dark: boolean }) {
   const { th } = useTheme();
   const { t, i18n } = useTranslation();
   const accent = c.contextType ? categoryColor(c.contextType as RecordType, dark) : null;
+  const official = isOfficialConversation(c);
 
   return (
     <Pressable
@@ -161,9 +163,12 @@ function RowInner({ c, dark }: { c: ConversationDto; dark: boolean }) {
       <Avatar title={c.title} imageUrl={c.imageUrl} />
       <View style={styles.rowBody}>
         <View style={styles.rowTop}>
-          <Text style={[styles.rowTitle, { color: th.text }]} numberOfLines={1}>
-            {c.title}
-          </Text>
+          <View style={styles.rowTitleWrap}>
+            <Text style={[styles.rowTitle, { color: th.text }]} numberOfLines={1}>
+              {c.title}
+            </Text>
+            {official && <VerifiedBadge size={14} />}
+          </View>
           {c.lastMessageAt && (
             <Text style={[styles.rowTime, { color: th.textSubtle }]}>{chatTime(c.lastMessageAt, i18n.language)}</Text>
           )}
@@ -262,7 +267,8 @@ const styles = StyleSheet.create({
   },
   rowBody: { flex: 1, gap: 2 },
   rowTop: { flexDirection: "row", alignItems: "center", gap: 8 },
-  rowTitle: { flex: 1, fontSize: 15, fontFamily: fonts.bodySemibold },
+  rowTitleWrap: { flex: 1, flexDirection: "row", alignItems: "center", gap: 4 },
+  rowTitle: { flexShrink: 1, fontSize: 15, fontFamily: fonts.bodySemibold },
   rowTime: { fontSize: 11 },
   rowBottom: { flexDirection: "row", alignItems: "center", gap: 8 },
   rowPreview: { flex: 1, fontSize: 13 },

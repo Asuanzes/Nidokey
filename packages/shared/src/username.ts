@@ -42,6 +42,18 @@ function looksLikeProtected(u: string): boolean {
   return PROTECTED.some((b) => f.includes(b));
 }
 
+/**
+ * ¿Un NOMBRE VISIBLE (texto libre, User.name) suplanta una marca protegida?
+ * Pliega homoglifos y quita separadores Y ESPACIOS → caza "NIDOKEY",
+ * "N I D O K E Y", "Nidokey Oficial", "n1dok3y". El @alias ya lo cubre
+ * usernameError(); esto es para validar User.name, que es texto libre.
+ */
+export function isProtectedName(raw: string | null | undefined): boolean {
+  if (!raw) return false;
+  const folded = foldConfusables(String(raw).toLowerCase()).replace(/\s+/g, "");
+  return PROTECTED.some((b) => folded.includes(b));
+}
+
 /** Normaliza la entrada del usuario (quita @, minúsculas, recorta espacios). */
 export function normalizeUsername(raw: string | null | undefined): string {
   if (!raw) return "";
