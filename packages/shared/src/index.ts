@@ -3,6 +3,7 @@ export * from "./text";
 export * from "./username";
 export * from "./similarity";
 export * from "./format";
+export * from "./links";
 export * from "./types";
 export * from "./records";
 export * from "./book";

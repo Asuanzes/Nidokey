@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
+import { RECORD_LINK_RE, linkDest } from "@nidokey/shared";
 import { useTheme } from "@/lib/theme";
 import { fonts } from "@/lib/fonts";
 import { VerifiedBadge, isOfficialConversation } from "@/components/chat/VerifiedBadge";
@@ -963,38 +964,9 @@ function reactionsEq(a: MessageDto["reactions"], b: MessageDto["reactions"]): bo
  * idéntico) y compara adjuntos por id (sus URLs firmadas cambian en cada
  * respuesta, pero el render usa stableAttachmentUrl).
  */
-// Enlaces pulsables del bot (ver system prompt en src/lib/chat/bot.ts):
-//  - [[tipo:id|Título]]  → abre la ficha del registro (/tipo/id, owner-scoped)
-//  - [[ir:/ruta|Etiqueta]] → navega a una pantalla (lista blanca NAV_ALLOW)
-// Aquí se convierten en texto pulsable inline. Sin token = texto normal.
-const RECORD_LINK_RE = /\[\[([a-z]+):([^\]|]+)\|([^\]]+)\]\]/g;
-const RECORD_ROUTES: Record<string, string> = {
-  property: "property",
-  crypto: "crypto",
-  market: "market",
-  job: "job",
-  book: "book",
-  holiday: "holiday",
-  trends: "trends",
-};
-
-// Lista blanca de navegación: el bot solo debe usar estas rutas; validar aquí
-// evita empujar rutas arbitrarias o peligrosas desde un mensaje.
-const NAV_ALLOW = new Set([
-  "/", "/search", "/importar", "/matches", "/account",
-  "/theme-settings", "/category-settings",
-  "/food/address", "/food/cart", "/food/checkout", "/food/orders",
-  "/chat/contacts", "/chat/new", "/chat/blocked",
-  "/viajes/nuevo",
-  "/tools/mortgage", "/tools/catastro", "/tools/registro", "/tools/ine",
-]);
-
-/** Ruta destino de un token [[kind:target|label]], o null si no es válido. */
-function linkDest(kind: string, target: string): string | null {
-  if (kind === "ir") return NAV_ALLOW.has(target) ? target : null;
-  const route = RECORD_ROUTES[kind];
-  return route ? `/${route}/${target}` : null;
-}
+// Enlaces pulsables del bot: [[tipo:id|Título]] y [[ir:/ruta|Etiqueta]].
+// RECORD_LINK_RE/NAV_ALLOW/linkDest viven en @nidokey/shared (links.ts) —
+// fuente única compartida con el prompt del agente y los evals.
 
 function MessageBody({ body, color, linkColor }: { body: string; color: string; linkColor: string }) {
   if (!body.includes("[[")) return <Text style={[styles.bubbleText, { color }]}>{body}</Text>;

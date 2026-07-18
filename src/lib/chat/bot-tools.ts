@@ -1,197 +1,20 @@
 import { issueMobileJwt } from "@/lib/mobile-jwt";
 import { geocodeAddress } from "@/lib/geocode";
+import { RECORD_TYPES, type BotRecordType as RecordType } from "@/lib/chat/tool-defs";
 
 /**
  * Herramientas (function calling) del asistente Nidokey. Filosofía perezosa: NO
  * reimplementan lógica — el bot acuña un JWT del propio usuario (issueMobileJwt)
  * y llama a los endpoints `/api/...` que ya existen, así que el owner-scoping
- * (requireUserId + ownerId) lo aplican esas rutas. v1 = SOLO LECTURA (sin crear,
- * editar, borrar, fusionar ni pagar). Whitelist estricta: `runTool` solo despacha
- * las funciones de BOT_TOOLS.
+ * (requireUserId + ownerId) lo aplican esas rutas. Whitelist estricta: `runTool`
+ * solo despacha las funciones de BOT_TOOLS.
+ *
+ * Los SCHEMAS viven en tool-defs.ts (datos puros, importables por agent.ts y
+ * los evals sin arrastrar JWT/geocode); aquí se re-exportan por compatibilidad.
  */
+export { BOT_TOOLS, BOT_TOOLS_ANTHROPIC, RECORD_TYPES } from "@/lib/chat/tool-defs";
+
 const BASE = (process.env.NEXTAUTH_URL || "").replace(/\/+$/, "");
-const RECORD_TYPES = ["property", "crypto", "market", "job", "book", "holiday"] as const;
-type RecordType = (typeof RECORD_TYPES)[number];
-
-/** Esquema de tools en formato OpenAI (Groq lo acepta igual). */
-export const BOT_TOOLS = [
-  {
-    type: "function",
-    function: {
-      name: "listar_registros",
-      description:
-        "Lista los registros GUARDADOS del usuario de una categoría (sus inmuebles, criptos, mercados, empleos, libros o viajes). Úsalo para buscar/responder sobre lo que el usuario tiene.",
-      parameters: {
-        type: "object",
-        properties: { type: { type: "string", enum: [...RECORD_TYPES], description: "Categoría a listar" } },
-        required: ["type"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "ver_registro",
-      description: "Detalle de un registro concreto del usuario, por su id y categoría (id sale de listar_registros).",
-      parameters: {
-        type: "object",
-        properties: { type: { type: "string", enum: [...RECORD_TYPES] }, id: { type: "string" } },
-        required: ["type", "id"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "tendencias",
-      description: "Tendencias actuales agregadas (X/Twitter, Google Trends, Hacker News, Twitch). Opcional: filtrar por fuente.",
-      parameters: {
-        type: "object",
-        properties: { source: { type: "string", description: "twitter | googletrends | hackernews | twitch | all" } },
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "noticias_tendencia",
-      description: "Noticias relacionadas con una tendencia concreta (trend_id obtenido de la herramienta 'tendencias').",
-      parameters: { type: "object", properties: { trend_id: { type: "string" } }, required: ["trend_id"] },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "noticias_activos",
-      description: "Noticias de los activos del usuario: 'crypto' (sus criptos) o 'market' (sus acciones/ETFs/mercados).",
-      parameters: { type: "object", properties: { type: { type: "string", enum: ["crypto", "market"] } }, required: ["type"] },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "buscar_restaurantes",
-      description:
-        "Restaurantes de comida a domicilio cerca. Usa la dirección guardada del usuario; si das 'ciudad', busca ahí. 'query' filtra por nombre/tipo (pizza, sushi…).",
-      parameters: {
-        type: "object",
-        properties: { query: { type: "string" }, ciudad: { type: "string", description: "Ciudad si no quiere usar su dirección guardada" } },
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "buscar_platos",
-      description: "Busca platos concretos en restaurantes cercanos (p.ej. 'kebab', 'tarta de queso'). Usa dirección guardada o 'ciudad'.",
-      parameters: {
-        type: "object",
-        properties: { query: { type: "string" }, ciudad: { type: "string" } },
-        required: ["query"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "carta_restaurante",
-      description: "Carta/menú de un restaurante por su id (restaurant_id sale de buscar_restaurantes/buscar_platos).",
-      parameters: { type: "object", properties: { restaurant_id: { type: "string" } }, required: ["restaurant_id"] },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "crear_registro",
-      description:
-        "Crea/importa un registro para el usuario. modo: 'url' (pegar enlace de un anuncio/portal/web), 'symbol' (ticker de cripto o acción: BTC, AAPL…), 'query' (buscar por título/texto, p.ej. un libro). ⚠️ REQUIERE que el usuario confirme antes de llamar.",
-      parameters: {
-        type: "object",
-        properties: {
-          type: { type: "string", enum: [...RECORD_TYPES] },
-          modo: { type: "string", enum: ["url", "symbol", "query"] },
-          valor: { type: "string", description: "La URL, el símbolo, o el texto a buscar" },
-        },
-        required: ["type", "modo", "valor"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "borrar_registro",
-      description:
-        "BORRA un registro del usuario. Es IRREVERSIBLE. ⚠️ REQUIERE confirmación explícita del usuario antes de llamar. El id sale de listar_registros/ver_registro.",
-      parameters: {
-        type: "object",
-        properties: { type: { type: "string", enum: [...RECORD_TYPES] }, id: { type: "string" } },
-        required: ["type", "id"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "fusionar_registros",
-      description:
-        "Fusiona duplicados del mismo tipo: conserva keep_id y elimina drop_ids. ⚠️ REQUIERE confirmación. Ids de listar_registros.",
-      parameters: {
-        type: "object",
-        properties: {
-          type: { type: "string", enum: [...RECORD_TYPES] },
-          keep_id: { type: "string" },
-          drop_ids: { type: "array", items: { type: "string" } },
-        },
-        required: ["type", "keep_id", "drop_ids"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "compartir_registro",
-      description:
-        "Comparte un registro PROPIO del usuario con otra persona por su nombre de usuario (@handle): le da acceso de SOLO LECTURA al registro vivo. ⚠️ REQUIERE confirmación antes de llamar.",
-      parameters: {
-        type: "object",
-        properties: {
-          type: { type: "string", enum: [...RECORD_TYPES] },
-          id: { type: "string" },
-          usuario: { type: "string", description: "Nombre de usuario del destinatario (@handle), con o sin @" },
-        },
-        required: ["type", "id", "usuario"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "compartidos_conmigo",
-      description: "Lista los registros que OTROS usuarios han compartido conmigo (solo lectura).",
-      parameters: { type: "object", properties: {} },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "guardar_compartido",
-      description:
-        "Guarda en TUS registros una copia de un registro que te han compartido (type,id de compartidos_conmigo/ver_registro). Additivo y seguro: úsalo cuando el usuario diga «guárdalo»/«añádelo a los míos».",
-      parameters: {
-        type: "object",
-        properties: { type: { type: "string", enum: [...RECORD_TYPES] }, id: { type: "string" } },
-        required: ["type", "id"],
-      },
-    },
-  },
-];
-
-/** Las mismas tools en formato Anthropic (Claude): {name, description, input_schema}. */
-export const BOT_TOOLS_ANTHROPIC = BOT_TOOLS.map((t) => ({
-  name: t.function.name,
-  description: t.function.description,
-  input_schema: t.function.parameters,
-}));
 
 /** JWT efímero del usuario para que el bot llame a sus propios endpoints. */
 export async function mintUserToken(userId: string, email: string): Promise<string> {
@@ -398,6 +221,53 @@ export async function runTool(name: string | undefined, argsJson: string | undef
         }
         const data = await apiSend(`/api/records/${encodeURIComponent(id)}/share`, "POST", { type, username: usuario }, token);
         return JSON.stringify(data);
+      }
+      case "editar_registro": {
+        const type = String(args.type || "");
+        const id = String(args.id || "");
+        const campos = (args.campos && typeof args.campos === "object" ? args.campos : {}) as Record<string, unknown>;
+        if (!id) return JSON.stringify({ error: "type/id no válidos" });
+        // Whitelist server-side (defensa en profundidad además del prompt):
+        // solo campos mapeados; lo demás se descarta. Precios llegan en EUROS
+        // y se persisten en CÉNTIMOS (convención de import-listing/formatPrice).
+        const eurToCents = (v: unknown): number | null => {
+          const n = Number(v);
+          return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) : null;
+        };
+        if (type === "property") {
+          const ESTADOS = ["FOR_SALE", "RESERVED", "SOLD", "WITHDRAWN", "FOR_RENT", "RENTED"];
+          const body: Record<string, unknown> = {};
+          if (typeof campos.titulo === "string" && campos.titulo.trim().length >= 3) body.title = campos.titulo.trim();
+          if (campos.precio_eur != null) {
+            const c = eurToCents(campos.precio_eur);
+            if (c == null) return JSON.stringify({ error: "precio_eur no válido" });
+            body.currentPrice = c;
+          }
+          if (campos.renta_mensual_eur != null) {
+            const c = eurToCents(campos.renta_mensual_eur);
+            if (c == null) return JSON.stringify({ error: "renta_mensual_eur no válida" });
+            body.monthlyRent = c;
+          }
+          if (campos.estado != null) {
+            const s = String(campos.estado).toUpperCase();
+            if (!ESTADOS.includes(s)) return JSON.stringify({ error: `estado debe ser ${ESTADOS.join("|")}` });
+            body.status = s;
+          }
+          if (typeof campos.descripcion === "string") body.description = campos.descripcion;
+          if (!Object.keys(body).length) {
+            return JSON.stringify({ error: "ningún campo editable: property admite titulo|precio_eur|renta_mensual_eur|estado|descripcion" });
+          }
+          const data = await apiSend(`/api/properties/${encodeURIComponent(id)}`, "PATCH", body, token);
+          return cap(JSON.stringify(data), 2000);
+        }
+        if (type === "book") {
+          if (typeof campos.notas !== "string") {
+            return JSON.stringify({ error: "book solo admite el campo notas" });
+          }
+          const data = await apiSend(`/api/records/${encodeURIComponent(id)}?type=book`, "PATCH", { notes: campos.notas }, token);
+          return cap(JSON.stringify(data), 2000);
+        }
+        return JSON.stringify({ error: "este tipo aún no admite edición desde el chat; guía al usuario a la ficha del registro" });
       }
       case "compartidos_conmigo": {
         return cap(JSON.stringify(compactRecords(await apiGet("/api/records/shared", token))));

@@ -2,11 +2,10 @@ import { prisma } from "@/lib/db";
 import { directKey, messagePreview } from "@/lib/chat/util";
 import { sendChatPush } from "@/lib/chat/push";
 import { notifyMessage } from "@/lib/chat/gateway";
-import { BOT_TOOLS, BOT_TOOLS_ANTHROPIC, runTool, mintUserToken } from "@/lib/chat/bot-tools";
-import { APP_GUIDE } from "@/lib/chat/app-guide";
+import { runTool, mintUserToken } from "@/lib/chat/bot-tools";
+import { runAgent, echoReply, HISTORY_TURNS, type Turn, type ToolRunner } from "@/lib/chat/agent";
 
 const MAX_REPLY_CHARS = 800;
-const MAX_TOOL_ITERS = 4; // ponytail: tope de vueltas tool→modelo (anti-bucle/coste)
 
 /**
  * El asistente "Nidokey" es un participante de chat normal (una fila User), no
@@ -15,6 +14,10 @@ const MAX_TOOL_ITERS = 4; // ponytail: tope de vueltas tool→modelo (anti-bucle
  *  - el username "nidokey" ya está reservado en username.ts (anti-suplantación).
  * ponytail: sin campo `isBot` en el esquema — el badge "verificado" del front
  * se deriva de `username === NIDOKEY_BOT_USERNAME`, no necesita columna nueva.
+ *
+ * La INTELIGENCIA (prompt, cascada de modelos, loop de tools) vive en agent.ts
+ * (puro e inyectable — los evals de scripts/bot-eval lo ejecutan con fixtures);
+ * aquí queda solo la capa de persistencia y notificación.
  */
 export const NIDOKEY_BOT_ID = "nidokey-bot";
 export const NIDOKEY_BOT_USERNAME = "nidokey";
@@ -95,9 +98,8 @@ export function isBotDirect(kind: string, participantUserIds: string[]): boolean
 
 /**
  * Responde como Nidokey en la conversación, por el MISMO camino que un humano:
- * crea el mensaje, actualiza el preview y avisa (push + gateway WS). Fase 3 =
- * eco; en la fase 4 el `text` lo generará Gemini. Pensado para correr dentro de
- * `after()` (post-respuesta), así que cualquier fallo es no-bloqueante.
+ * crea el mensaje, actualiza el preview y avisa (push + gateway WS). Pensado
+ * para correr dentro de `after()` (post-respuesta) → fallo no-bloqueante.
  */
 export async function replyAsBot(conversationId: string, text: string): Promise<void> {
   const body = text.slice(0, MAX_REPLY_CHARS);
@@ -137,181 +139,11 @@ export async function notifyShare(
   }
 }
 
-/** Eco simple, fallback cuando no hay Gemini configurado o la llamada falla. */
-export function echoReply(userText: string | null): string {
-  const t = (userText ?? "").trim();
-  if (!t) return "🪺 Recibí tu mensaje. Pronto podré ayudarte con la app.";
-  return `🪺 Recibí: «${t.slice(0, 200)}». (No tengo el modelo configurado ahora mismo.)`;
-}
-
-// ── Fase 4: respuesta con LLM. Usamos Groq (gratis, funciona en EU, sin billing),
-// el mismo proveedor principal de la extracción de menús. Nota: los €258 de GCP
-// NO pagan el Gemini API de AI Studio (lleva prepago aparte); para gastar ese
-// crédito habría que ir por Vertex AI. API de Groq compatible con OpenAI.
-const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_MODEL = process.env.GROQ_MODEL?.trim() || "llama-3.3-70b-versatile";
-const HISTORY_TURNS = 15; // ponytail: ventana fija; subir si hace falta más contexto
-
-const BOT_SYSTEM_PROMPT = [
-  "Eres «Nidokey», el asistente integrado en la app Nidokey: un organizador personal con varias categorías (inmuebles, comida, viajes, criptos, mercados, empleos, libros, tendencias y chat).",
-  "Hablas en español, cercano y BREVE (2-4 frases). Puedes usar el emoji 🪺 de vez en cuando.",
-  "Tienes HERRAMIENTAS para CONSULTAR los datos reales del usuario y los feeds; úsalas en vez de inventar:",
-  "- listar_registros(type) y ver_registro(type,id): sus inmuebles/criptos/mercados/empleos/libros/viajes (para 'buscar', lista y filtra tú).",
-  "- tendencias(source?), noticias_tendencia(trend_id), noticias_activos(crypto|market): tendencias y noticias.",
-  "- compartidos_conmigo(): registros que OTROS usuarios te han compartido (solo lectura). guardar_compartido(type,id): guarda una COPIA en TUS registros (additivo; si tras un compartido el usuario dice «guárdalo»/«añádelo a los míos», úsalo directamente, sin pedir confirmación).",
-  "- buscar_restaurantes(query?,ciudad?), buscar_platos(query,ciudad?), carta_restaurante(restaurant_id): comida a domicilio. Usa la dirección guardada; si no hay, pide la ciudad. Si menuStatus es PENDING o no hay platos, la carta se está preparando: dilo. Si la búsqueda no devuelve restaurantes, dilo con franqueza; NUNCA afirmes que puedes ver una carta sin haber encontrado antes el restaurante con buscar_restaurantes.",
-  "Usa las herramientas por su MECANISMO de tool-calling; NUNCA escribas en el mensaje el nombre de una herramienta, sus argumentos ni JSON crudo: el usuario solo ve tu respuesta en lenguaje natural.",
-  "Para 'mis criptos' usa listar_registros('crypto'); para 'mis acciones/mercados/ETFs' listar_registros('market'); noticias_activos es SOLO para noticias de esos activos.",
-  "ENLACES: al mencionar un REGISTRO del usuario (de listar_registros/ver_registro), ponlo como enlace pulsable con el formato [[tipo:id|Título]] (p.ej. [[property:abc123|Piso en Oviedo]]). Solo para esos registros (no restaurantes ni noticias).",
-  "NAVEGAR: para llevar al usuario a una pantalla, añade un enlace de navegación [[ir:/ruta|Etiqueta]] usando SOLO una de estas rutas: /search (buscar), /importar (añadir), /matches (duplicados), /account (cuenta/ajustes), /theme-settings (tema), /category-settings (categorías), /food/address (dirección de entrega), /food/cart (carrito), /food/orders (pedidos), /chat/contacts (contactos), /chat/new (nuevo chat), /viajes/nuevo (planear viaje), /tools/mortgage (calculadora de hipoteca). Para abrir un registro concreto usa [[tipo:id|Título]], no [[ir:...]].",
-  "- crear_registro(type,modo,valor), borrar_registro(type,id), fusionar_registros(type,keep_id,drop_ids), compartir_registro(type,id,usuario): ACCIONES que ESCRIBEN datos. compartir da acceso de SOLO LECTURA a otra persona por su @usuario.",
-  "⚠️ CONFIRMACIÓN OBLIGATORIA: antes de crear, borrar, fusionar o compartir, NO ejecutes la herramienta. Primero resume en 1 frase qué vas a hacer (al compartir, con quién) y pregunta '¿Confirmo?'. Llama la herramienta SOLO después de que el usuario confirme (sí/confirmo/adelante) en su SIGUIENTE mensaje. Borrar es irreversible: nunca borres sin un 'sí' explícito.",
-  "Aún NO puedes pagar ni editar campos sueltos de un registro; si lo piden, dilo.",
-  "No inventes datos: si una herramienta no devuelve nada, dilo con naturalidad.",
-].join("\n") + "\n\n" + APP_GUIDE;
-
-type Turn = { role: "user" | "model"; text: string };
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/** Una "conversación" con el modelo: pregunta → si pide herramientas, las ejecuta
- *  y vuelve a preguntar con los resultados, hasta MAX_TOOL_ITERS o respuesta final. */
-async function runConversation(baseMessages: any[], model: string, key: string, token: string): Promise<string | null> {
-  const messages: any[] = [...baseMessages];
-  for (let iter = 0; iter < MAX_TOOL_ITERS; iter++) {
-    const res = await fetch(GROQ_URL, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model, messages, tools: BOT_TOOLS, temperature: 0.5, max_tokens: 600 }),
-      cache: "no-store",
-      signal: AbortSignal.timeout(25000),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status} ${(await res.text()).slice(0, 150)}`);
-    const msg = ((await res.json()) as any).choices?.[0]?.message;
-    if (!msg) return null;
-    const calls = msg.tool_calls as { id: string; function?: { name?: string; arguments?: string } }[] | undefined;
-    if (calls?.length) {
-      messages.push(msg); // turno assistant con tool_calls (hay que devolverlo tal cual)
-      for (const tc of calls) {
-        const result = await runTool(tc.function?.name, tc.function?.arguments, token);
-        messages.push({ role: "tool", tool_call_id: tc.id, content: result });
-      }
-      continue; // re-preguntar al modelo con los resultados de las herramientas
-    }
-    const out = (msg.content as string | undefined)?.trim();
-    if (out) {
-      console.log("[chat-bot] groq OK", out.length, "chars, model=", model);
-      return out;
-    }
-    return null;
-  }
-  console.warn("[chat-bot] máx. iteraciones de herramientas, model=", model);
-  return null;
-}
-
-async function callGroq(history: Turn[], token: string): Promise<string | null> {
-  const key = process.env.GROQ_API_KEY?.trim();
-  if (!key) {
-    console.warn("[chat-bot] sin GROQ_API_KEY en el entorno del deploy (¿env en Production + redeploy?)");
-    return null;
-  }
-  if (history.length === 0) {
-    console.warn("[chat-bot] historial vacío, no llamo al LLM");
-    return null;
-  }
-  const base: any[] = [
-    { role: "system", content: BOT_SYSTEM_PROMPT },
-    ...history.map((t) => ({ role: t.role === "model" ? "assistant" : "user", content: t.text.slice(0, 2000) })),
-  ];
-  // Resiliencia: modelo principal y, si falla/429, uno más ligero (mayor cuota/min).
-  const models = [...new Set([GROQ_MODEL, "llama-3.1-8b-instant"])];
-  for (const model of models) {
-    try {
-      const out = await runConversation(base, model, key, token);
-      if (out) return out;
-    } catch (e) {
-      console.error("[chat-bot] groq error", model, e instanceof Error ? e.message : e);
-    }
-  }
-  return null;
-}
-
-const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL?.trim() || "claude-haiku-4-5-20251001";
-
-/**
- * Claude (Anthropic) con herramientas — mucho más fiable con tool-use que el
- * llama gratis de Groq (no se inventa las llamadas ni las escribe como texto).
- * Devuelve null si no hay key (→ cae a Groq) o si la respuesta viene vacía.
- */
-async function callClaude(history: Turn[], token: string): Promise<string | null> {
-  const key = process.env.ANTHROPIC_API_KEY?.trim();
-  if (!key || history.length === 0) return null;
-  // Anthropic: el system va aparte; los messages empiezan por "user".
-  const msgs: any[] = history.map((t) => ({ role: t.role === "model" ? "assistant" : "user", content: t.text.slice(0, 2000) }));
-  while (msgs.length && msgs[0].role === "assistant") msgs.shift();
-  if (!msgs.length) return null;
-  for (let iter = 0; iter < MAX_TOOL_ITERS; iter++) {
-    const res = await fetch(ANTHROPIC_URL, {
-      method: "POST",
-      headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({
-        model: CLAUDE_MODEL,
-        max_tokens: 700,
-        // Caché explícita: el breakpoint en el bloque system cachea tools+system
-        // (prefijo estático, compartido entre turnos, vueltas del loop y usuarios).
-        system: [{ type: "text", text: BOT_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
-        tools: BOT_TOOLS_ANTHROPIC,
-        messages: msgs,
-      }),
-      cache: "no-store",
-      signal: AbortSignal.timeout(30000),
-    });
-    if (!res.ok) throw new Error(`Anthropic HTTP ${res.status} ${(await res.text()).slice(0, 150)}`);
-    const body = (await res.json()) as any;
-    const blocks: any[] = Array.isArray(body.content) ? body.content : [];
-    const toolUses = blocks.filter((b) => b?.type === "tool_use");
-    if (toolUses.length && body.stop_reason === "tool_use") {
-      msgs.push({ role: "assistant", content: blocks }); // eco del turno con tool_use
-      const results = [];
-      for (const tu of toolUses) {
-        const out = await runTool(tu.name, JSON.stringify(tu.input ?? {}), token);
-        results.push({ type: "tool_result", tool_use_id: tu.id, content: out });
-      }
-      msgs.push({ role: "user", content: results });
-      continue; // re-preguntar con los resultados
-    }
-    const text = blocks.filter((b) => b?.type === "text").map((b) => b.text ?? "").join("").trim();
-    if (text) {
-      const u = body.usage ?? {};
-      // cache w/r > 0 confirma que la caché engancha (en Haiku el prefijo debe pasar de 4096 tokens).
-      console.log("[chat-bot] claude OK", text.length, "chars; cache w/r:", u.cache_creation_input_tokens ?? 0, "/", u.cache_read_input_tokens ?? 0);
-      return text;
-    }
-    return null;
-  }
-  console.warn("[chat-bot] claude máx. iteraciones de herramientas");
-  return null;
-}
-
-/** Cascada del agente: Claude (fiable con tools) primero; Groq (gratis) de respaldo. */
-async function callLLM(history: Turn[], token: string): Promise<string | null> {
-  if (process.env.ANTHROPIC_API_KEY?.trim()) {
-    try {
-      const out = await callClaude(history, token);
-      if (out) return out;
-    } catch (e) {
-      console.error("[chat-bot] claude error:", e instanceof Error ? e.message : e);
-    }
-  }
-  return callGroq(history, token);
-}
-/* eslint-enable @typescript-eslint/no-explicit-any */
-
 /**
  * Genera y publica la respuesta del bot a partir del historial reciente del DM.
- * Con herramientas (Groq function calling) acuñando un JWT del usuario para
- * consultar SUS datos vía los endpoints existentes. Si no hay key o falla → eco.
- * Pensado para correr en after() → no bloquea el envío del usuario.
+ * El agente (agent.ts) corre con un JWT del usuario para consultar SUS datos
+ * vía los endpoints existentes. Si no hay key o falla → eco. Pensado para
+ * correr en after() → no bloquea el envío del usuario.
  */
 export async function respondAsBot(conversationId: string, userId: string): Promise<void> {
   const [rows, user] = await Promise.all([
@@ -332,6 +164,7 @@ export async function respondAsBot(conversationId: string, userId: string): Prom
     .filter((t) => t.text);
   const lastUser = [...history].reverse().find((t) => t.role === "user")?.text ?? null;
   const token = await mintUserToken(userId, user?.email ?? "");
-  const text = (await callLLM(history, token)) ?? echoReply(lastUser);
-  await replyAsBot(conversationId, text);
+  const toolRunner: ToolRunner = (name, argsJson) => runTool(name, argsJson, token);
+  const result = await runAgent(history, toolRunner);
+  await replyAsBot(conversationId, result.text ?? echoReply(lastUser));
 }

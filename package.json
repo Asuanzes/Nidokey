@@ -29,6 +29,9 @@
     "mobile": "npm --workspace @nidokey/mobile run start",
     "i18n:validate": "tsx scripts/i18n-validate.ts",
     "i18n:translate": "tsx scripts/i18n-translate.ts",
+    "bot:eval": "node --env-file=.env --import tsx scripts/bot-eval/run.ts",
+    "bot:eval:smoke": "node --env-file=.env --import tsx scripts/bot-eval/run.ts --smoke",
+    "bot:export": "node --env-file=.env --import tsx scripts/bot-eval/export-real.ts",
     "postinstall": "patch-package"
   },
   "prisma": {
